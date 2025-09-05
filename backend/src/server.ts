@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import session from 'express-session';
 import dotenv from 'dotenv';
+import path from 'path';
 import passport from './config/passport';
 
 import authRoutes from './routes/auth';
@@ -77,6 +78,17 @@ app.use('/api/plans', planRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/content', contentRoutes);
+
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from frontend build
+  app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+  
+  // Handle React Router - send all non-API requests to React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
+  });
+}
 
 // Error handling middleware
 app.use(notFound);

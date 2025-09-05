@@ -1,7 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '../../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Input } from '../../ui/input';
 import { 
   Send,
   ArrowLeft,
@@ -16,6 +13,11 @@ import {
   Paperclip,
   MoreHorizontal
 } from 'lucide-react';
+
+import { Button } from '../../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Input } from '../../ui/input';
+import { chatApi } from '../../../services/api';
 
 interface ChatbotProps {
   user: any;
@@ -74,40 +76,6 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
     );
   };
 
-  const generateBotResponse = (userMessage: string): string => {
-    // This would be replaced with actual AI API call
-    const responses = {
-      anxiety: [
-        "I understand you're feeling anxious. That's a completely valid feeling, and I'm here to help. Would you like to try a quick breathing exercise, or would you prefer to tell me more about what's making you feel this way?",
-        "Anxiety can feel overwhelming, but you're taking a positive step by reaching out. Let's work through this together. What's been on your mind lately?"
-      ],
-      breathing: [
-        "A breathing exercise sounds like a great idea. Here's a simple 4-7-8 technique: Breathe in for 4 counts, hold for 7, and exhale for 8. Let's do this together. Ready?",
-        "I can guide you through a calming breathing exercise. Find a comfortable position and let's begin with some deep, intentional breaths."
-      ],
-      sleep: [
-        "Sleep troubles can really affect how we feel during the day. What's been making it hard for you to sleep? Is it racing thoughts, physical discomfort, or something else?",
-        "Good sleep is so important for our mental health. Let's explore what might be interfering with your rest and find some strategies that could help."
-      ],
-      general: [
-        "Thank you for sharing with me. I'm here to listen and support you. Can you tell me a bit more about how you've been feeling?",
-        "I appreciate you opening up. Everyone's experience is unique, and I want to understand yours better. How has your day been treating you?"
-      ]
-    };
-
-    const lowerMessage = userMessage.toLowerCase();
-    
-    if (lowerMessage.includes('anxious') || lowerMessage.includes('worried') || lowerMessage.includes('nervous')) {
-      return responses.anxiety[Math.floor(Math.random() * responses.anxiety.length)];
-    } else if (lowerMessage.includes('breathing') || lowerMessage.includes('breath') || lowerMessage.includes('calm')) {
-      return responses.breathing[Math.floor(Math.random() * responses.breathing.length)];
-    } else if (lowerMessage.includes('sleep') || lowerMessage.includes('tired') || lowerMessage.includes('insomnia')) {
-      return responses.sleep[Math.floor(Math.random() * responses.sleep.length)];
-    } else {
-      return responses.general[Math.floor(Math.random() * responses.general.length)];
-    }
-  };
-
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
@@ -119,10 +87,11 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const messageContent = inputValue;
     setInputValue('');
 
     // Check for crisis language
-    if (detectCrisisLanguage(inputValue)) {
+    if (detectCrisisLanguage(messageContent)) {
       setShowCrisisWarning(true);
       const crisisMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -137,21 +106,49 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
     // Show typing indicator
     setIsTyping(true);
     
-    // Simulate AI processing time
-    setTimeout(() => {
-      const botResponse: Message = {
+    try {
+      // Call the real backend API with Gemini
+      console.log('🤖 Sending message to chat API:', messageContent);
+      const response = await chatApi.sendMessage(messageContent);
+      console.log('📥 Chat API response:', response);
+      
+      if (response.success && response.data) {
+        const botResponse: Message = {
+          id: (Date.now() + 2).toString(),
+          type: 'bot',
+          content: response.data.message?.content || response.data.response || 'I apologize, but I encountered an issue generating a response.',
+          timestamp: new Date(),
+          suggestions: messageContent.toLowerCase().includes('anxious') 
+            ? ['Try breathing exercise', 'Tell me more', 'What helps you calm down?']
+            : ['That\'s helpful', 'Tell me more', 'What else?']
+        };
+
+        setMessages(prev => [...prev, botResponse]);
+      } else {
+        console.error('❌ Chat API failed:', response.error);
+        // Fallback to local response if API fails
+        const fallbackMessage: Message = {
+          id: (Date.now() + 2).toString(),
+          type: 'bot',
+          content: 'I\'m having trouble connecting right now, but I\'m here to listen. Could you tell me more about how you\'re feeling?',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, fallbackMessage]);
+      }
+    } catch (error) {
+      console.error('❌ Chat API error:', error);
+      
+      // Fallback to local response on error
+      const errorMessage: Message = {
         id: (Date.now() + 2).toString(),
         type: 'bot',
-        content: generateBotResponse(inputValue),
-        timestamp: new Date(),
-        suggestions: inputValue.toLowerCase().includes('anxious') 
-          ? ['Try breathing exercise', 'Tell me more', 'What helps you calm down?']
-          : ['That\'s helpful', 'Tell me more', 'What else?']
+        content: 'I\'m experiencing some technical difficulties right now. In the meantime, please know that I\'m here to support you. What would you like to talk about?',
+        timestamp: new Date()
       };
-
-      setMessages(prev => [...prev, botResponse]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500 + Math.random() * 1000);
+    }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
