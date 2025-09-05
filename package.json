@@ -1,0 +1,61 @@
+{
+  "name": "mental-wellbeing-ai-app",
+  "version": "1.0.0",
+  "description": "Mental Wellbeing AI App - Full Stack Monorepo",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "start": "npm run start:backend",
+    "start:backend": "cd backend && npm run start",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && npm run lint || true",
+    "format": "npm run format:frontend && npm run format:backend",
+    "format:frontend": "cd frontend && npm run format",
+    "format:backend": "cd backend && npm run format || true",
+    "typecheck": "npm run typecheck:frontend && npm run typecheck:backend",
+    "typecheck:frontend": "cd frontend && npm run typecheck",
+    "typecheck:backend": "cd backend && npm run typecheck || true",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm run test || true",
+    "test:backend": "cd backend && npm run test || true",
+    "clean": "rimraf frontend/dist frontend/node_modules backend/dist backend/node_modules node_modules",
+    "reset": "npm run clean && npm install",
+    "db:migrate": "cd backend && npm run migrate",
+    "db:studio": "cd backend && npm run db:studio",
+    "db:generate": "cd backend && npm run db:generate",
+    "setup": "npm install && npm run db:generate && npm run db:migrate"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=18",
+    "npm": ">=8"
+  },
+  "keywords": [
+    "mental-health",
+    "wellbeing",
+    "ai",
+    "react",
+    "nodejs",
+    "typescript",
+    "monorepo"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/mental-wellbeing-ai-app.git"
+  }
+}

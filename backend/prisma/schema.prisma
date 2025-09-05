@@ -1,0 +1,154 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String?
+  googleId  String?  @unique
+  firstName String?
+  lastName  String?
+  profilePhoto String?
+  isOnboarded Boolean @default(false)
+  approach    String? // 'western', 'eastern', 'hybrid'
+  birthday    DateTime?
+  gender      String?
+  region      String?
+  language    String?
+  emergencyContact String?
+  emergencyPhone   String?
+  dataConsent      Boolean @default(false)
+  clinicianSharing Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  assessments    Assessment[]
+  moodEntries    MoodEntry[]
+  planModules    UserPlanModule[]
+  chatMessages   ChatMessage[]
+  progressTracking ProgressTracking[]
+  
+  @@map("users")
+}
+
+model Assessment {
+  id           String   @id @default(cuid())
+  userId       String
+  assessmentType String // 'anxiety', 'stress', 'emotionalIntelligence', 'overthinking'
+  score        Float
+  responses    String   // Store all question responses as JSON string
+  completedAt  DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("assessments")
+}
+
+model MoodEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  mood      String   // 'Great', 'Good', 'Okay', 'Struggling', 'Anxious'
+  notes     String?
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("mood_entries")
+}
+
+model PlanModule {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // 'therapy', 'meditation', 'yoga', 'education'
+  duration    String
+  difficulty  String   // 'Beginner', 'Intermediate', 'Advanced'
+  description String
+  content     String   // Module content, exercises, etc. as JSON string
+  approach    String   // 'western', 'eastern', 'hybrid'
+  order       Int      // Display order
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  userModules UserPlanModule[]
+  
+  @@map("plan_modules")
+}
+
+model UserPlanModule {
+  id           String   @id @default(cuid())
+  userId       String
+  moduleId     String
+  completed    Boolean  @default(false)
+  progress     Float    @default(0)
+  scheduledFor DateTime?
+  completedAt  DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module PlanModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, moduleId])
+  @@map("user_plan_modules")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  type      String   // 'user', 'bot', 'system'
+  metadata  String?  // Store additional message data as JSON string
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("chat_messages")
+}
+
+model ProgressTracking {
+  id         String   @id @default(cuid())
+  userId     String
+  metric     String   // 'anxiety', 'stress', 'mood', 'sleep', etc.
+  value      Float
+  date       DateTime @default(now())
+  notes      String?
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("progress_tracking")
+}
+
+model Content {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // 'article', 'video', 'audio', 'exercise'
+  category    String   // 'anxiety', 'depression', 'mindfulness', etc.
+  approach    String   // 'western', 'eastern', 'hybrid'
+  content     String   // Article content or resource URL
+  duration    String?
+  difficulty  String?
+  tags        String   // Comma-separated tags
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("content")
+}
