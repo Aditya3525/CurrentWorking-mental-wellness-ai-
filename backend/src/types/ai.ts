@@ -78,6 +78,7 @@ export enum AIProviderType {
   ANTHROPIC = 'anthropic',
   GEMINI = 'gemini',
   GROQ = 'groq',
+  HUGGINGFACE = 'huggingface',
   OLLAMA = 'ollama'
 }
 
