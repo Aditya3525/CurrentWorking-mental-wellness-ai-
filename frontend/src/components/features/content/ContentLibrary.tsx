@@ -1,9 +1,3 @@
-import React, { useState } from 'react';
-import { Button } from '../../ui/button';
-import { Card, CardContent } from '../../ui/card';
-import { Input } from '../../ui/input';
-import { Badge } from '../../ui/badge';
-import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { 
   ArrowLeft,
   Search,
@@ -19,6 +13,13 @@ import {
   Brain,
   Users
 } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { ImageWithFallback } from '../../common/ImageWithFallback';
+import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
+import { Card, CardContent } from '../../ui/card';
+import { Input } from '../../ui/input';
 
 interface ContentLibraryProps {
   onNavigate: (page: string) => void;

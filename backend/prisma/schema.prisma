@@ -29,15 +29,26 @@ model User {
   emergencyPhone   String?
   dataConsent      Boolean @default(false)
   clinicianSharing Boolean @default(false)
+  tokenVersion    Int @default(1) // Increment on password change to invalidate tokens
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
   assessments    Assessment[]
+  assessmentVersions AssessmentVersion[]
+  assessmentMedia AssessmentMedia[]
   moodEntries    MoodEntry[]
   planModules    UserPlanModule[]
   chatMessages   ChatMessage[]
+  aiContexts     AIContext[]
   progressTracking ProgressTracking[]
+  predictiveScores PredictiveScore[]
+  contentRecommendations ContentRecommendation[]
+  refreshTokens  RefreshToken[]
+  userActivities UserActivity[]
+  escalationReports EscalationReport[]
+  contentRatings ContentRating[]
+  playlistRatings PlaylistRating[]
   
   @@map("users")
 }
@@ -45,13 +56,26 @@ model User {
 model Assessment {
   id           String   @id @default(cuid())
   userId       String
-  assessmentType String // 'anxiety', 'stress', 'emotionalIntelligence', 'overthinking'
+  assessmentType String // 'anxiety', 'stress', 'emotionalIntelligence', 'overthinking', 'personality', 'trauma-fear', 'archetypes'
   score        Float
   responses    String   // Store all question responses as JSON string
+  aiInsights   String?  // AI-generated insights about the assessment
   completedAt  DateTime @default(now())
+  
+  // Enhanced versioning and metadata
+  version      Int      @default(1)
+  isLatest     Boolean  @default(true)
+  parentId     String?  // Reference to original assessment if this is a revision
+  metadata     String?  // JSON for additional assessment data
+  confidence   Float?   // AI confidence score for insights
+  tags         String?  // Comma-separated tags for categorization
   
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions AssessmentVersion[]
+  media AssessmentMedia[]
+  parent   Assessment? @relation("AssessmentRevisions", fields: [parentId], references: [id])
+  revisions Assessment[] @relation("AssessmentRevisions")
   
   @@map("assessments")
 }
@@ -116,10 +140,62 @@ model ChatMessage {
   metadata  String?  // Store additional message data as JSON string
   createdAt DateTime @default(now())
   
+  // Enhanced AI context management
+  contextWindow String? // JSON of relevant context for this message
+  tokenCount    Int?    // Number of tokens in this message
+  embeddings    String? // Vector embeddings for semantic search
+  relevanceScore Float? // How relevant this message is to current conversation
+  sessionId     String? // Group messages by conversation session
+  
+  // Multi-modal support
+  attachments   String? // JSON array of file attachments
+  audioUrl      String? // Voice message URL
+  imageUrl      String? // Image attachment URL
+  sentiment     String? // 'positive', 'negative', 'neutral'
+  emotionalTags String? // JSON array of detected emotions
+  
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@map("chat_messages")
+}
+
+// New Model: AI Context Management
+model AIContext {
+  id            String   @id @default(cuid())
+  userId        String
+  sessionId     String
+  contextType   String   // 'conversation', 'assessment', 'mood_tracking'
+  contextData   String   // JSON of contextual information
+  tokenCount    Int
+  priority      Int      @default(1) // 1=high, 5=low priority
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("ai_contexts")
+}
+
+// New Model: Multi-Modal Assessment Data
+model AssessmentMedia {
+  id           String   @id @default(cuid())
+  assessmentId String
+  userId       String
+  mediaType    String   // 'voice', 'video', 'drawing', 'text'
+  mediaUrl     String   // Storage URL
+  transcript   String?  // For voice/video content
+  analysis     String?  // JSON of AI analysis results
+  emotions     String?  // JSON of detected emotions
+  confidence   Float?   // Analysis confidence score
+  createdAt    DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  @@map("assessment_media")
 }
 
 model ProgressTracking {
@@ -130,25 +206,350 @@ model ProgressTracking {
   date       DateTime @default(now())
   notes      String?
   
+  // Enhanced predictive analytics
+  trendDirection String?  // 'improving', 'declining', 'stable'
+  predictedValue Float?   // AI-predicted future value
+  confidence     Float?   // Prediction confidence (0-1)
+  riskFactors    String?  // JSON array of identified risk factors
+  interventions  String?  // JSON array of suggested interventions
+  
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@map("progress_tracking")
 }
 
+// New Model: Predictive Mental Health Scores
+model PredictiveScore {
+  id            String   @id @default(cuid())
+  userId        String
+  scoreType     String   // 'anxiety_risk', 'depression_risk', 'crisis_risk'
+  currentScore  Float
+  predictedScore Float   // Score in 30 days
+  timeframe     Int      // Days into future (7, 30, 90)
+  confidence    Float    // Model confidence (0-1)
+  factors       String   // JSON of contributing factors
+  recommendations String // JSON of personalized recommendations
+  modelVersion  String   // AI model version used
+  calculatedAt  DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("predictive_scores")
+}
+
+// New Model: Personalized Content Recommendations
+model ContentRecommendation {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String   // 'article', 'video', 'exercise', 'meditation'
+  reason      String   // Why this was recommended
+  relevanceScore Float // 0-1 relevance score
+  priority    Int      // 1=high, 5=low priority
+  category    String   // 'anxiety', 'depression', 'mindfulness'
+  personalizedTitle String? // Customized title based on user
+  estimatedBenefit Float?  // Expected benefit score
+  viewed      Boolean  @default(false)
+  completed   Boolean  @default(false)
+  rating      Int?     // User rating 1-5
+  feedback    String?  // User feedback
+  recommendedAt DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  @@map("content_recommendations")
+}
+
 model Content {
   id          String   @id @default(cuid())
   title       String
-  type        String   // 'article', 'video', 'audio', 'exercise'
-  category    String   // 'anxiety', 'depression', 'mindfulness', etc.
-  approach    String   // 'western', 'eastern', 'hybrid'
-  content     String   // Article content or resource URL
+  type        String   // 'video', 'audio', 'article', 'playlist'
+  category    String   // 'Mindfulness', 'Anxiety', 'Stress Management', 'Relaxation', 'Emotional Intelligence', 'Series'
+  approach    String   // 'western', 'eastern', 'hybrid', 'all'
+  content     String   // Article content, YouTube URL, file URL, or JSON data
   duration    String?
-  difficulty  String?
-  tags        String   // Comma-separated tags
+  difficulty  String?  // 'Beginner', 'Intermediate', 'Advanced'
+  tags        String?  // Comma-separated tags for better search
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  // Enhanced metadata for admin management
+  description String?  // Detailed description
+  author      String?  // Content author/creator
+  fileType    String?  // 'mp4', 'mp3', 'pdf', 'youtube', etc.
+  fileUrl     String?  // Direct file URL if uploaded
+  externalUrl String?  // YouTube or external URL
+  thumbnailUrl String? // Custom thumbnail URL
+  severityLevel String? // 'Mild', 'Moderate', 'Severe' - for mental health context
+  
+  // Enhanced recommendation features
+  targetAudience String? // JSON of target demographics/conditions
+  effectiveness  Float?  // Evidence-based effectiveness score (0-5)
+  prerequisites  String? // JSON of required prior knowledge/skills
+  outcomes       String? // JSON of expected outcomes
+  aiSummary      String? // AI-generated summary
+  keywords       String? // SEO and search keywords
+  
+  // Admin management fields
+  adminNotes   String?  // Internal notes for admins
+  createdBy    String?  // Admin who created this content
+  lastEditedBy String?  // Admin who last edited this content
+  viewCount    Int      @default(0)
+  rating       Float?   // Average user rating (1-5)
+  ratingCount  Int      @default(0)
+  
+  // Relations
+  recommendations ContentRecommendation[]
+  playlistItems   PlaylistItem[]
+  contentRatings  ContentRating[]
+  
   @@map("content")
+}
+
+// New model for playlists management
+model Playlist {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String
+  approach    String   // 'western', 'eastern', 'hybrid', 'all'
+  difficulty  String?  // 'Beginner', 'Intermediate', 'Advanced'
+  tags        String?  // Comma-separated tags
+  thumbnailUrl String?
+  isPublished Boolean  @default(false)
+  severityLevel String? // 'Mild', 'Moderate', 'Severe'
+  
+  // Admin management
+  createdBy    String?  // Admin who created this playlist
+  lastEditedBy String?  // Admin who last edited this playlist
+  adminNotes   String?  // Internal admin notes
+  
+  // Statistics
+  viewCount   Int      @default(0)
+  rating      Float?   // Average rating
+  ratingCount Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  items PlaylistItem[]
+  ratings PlaylistRating[]
+  
+  @@map("playlists")
+}
+
+// Junction table for playlist items
+model PlaylistItem {
+  id         String   @id @default(cuid())
+  playlistId String
+  contentId  String
+  order      Int      // Display order in playlist
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  content  Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  @@unique([playlistId, contentId])
+  @@map("playlist_items")
+}
+
+// Content ratings from users
+model ContentRating {
+  id        String   @id @default(cuid())
+  userId    String
+  contentId String
+  rating    Int      // 1-5 stars
+  review    String?  // Optional text review
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, contentId])
+  @@map("content_ratings")
+}
+
+// Playlist ratings from users
+model PlaylistRating {
+  id         String   @id @default(cuid())
+  userId     String
+  playlistId String
+  rating     Int      // 1-5 stars
+  review     String?  // Optional text review
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, playlistId])
+  @@map("playlist_ratings")
+}
+
+// Admin users model
+model AdminUser {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  password    String
+  role        String   @default("admin") // 'admin', 'super_admin', 'content_manager'
+  permissions String?  // JSON array of specific permissions
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  sessions AdminSession[]
+  activities AdminActivity[]
+  
+  @@map("admin_users")
+}
+
+// Admin sessions for security
+model AdminSession {
+  id        String   @id @default(cuid())
+  adminId   String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  // Relations
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@map("admin_sessions")
+}
+
+// Admin activity logging
+model AdminActivity {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String   // 'create_content', 'update_content', 'delete_content', 'login', 'logout'
+  resource  String?  // Content ID, Playlist ID, etc.
+  details   String?  // JSON metadata
+  ipAddress String?
+  timestamp DateTime @default(now())
+  
+  // Relations
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@map("admin_activities")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("refresh_tokens")
+}
+
+model TokenBlacklist {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  reason    String?  // 'logout', 'password_change', 'security'
+  createdAt DateTime @default(now())
+  
+  @@map("token_blacklist")
+}
+
+model UserActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // 'login', 'logout', 'assessment_completed', 'chat_message', 'password_change'
+  details   String?  // JSON metadata
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime @default(now())
+  
+  // Enhanced audit fields
+  sessionId String?  // Track user sessions
+  deviceInfo String? // Device fingerprinting
+  location   String? // Geo-location data
+  riskScore  Float?  // Security risk assessment
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_activities")
+}
+
+// New Model: Assessment Version History
+model AssessmentVersion {
+  id           String   @id @default(cuid())
+  assessmentId String
+  userId       String
+  version      Int      @default(1)
+  assessmentType String
+  score        Float
+  responses    String   // JSON of responses
+  aiInsights   String?
+  changes      String?  // JSON of what changed
+  reason       String?  // Why was it modified
+  modifiedBy   String?  // User or system
+  createdAt    DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  @@map("assessment_versions")
+}
+
+// New Model: System Audit Log
+model SystemAuditLog {
+  id        String   @id @default(cuid())
+  action    String   // 'data_backup', 'schema_change', 'security_scan'
+  component String   // 'database', 'api', 'ai_service'
+  details   String   // JSON metadata
+  severity  String   // 'info', 'warning', 'error', 'critical'
+  userId    String?  // If user-initiated
+  timestamp DateTime @default(now())
+  
+  @@map("system_audit_logs")
+}
+
+// New Model: Escalation Reports for Crisis Management
+model EscalationReport {
+  id                String   @id @default(cuid())
+  userId            String
+  sessionId         String
+  escalationLevel   String   // 'concern', 'crisis'
+  triggerReasons    String   // JSON array of trigger reasons
+  userMessage       String
+  agentResponse     String
+  mentalHealthState String   // JSON of mental health state at time of escalation
+  recommendedActions String  // JSON array of recommended actions
+  status            String   @default("pending") // 'pending', 'reviewed', 'resolved'
+  reviewedBy        String?  // Human reviewer ID
+  reviewNotes       String?
+  followUpRequired  Boolean  @default(true)
+  notificationSent  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("escalation_reports")
 }

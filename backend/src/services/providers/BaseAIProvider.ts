@@ -141,12 +141,27 @@ User Context:
       personalizedContext += `
 - Assessment Results:`;
       
-      user.recentAssessments.slice(0, 3).forEach((assessment: any) => {
+      user.recentAssessments.slice(0, 5).forEach((assessment: any) => {
         personalizedContext += `
   * ${assessment.assessmentType}: ${assessment.interpretation} (score: ${assessment.score})`;
         
         if (assessment.specificConcerns && assessment.specificConcerns.length > 0) {
           personalizedContext += ` - Key concerns: ${assessment.specificConcerns.join(', ')}`;
+        }
+        
+        // Add specific guidance based on assessment type
+        if (assessment.assessmentType === 'overthinking') {
+          personalizedContext += `
+    - Support focus: Help with rumination, thought-stopping techniques, grounding exercises`;
+        } else if (assessment.assessmentType === 'personality') {
+          personalizedContext += `
+    - Support focus: Leverage personality strengths, address challenging traits adaptively`;
+        } else if (assessment.assessmentType === 'trauma-fear') {
+          personalizedContext += `
+    - Support focus: Gentle trauma-informed responses, safety and stabilization, professional referrals when needed`;
+        } else if (assessment.assessmentType === 'emotionalIntelligence') {
+          personalizedContext += `
+    - Support focus: Emotional awareness, regulation skills, empathy development`;
         }
       });
     } else {
@@ -221,9 +236,56 @@ Age-Appropriate Communication:
     }
     
     if (user.hasCompletedAssessments) {
+      // Add assessment-specific therapeutic strategies
+      let assessmentGuidance = '';
+      if (user.recentAssessments && user.recentAssessments.length > 0) {
+        assessmentGuidance = `
+
+Assessment-Specific Strategies:`;
+        
+        user.recentAssessments.forEach((assessment: any) => {
+          switch (assessment.assessmentType) {
+            case 'overthinking':
+              if (assessment.score > 50) {
+                assessmentGuidance += `
+- Overthinking: Use grounding techniques (5-4-3-2-1), thought stopping, scheduled worry time, mindfulness practices`;
+              }
+              break;
+            case 'personality':
+              assessmentGuidance += `
+- Personality: Validate their personality type, suggest strategies that align with their natural tendencies, help them work with (not against) their traits`;
+              break;
+            case 'trauma-fear':
+              if (assessment.score > 40) {
+                assessmentGuidance += `
+- Trauma Response: Use trauma-informed language, avoid retraumatization, focus on safety and stabilization, suggest professional trauma therapy when appropriate`;
+              }
+              break;
+            case 'emotionalIntelligence':
+              if (assessment.score < 50) {
+                assessmentGuidance += `
+- Emotional Intelligence: Help identify emotions, practice emotion naming, suggest emotion regulation techniques, encourage empathy development`;
+              }
+              break;
+            case 'anxiety':
+              if (assessment.score > 50) {
+                assessmentGuidance += `
+- Anxiety: Use breathing exercises, progressive muscle relaxation, challenge catastrophic thinking, encourage gradual exposure`;
+              }
+              break;
+            case 'stress':
+              if (assessment.score > 50) {
+                assessmentGuidance += `
+- Stress: Focus on time management, boundary setting, relaxation techniques, lifestyle modifications`;
+              }
+              break;
+          }
+        });
+      }
+      
       switch (user.approach) {
         case 'western':
-          therapeuticGuidance = `
+          therapeuticGuidance = assessmentGuidance + `
 
 Therapeutic Focus:
 - Use cognitive-behavioral techniques naturally in conversation
@@ -233,7 +295,7 @@ Therapeutic Focus:
 - Focus on evidence-based coping strategies`;
           break;
         case 'eastern':
-          therapeuticGuidance = `
+          therapeuticGuidance = assessmentGuidance + `
 
 Therapeutic Focus:
 - Incorporate mindfulness and present-moment awareness naturally
@@ -243,7 +305,7 @@ Therapeutic Focus:
 - Emphasize balance and harmony in responses`;
           break;
         case 'hybrid':
-          therapeuticGuidance = `
+          therapeuticGuidance = assessmentGuidance + `
 
 Therapeutic Focus:
 - Blend practical problem-solving with mindful acceptance
@@ -253,7 +315,7 @@ Therapeutic Focus:
 - Draw from various therapeutic traditions as appropriate`;
           break;
         default:
-          therapeuticGuidance = `
+          therapeuticGuidance = assessmentGuidance + `
 
 Therapeutic Focus:
 - Use a balanced, integrative approach

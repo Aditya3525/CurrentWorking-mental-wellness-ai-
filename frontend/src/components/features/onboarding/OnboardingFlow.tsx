@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowLeft, Shield, Heart, Users, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Shield, Heart, Users, CheckCircle, AlertTriangle, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -27,6 +27,7 @@ interface OnboardingFlowProps {
     profilePhoto?: string;
     isGoogleUser?: boolean;
   } | null;
+  onClose?: () => void;
 }
 
 interface ProfileData {
@@ -43,7 +44,7 @@ interface ProfileData {
   approach?: 'western' | 'eastern' | 'hybrid';
 }
 
-export function OnboardingFlow({ onComplete, user }: OnboardingFlowProps) {
+export function OnboardingFlow({ onComplete, user, onClose }: OnboardingFlowProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [profileData, setProfileData] = useState<ProfileData>({
     // Pre-fill with Google data if available
@@ -514,7 +515,17 @@ export function OnboardingFlow({ onComplete, user }: OnboardingFlowProps) {
         </div>
 
         {/* Main Content */}
-        <Card>
+        <Card className="relative">
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2 h-8 w-8 p-0 z-10"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
           <CardContent className="p-8">
             {renderStep()}
           </CardContent>

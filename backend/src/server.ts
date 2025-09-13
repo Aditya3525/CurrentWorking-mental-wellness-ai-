@@ -6,7 +6,6 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import session from 'express-session';
 import dotenv from 'dotenv';
-import path from 'path';
 import passport from './config/passport';
 
 import authRoutes from './routes/auth';
@@ -16,6 +15,9 @@ import planRoutes from './routes/plans';
 import chatRoutes from './routes/chat';
 import progressRoutes from './routes/progress';
 import contentRoutes from './routes/content';
+import insightsRoutes from './routes/insights';
+import enhancedInsightsRoutes from './routes/enhancedInsights';
+import adminRoutes from './routes/admin';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 
@@ -27,18 +29,37 @@ const PORT = process.env.PORT || 5000;
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (process.env.NODE_ENV === 'development' ? '1000' : '100')),
   message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many auth attempts, please try later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const rateBypassPaths = [
+  '/api/auth/google',
+  '/api/auth/google/callback'
+];
 
 // Middleware
 app.use(helmet());
 app.use(compression());
 app.use(morgan('combined'));
-app.use(limiter);
+app.use((req, res, next) => {
+  if (rateBypassPaths.includes(req.path)) return next();
+  return limiter(req, res, next);
+});
+app.use(['/api/auth/login','/api/auth/register'], authLimiter);
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true,
 }));
 
@@ -78,17 +99,9 @@ app.use('/api/plans', planRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/content', contentRoutes);
-
-// Serve frontend static files in production
-if (process.env.NODE_ENV === 'production') {
-  // Serve static files from frontend build
-  app.use(express.static(path.join(__dirname, '../../frontend/dist')));
-  
-  // Handle React Router - send all non-API requests to React app
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
-  });
-}
+app.use('/api/insights', insightsRoutes);
+app.use('/api/enhanced-insights', enhancedInsightsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use(notFound);

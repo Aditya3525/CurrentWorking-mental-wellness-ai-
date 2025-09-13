@@ -1,13 +1,17 @@
 import express from 'express';
 import passport from '../config/passport';
 import { register, login, getCurrentUser, googleAuthSuccess, googleAuthFailure, validateToken, setupPassword, updateProfile, logout } from '../controllers/authController';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authenticateRefresh, requirePassword } from '../middleware/auth';
 
 const router = express.Router();
 
 // Traditional email/password routes
 router.post('/register', register);
 router.post('/login', login);
+
+// Token management routes
+router.post('/refresh', authenticateRefresh);
+router.post('/validate', validateToken);
 
 // Google OAuth routes
 router.get('/google', 
@@ -21,13 +25,10 @@ router.get('/google/callback',
 
 router.get('/google/failure', googleAuthFailure);
 
-// Token validation
-router.post('/validate', validateToken);
-
 // Protected routes
 router.get('/me', authenticate as any, getCurrentUser);
 router.post('/setup-password', authenticate as any, setupPassword);
-router.put('/profile', authenticate as any, updateProfile);
-router.post('/logout', logout);
+router.put('/profile', authenticate as any, requirePassword as any, updateProfile);
+router.post('/logout', authenticate as any, logout);
 
 export default router;

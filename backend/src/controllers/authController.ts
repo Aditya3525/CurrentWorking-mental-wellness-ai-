@@ -3,14 +3,42 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import Joi from 'joi';
+import { TokenManager } from '../utils/tokenUtils';
+import { AuthRequest } from '../middleware/auth';
 
 const prisma = new PrismaClient();
+
+// Helper function to log user activity
+const logUserActivity = async (
+  userId: string,
+  action: string,
+  details?: any,
+  ipAddress?: string,
+  userAgent?: string
+) => {
+  try {
+    await prisma.userActivity.create({
+      data: {
+        userId,
+        action,
+        details: details ? JSON.stringify(details) : null,
+        ipAddress,
+        userAgent
+      }
+    });
+  } catch (error) {
+    console.error('Failed to log user activity:', error);
+  }
+};
 
 // Validation schemas
 const registerSchema = Joi.object({
   name: Joi.string().min(2).max(50).required(),
   email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
+  password: Joi.string().min(8).pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$')).required()
+    .messages({
+      'string.pattern.base': 'Password must contain at least 8 characters with uppercase, lowercase, number and special character'
+    }),
 });
 
 const loginSchema = Joi.object({
@@ -18,15 +46,12 @@ const loginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
-// Generate JWT token
-const generateToken = (userId: string): string => {
-  // Use provided secret or safe fallback for development to prevent silent flow break
-  const secret = process.env.JWT_SECRET || 'dev-fallback-secret';
-  return jwt.sign(
-    { id: userId },
-    secret as jwt.Secret,
-    { expiresIn: process.env.JWT_EXPIRE || '7d' } as jwt.SignOptions
-  );
+// Generate token pair
+const generateTokenPair = async (user: { id: string; email: string; tokenVersion: number }): Promise<{ accessToken: string; refreshToken: string }> => {
+  const accessToken = TokenManager.generateAccessToken(user);
+  const refreshToken = await TokenManager.generateRefreshToken(user.id, user.tokenVersion);
+  
+  return { accessToken, refreshToken };
 };
 
 // Google OAuth Success callback
@@ -37,23 +62,40 @@ export const googleAuthSuccess = async (req: Request, res: Response) => {
     }
 
     const user = req.user as any;
-    const token = generateToken(user.id);
+    
+    // Generate token pair for OAuth user
+    const { accessToken, refreshToken } = await generateTokenPair({
+      id: user.id,
+      email: user.email,
+      tokenVersion: user.tokenVersion || 1
+    });
+
+    // Log OAuth login activity
+    await logUserActivity(
+      user.id,
+      'login',
+      { method: 'google_oauth', justCreated: user.justCreated },
+      req.ip,
+      req.headers['user-agent']
+    );
 
     // Detect if this user was just created in passport strategy
     const justCreated = user.justCreated;
 
-    // Determine redirect:
-    // Existing user (has password OR already onboarded) -> dashboard
-    // Newly created Google user with no password -> setup-password
-    // After password but not onboarded -> onboarding
+    // Determine redirect with proper security checks:
+    // 1. New Google user without password -> MUST set password first
+    // 2. Existing user without password -> MUST set password first  
+    // 3. User with password but not onboarded -> onboarding
+    // 4. Fully setup user -> dashboard
     let redirectParam = 'dashboard';
     let needsSetup = false;
 
-    if (justCreated && !user.password) {
+    // SECURITY: All users MUST have a password before proceeding
+    if (!user.password) {
       redirectParam = 'setup-password';
       needsSetup = true;
     } else if (!user.isOnboarded) {
-      // Only prompt onboarding if not a fully onboarded existing account
+      // Only allow onboarding if user has a password
       redirectParam = 'onboarding';
       needsSetup = true;
     }
@@ -78,7 +120,7 @@ export const googleAuthSuccess = async (req: Request, res: Response) => {
 
     // Redirect to frontend OAuth callback with token and comprehensive user data
     const userDataEncoded = encodeURIComponent(JSON.stringify(userData));
-    res.redirect(`http://localhost:3000/auth/callback?token=${token}&redirect=${redirectParam}&needs_setup=${needsSetup}&user_data=${userDataEncoded}`);
+    res.redirect(`http://localhost:3000/auth/callback?token=${accessToken}&refresh_token=${refreshToken}&redirect=${redirectParam}&needs_setup=${needsSetup}&user_data=${userDataEncoded}`);
   } catch (error) {
     console.error('Google OAuth success error:', error);
     res.redirect('http://localhost:3000/auth/callback?error=oauth_error');
@@ -142,8 +184,8 @@ export const register = async (req: Request, res: Response) => {
       select: {
         id: true,
         name: true,
-  firstName: true,
-  lastName: true,
+        firstName: true,
+        lastName: true,
         email: true,
         isOnboarded: true,
         approach: true,
@@ -151,14 +193,37 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    // Generate token
-    const token = generateToken(user.id);
+    // Generate token pair
+    const { accessToken, refreshToken } = await generateTokenPair({
+      id: user.id,
+      email: user.email,
+      tokenVersion: 1 // New users start with version 1
+    });
+
+    // Log registration activity
+    await logUserActivity(
+      user.id,
+      'register',
+      { method: 'email' },
+      req.ip,
+      req.headers['user-agent']
+    );
 
     res.status(201).json({
       success: true,
       data: {
-        user,
-        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          isOnboarded: user.isOnboarded,
+          approach: user.approach,
+          createdAt: user.createdAt,
+        },
+        accessToken,
+        refreshToken,
       },
     });
   } catch (error) {
@@ -200,6 +265,15 @@ export const login = async (req: Request, res: Response) => {
 
     // Check password
     if (!user.password) {
+      // Log failed login attempt
+      await logUserActivity(
+        user.id,
+        'failed_login',
+        { reason: 'no_password', email },
+        req.ip,
+        req.headers['user-agent']
+      );
+      
       res.status(400).json({
         success: false,
         error: 'Invalid credentials',
@@ -209,6 +283,15 @@ export const login = async (req: Request, res: Response) => {
     
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      // Log failed login attempt
+      await logUserActivity(
+        user.id,
+        'failed_login',
+        { reason: 'invalid_password', email },
+        req.ip,
+        req.headers['user-agent']
+      );
+      
       res.status(400).json({
         success: false,
         error: 'Invalid credentials',
@@ -216,18 +299,41 @@ export const login = async (req: Request, res: Response) => {
       return;
     }
 
-    // Generate token
-    const token = generateToken(user.id);
+    // Generate token pair
+    const { accessToken, refreshToken } = await generateTokenPair({
+      id: user.id,
+      email: user.email,
+      tokenVersion: (user as any).tokenVersion || 1
+    });
 
-    // Return user data (excluding password)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: userPassword, ...userWithoutPassword } = user;
+    // Log successful login
+    await logUserActivity(
+      user.id,
+      'login',
+      { method: 'email' },
+      req.ip,
+      req.headers['user-agent']
+    );
 
+    // Return user data (excluding password and sensitive fields)
     res.json({
       success: true,
       data: {
-        user: userWithoutPassword,
-        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          isOnboarded: user.isOnboarded,
+          approach: user.approach,
+          birthday: user.birthday,
+          gender: user.gender,
+          region: user.region,
+          language: user.language,
+        },
+        accessToken,
+        refreshToken,
       },
     });
   } catch (error) {
@@ -247,9 +353,10 @@ export const getCurrentUser = async (req: any, res: Response) => {
       select: {
         id: true,
         name: true,
-  firstName: true,
-  lastName: true,
+        firstName: true,
+        lastName: true,
         email: true,
+        password: true,
         isOnboarded: true,
         approach: true,
         birthday: true,
@@ -262,6 +369,17 @@ export const getCurrentUser = async (req: any, res: Response) => {
         clinicianSharing: true,
         createdAt: true,
         updatedAt: true,
+        assessments: {
+          orderBy: { completedAt: 'desc' },
+          select: {
+            id: true,
+            assessmentType: true,
+            score: true,
+            aiInsights: true,
+            completedAt: true,
+            responses: true
+          }
+        }
       },
     });
 
@@ -273,9 +391,33 @@ export const getCurrentUser = async (req: any, res: Response) => {
       return;
     }
 
+    // Build assessment scores object for frontend compatibility
+    const assessmentScores: Record<string, number> = {};
+    const assessmentHistory: Record<string, any> = {};
+    
+    user.assessments.forEach(assessment => {
+      assessmentScores[assessment.assessmentType] = assessment.score;
+      assessmentHistory[assessment.assessmentType] = {
+        id: assessment.id,
+        score: assessment.score,
+        aiInsights: assessment.aiInsights,
+        completedAt: assessment.completedAt,
+        responses: assessment.responses
+      };
+    });
+
+    const userWithAssessments = {
+      ...user,
+      hasPassword: !!user.password,
+      password: undefined, // Don't send password hash to frontend
+      assessmentScores,
+      assessmentHistory,
+      assessments: user.assessments // Keep full assessment data
+    };
+
     res.json({
       success: true,
-      data: { user },
+      data: { user: userWithAssessments },
     });
   } catch (error) {
     console.error('Get current user error:', error);

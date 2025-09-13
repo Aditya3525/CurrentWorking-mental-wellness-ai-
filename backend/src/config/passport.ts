@@ -12,22 +12,21 @@ interface User {
   isOnboarded: boolean;
 }
 
-// Configure Google OAuth Strategy (only if credentials are provided)
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID!,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    callbackURL: "/api/auth/google/callback",
-    scope: ['profile', 'email']
-  }, async (accessToken, refreshToken, profile, done) => {
-    try {
-      console.log('Google Profile Data:', {
-        id: profile.id,
-        displayName: profile.displayName,
-        emails: profile.emails,
-        photos: profile.photos,
-        name: profile.name
-      });
+// Configure Google OAuth Strategy
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID!,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  callbackURL: "/api/auth/google/callback",
+  scope: ['profile', 'email']
+}, async (accessToken, refreshToken, profile, done) => {
+  try {
+    console.log('Google Profile Data:', {
+      id: profile.id,
+      displayName: profile.displayName,
+      emails: profile.emails,
+      photos: profile.photos,
+      name: profile.name
+    });
 
     const email = profile.emails?.[0]?.value || '';
     const name = profile.displayName || profile.name?.givenName + ' ' + profile.name?.familyName || '';
@@ -94,9 +93,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     return done(error, false);
   }
 }));
-} else {
-  console.log('Google OAuth not configured - Google login will be disabled');
-}
 
 // Serialize user for session
 passport.serializeUser((user: any, done) => {

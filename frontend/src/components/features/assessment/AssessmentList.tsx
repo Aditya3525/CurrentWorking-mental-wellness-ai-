@@ -18,6 +18,7 @@ import {
 
 interface AssessmentListProps {
   onStartAssessment: (assessmentId: string) => void;
+  onViewResults: (assessmentId: string, assessmentData: any) => void;
   onNavigate: (page: string) => void;
   user: any;
 }
@@ -34,22 +35,38 @@ interface Assessment {
   completed: boolean;
   lastTaken?: string;
   score?: number;
+  insights?: string;
+  assessmentRecord?: any;
 }
 
-export function AssessmentList({ onStartAssessment, onNavigate, user }: AssessmentListProps) {
+export function AssessmentList({ onStartAssessment, onViewResults, onNavigate, user }: AssessmentListProps) {
+  // Get assessment completion status from backend data
+  const getAssessmentData = (assessmentId: string) => {
+    const assessmentHistory = user?.assessmentHistory || {};
+    const assessmentScores = user?.assessmentScores || {};
+    
+    return {
+      completed: !!assessmentScores[assessmentId],
+      score: assessmentScores[assessmentId],
+      lastTaken: assessmentHistory[assessmentId]?.completedAt 
+        ? new Date(assessmentHistory[assessmentId].completedAt).toLocaleDateString()
+        : undefined,
+      insights: assessmentHistory[assessmentId]?.aiInsights,
+      assessmentRecord: assessmentHistory[assessmentId]
+    };
+  };
+
   const assessments: Assessment[] = [
     {
       id: 'anxiety',
       title: 'Anxiety Assessment',
       description: 'Understand your anxiety patterns and triggers to develop effective coping strategies.',
       duration: '5-7 minutes',
-      questions: 21,
+      questions: 10,
       icon: <Brain className="h-6 w-6" />,
       difficulty: 'Beginner',
       category: 'required',
-      completed: !!user?.assessmentScores?.anxiety,
-      lastTaken: user?.assessmentScores?.anxiety ? '2 days ago' : undefined,
-      score: user?.assessmentScores?.anxiety,
+      ...getAssessmentData('anxiety')
     },
     {
       id: 'stress',
@@ -60,12 +77,10 @@ export function AssessmentList({ onStartAssessment, onNavigate, user }: Assessme
       icon: <Target className="h-6 w-6" />,
       difficulty: 'Beginner',
       category: 'required',
-      completed: !!user?.assessmentScores?.stress,
-      lastTaken: user?.assessmentScores?.stress ? '1 week ago' : undefined,
-      score: user?.assessmentScores?.stress,
+      ...getAssessmentData('stress')
     },
     {
-      id: 'emotional-intelligence',
+      id: 'emotionalIntelligence',
       title: 'Emotional Intelligence',
       description: 'Assess your ability to understand and manage emotions effectively.',
       duration: '8-10 minutes',
@@ -73,43 +88,41 @@ export function AssessmentList({ onStartAssessment, onNavigate, user }: Assessme
       icon: <Heart className="h-6 w-6" />,
       difficulty: 'Intermediate',
       category: 'recommended',
-      completed: !!user?.assessmentScores?.emotionalIntelligence,
-      score: user?.assessmentScores?.emotionalIntelligence,
+      ...getAssessmentData('emotionalIntelligence')
     },
     {
       id: 'overthinking',
       title: 'Overthinking Patterns',
-      description: 'Identify thought patterns that may be creating unnecessary stress and anxiety.',
+      description: 'Identify rumination patterns and thought loops that create anxiety.',
       duration: '6-8 minutes',
-      questions: 24,
+      questions: 20,
       icon: <Zap className="h-6 w-6" />,
       difficulty: 'Intermediate',
       category: 'recommended',
-      completed: !!user?.assessmentScores?.overthinking,
-      score: user?.assessmentScores?.overthinking,
+      ...getAssessmentData('overthinking')
+    },
+    {
+      id: 'personality',
+      title: 'Personality Type Assessment',
+      description: 'Discover your core personality traits using the Big 5 psychological model.',
+      duration: '10-12 minutes',
+      questions: 25,
+      icon: <Users className="h-6 w-6" />,
+      difficulty: 'Intermediate',
+      category: 'recommended',
+      ...getAssessmentData('personality')
     },
     {
       id: 'trauma-fear',
       title: 'Trauma & Fear Response',
-      description: 'Gentle assessment of trauma responses and fear patterns (optional, sensitive content).',
-      duration: '10-12 minutes',
-      questions: 32,
+      description: 'Gentle assessment of trauma responses and fear patterns (completely optional).',
+      duration: '8-10 minutes',
+      questions: 22,
       icon: <Shield className="h-6 w-6" />,
       difficulty: 'Advanced',
       category: 'optional',
-      completed: false,
-    },
-    {
-      id: 'archetypes',
-      title: 'Psychological Archetypes',
-      description: 'Discover your core personality patterns and psychological preferences.',
-      duration: '12-15 minutes',
-      questions: 36,
-      icon: <Users className="h-6 w-6" />,
-      difficulty: 'Advanced',
-      category: 'optional',
-      completed: false,
-    },
+      ...getAssessmentData('trauma-fear')
+    }
   ];
 
   const getCategoryColor = (category: string) => {
@@ -280,7 +293,7 @@ export function AssessmentList({ onStartAssessment, onNavigate, user }: Assessme
                     {assessment.completed ? (
                       <>
                         <Button 
-                          onClick={() => onNavigate('insights')}
+                          onClick={() => onViewResults(assessment.id, assessment.assessmentRecord)}
                           variant="outline"
                           size="sm"
                         >

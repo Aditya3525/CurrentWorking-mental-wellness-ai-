@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Progress } from '../../ui/progress';
@@ -15,8 +15,10 @@ import {
   Download,
   Share,
   MessageCircle,
-  Play
+  Play,
+  Loader2
 } from 'lucide-react';
+import { assessmentsApi } from '../../../services/api';
 
 interface InsightsResultsProps {
   user: any;
@@ -24,7 +26,47 @@ interface InsightsResultsProps {
 }
 
 export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
+  const [aiInsights, setAiInsights] = useState<string | null>(null);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const scores = user?.assessmentScores || {};
+
+  // Fetch AI insights when component mounts
+  useEffect(() => {
+    const fetchAiInsights = async () => {
+      // Check if we have a latest assessment with AI insights
+      if (user?.latestAssessment?.aiInsights) {
+        setAiInsights(user.latestAssessment.aiInsights);
+        return;
+      }
+
+      // If not, try to fetch the latest assessment
+      setIsLoadingInsights(true);
+      try {
+        const response = await assessmentsApi.getLatestAssessment();
+        if (response.success && response.data.aiInsights) {
+          setAiInsights(response.data.aiInsights);
+        }
+      } catch (error) {
+        console.error('Failed to fetch AI insights:', error);
+        // Fallback to assessment history
+        try {
+          const historyResponse = await assessmentsApi.getAssessmentHistory();
+          if (historyResponse.success && historyResponse.data.length > 0) {
+            const latestAssessment = historyResponse.data[0];
+            if (latestAssessment.aiInsights) {
+              setAiInsights(latestAssessment.aiInsights);
+            }
+          }
+        } catch (historyError) {
+          console.error('Failed to fetch assessment history:', historyError);
+        }
+      } finally {
+        setIsLoadingInsights(false);
+      }
+    };
+
+    fetchAiInsights();
+  }, [user]);
 
   const getScoreColor = (score: number) => {
     if (score >= 70) return 'text-red-600';
@@ -143,6 +185,36 @@ export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* AI Insights Section */}
+        {(aiInsights || isLoadingInsights) && (
+          <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-primary" />
+                AI-Powered Insights
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingInsights ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating personalized insights...
+                </div>
+              ) : aiInsights ? (
+                <div className="bg-white/50 rounded-lg p-4">
+                  <p className="leading-relaxed text-foreground">
+                    {aiInsights}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">
+                  Complete more assessments to receive AI-powered insights about your wellbeing patterns.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Score Breakdown */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

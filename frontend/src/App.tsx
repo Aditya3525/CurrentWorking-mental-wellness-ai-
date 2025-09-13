@@ -1,10 +1,12 @@
 import { MessageCircle, LogOut } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
-import { AssessmentList, AssessmentFlow, InsightsResults } from './components/features/assessment';
+import { AdminLogin, AdminPanel } from './components/features/admin';
+import { AssessmentList, AssessmentFlow, InsightsResults, AssessmentResults } from './components/features/assessment';
 import { LandingPage, OAuthCallback, PasswordSetup } from './components/features/auth';
 import { Chatbot } from './components/features/chat';
-import { ContentLibrary, Practices } from './components/features/content';
+import { Practices } from './components/features/content';
+import { EnhancedContentLibrary } from './components/features/content/EnhancedContentLibrary';
 import { Dashboard } from './components/features/dashboard';
 import { OnboardingFlow } from './components/features/onboarding';
 import { PersonalizedPlan } from './components/features/plans';
@@ -20,6 +22,7 @@ type Page =
   | 'dashboard'
   | 'assessments'
   | 'assessment-flow'
+  | 'assessment-results'
   | 'insights'
   | 'plan'
   | 'chatbot'
@@ -28,7 +31,10 @@ type Page =
   | 'progress'
   | 'profile'
   | 'help'
-  | 'oauth-callback';
+  | 'oauth-callback'
+  | 'admin-login'
+  | 'admin-panel'
+  | 'main';
 
 type User = StoredUser;
 
@@ -39,6 +45,7 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [showChatbot, setShowChatbot] = useState(false);
   const [currentAssessment, setCurrentAssessment] = useState<string | null>(null);
+  const [currentAssessmentResults, setCurrentAssessmentResults] = useState<unknown | null>(null);
 
   // Check for existing authentication on app load
   useEffect(() => {
@@ -90,10 +97,23 @@ export default function App() {
     setCurrentPage('assessment-flow');
   };
 
-  const completeAssessment = (scores: any) => {
+  const viewAssessmentResults = (assessmentId: string, assessmentData: unknown) => {
+    setCurrentAssessment(assessmentId);
+    setCurrentAssessmentResults(assessmentData);
+    setCurrentPage('assessment-results');
+  };
+
+  const completeAssessment = (data: unknown) => {
+    // Handle both old format (just scores) and new format (scores + assessment record)
+    const d = data as Record<string, unknown>;
+  const scores = d?.scores || data; // backward compatibility
+  const assessmentRecord = d?.assessmentRecord;
+    
     setUser(prev => prev ? {
       ...prev,
-      assessmentScores: { ...prev.assessmentScores, ...scores }
+      assessmentScores: { ...prev.assessmentScores, ...(typeof scores === 'object' && scores !== null ? (scores as Record<string, unknown>) : {}) },
+      // Store the latest assessment record for insights
+      latestAssessment: assessmentRecord
     } : null);
     setCurrentAssessment(null);
     setCurrentPage('insights');
@@ -209,11 +229,11 @@ export default function App() {
       hasPassword: userData.hasPassword
     });
     
-  const requirePassword = userData.justCreated && !userData.hasPassword;
-  if (requirePassword) {
-      console.log('Routing to password setup');
+    // SECURITY: ALL users must have a password before proceeding
+    if (!userData.hasPassword || userData.needsPassword) {
+      console.log('Routing to password setup - user lacks password');
       setCurrentPage('password-setup');
-  } else if (!userData.isOnboarded) {
+    } else if (!userData.isOnboarded) {
       console.log('Routing to onboarding');
       setCurrentPage('onboarding');
     } else {
@@ -336,7 +356,7 @@ export default function App() {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'landing':
-  return <LandingPage onSignUp={signUp} onLogin={login} authError={authError} />;
+  return <LandingPage onSignUp={signUp} onLogin={login} onNavigate={navigateTo} authError={authError} />;
       case 'oauth-callback':
         return <OAuthCallback onAuthSuccess={handleOAuthSuccess} onAuthError={handleOAuthError} />;
       case 'password-setup':
@@ -351,12 +371,24 @@ export default function App() {
       case 'dashboard':
         return <Dashboard user={user} onNavigate={navigateTo} onStartAssessment={startAssessment} onLogout={logout} />;
       case 'assessments':
-        return <AssessmentList onStartAssessment={startAssessment} onNavigate={navigateTo} user={user} />;
+        return <AssessmentList 
+          onStartAssessment={startAssessment} 
+          onViewResults={viewAssessmentResults}
+          onNavigate={navigateTo} 
+          user={user} 
+        />;
       case 'assessment-flow':
         return <AssessmentFlow 
           assessmentId={currentAssessment!} 
           onComplete={completeAssessment}
           onNavigate={navigateTo}
+        />;
+      case 'assessment-results':
+        return <AssessmentResults 
+          assessmentId={currentAssessment!}
+          assessmentData={currentAssessmentResults as unknown as { score: number; completedAt: string; aiInsights?: string } | null}
+          onNavigate={navigateTo}
+          onRetakeAssessment={startAssessment}
         />;
       case 'insights':
         return <InsightsResults user={user} onNavigate={navigateTo} />;
@@ -365,7 +397,12 @@ export default function App() {
       case 'chatbot':
         return <Chatbot user={user} onNavigate={navigateTo} />;
       case 'library':
-        return <ContentLibrary onNavigate={navigateTo} user={user} />;
+        return (
+          <EnhancedContentLibrary
+            onNavigate={navigateTo}
+            user={user ? ({ approach: (user as unknown as { approach?: string }).approach } as { approach?: string }) : undefined}
+          />
+        );
       case 'practices':
         return <Practices onNavigate={navigateTo} />;
       case 'progress':
@@ -374,8 +411,14 @@ export default function App() {
         return <Profile user={user} onNavigate={navigateTo} setUser={setUser} onLogout={logout} />;
       case 'help':
         return <HelpSafety onNavigate={navigateTo} />;
+      case 'admin-login':
+        return <AdminLogin onNavigate={navigateTo} />;
+      case 'admin-panel':
+        return <AdminPanel onNavigate={navigateTo} />;
+      case 'main':
+        return <Dashboard user={user} onNavigate={navigateTo} onStartAssessment={startAssessment} onLogout={logout} />;
       default:
-  return <LandingPage onSignUp={signUp} onLogin={login} authError={authError} />;
+  return <LandingPage onSignUp={signUp} onLogin={login} onNavigate={navigateTo} authError={authError} />;
     }
   };
 
@@ -387,18 +430,20 @@ export default function App() {
         renderCurrentPage()
       )}
 
-      {/* Simple top-right user bar */}
-      <div className="fixed top-3 right-4 flex gap-3 items-center z-40">
-        {user ? (
-          <>
-            <span className="text-sm text-muted-foreground hidden sm:inline">{user.email}</span>
-            <Button variant="outline" size="sm" onClick={logout} className="flex items-center gap-1">
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Sign out</span>
-            </Button>
-          </>
-        ) : null}
-      </div>
+      {/* Simple top-right user bar - hide when chatbot is open or on landing/admin pages */}
+      {!showChatbot && currentPage !== 'chatbot' && !['landing', 'admin-login', 'admin-panel'].includes(currentPage) && (
+        <div className="fixed top-3 right-4 flex gap-3 items-center z-40">
+          {user ? (
+            <>
+              <span className="text-sm text-muted-foreground hidden sm:inline">{user.email}</span>
+              <Button variant="outline" size="sm" onClick={logout} className="flex items-center gap-1">
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Sign out</span>
+              </Button>
+            </>
+          ) : null}
+        </div>
+      )}
       
       {/* Floating Chatbot Button - only show when user is logged in and not on landing/onboarding */}
       {user && user.isOnboarded && !['landing', 'onboarding', 'chatbot'].includes(currentPage) && (

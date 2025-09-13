@@ -2,7 +2,6 @@ import { OpenAIProvider } from './providers/OpenAIProvider';
 import { AnthropicProvider } from './providers/AnthropicProvider';
 import { GeminiProvider } from './providers/GeminiProvider';
 import { OllamaProvider } from './providers/OllamaProvider';
-import { HuggingFaceProvider } from './providers/HuggingFaceProvider';
 import { AIProvider, AIMessage, AIResponse, AIConfig, ConversationContext, AIProviderConfig, AIProviderType } from '../types/ai';
 
 export class LLMService {
@@ -37,11 +36,6 @@ export class LLMService {
           case 'gemini':
             if (config.apiKeys && config.apiKeys.length > 0) {
               provider = new GeminiProvider(config);
-            }
-            break;
-          case 'huggingface':
-            if (config.apiKeys && config.apiKeys.length > 0) {
-              provider = new HuggingFaceProvider(config);
             }
             break;
           case 'ollama':
@@ -116,24 +110,6 @@ export class LLMService {
         temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
         timeout: parseInt(process.env.AI_TIMEOUT || '30000'),
         priority: 1 // High priority since Gemini 2.0 Flash is very fast
-      };
-    }
-
-    // HuggingFace Configuration
-    const huggingfaceKeys = [
-      process.env.HUGGINGFACE_API_KEY_1,
-      process.env.HUGGINGFACE_API_KEY_2,
-      process.env.HUGGINGFACE_API_KEY
-    ].filter(Boolean) as string[];
-
-    if (huggingfaceKeys.length > 0) {
-      configs.huggingface = {
-        apiKeys: huggingfaceKeys,
-        model: 'Guilherme34/Psychologist-3b',
-        maxTokens: parseInt(process.env.AI_MAX_TOKENS || '256'),
-        temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
-        timeout: parseInt(process.env.AI_TIMEOUT || '30000'),
-        priority: 1 // High priority for psychology-specific model
       };
     }
 

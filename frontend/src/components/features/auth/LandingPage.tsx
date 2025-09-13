@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Brain, Users, Shield, CheckCircle, Sparkles, ArrowRight, MessageCircle, Target, TrendingUp } from 'lucide-react';
+import { Heart, Brain, Users, Shield, CheckCircle, Sparkles, ArrowRight, MessageCircle, Target, TrendingUp, X } from 'lucide-react';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
@@ -9,10 +9,11 @@ import { Label } from '../../ui/label';
 interface LandingPageProps {
   onSignUp: (userData: { name: string; email: string; password: string }) => void;
   onLogin: (credentials: { email: string; password: string }) => void;
+  onNavigate?: (page: string) => void;
   authError?: string | null;
 }
 
-export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) {
+export function LandingPage({ onSignUp, onLogin, onNavigate, authError }: LandingPageProps) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -43,7 +44,21 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-background via-muted/30 to-accent/20 px-6 py-16 lg:py-24">
+      <section className="relative overflow-hidden bg-gradient-to-br from-background via-muted/30 to-accent/20 px-6 pt-8 pb-16 lg:pt-16 lg:pb-24">
+        {/* Admin Link in top right corner */}
+        {onNavigate && (
+          <div className="absolute top-4 right-6 z-10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate('admin-login')}
+              className="bg-white/90 backdrop-blur-sm border-primary/20 text-primary hover:bg-primary hover:text-white shadow-sm"
+            >
+              🔐 Admin
+            </Button>
+          </div>
+        )}
+        
         <div className="mx-auto max-w-7xl">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
@@ -322,7 +337,20 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
   {/* Sign Up Modal */}
       {showSignUp && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
+          <button
+            className="absolute inset-0 w-full h-full"
+            onClick={() => setShowSignUp(false)}
+            aria-label="Close sign up dialog"
+          />
+          <Card className="w-full max-w-md relative z-10">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2 h-8 w-8 p-0 z-20"
+              onClick={() => setShowSignUp(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
             <CardContent className="p-6 space-y-6">
               <div className="text-center space-y-2">
                 <h3 className="text-2xl">Start Your Journey</h3>
@@ -366,18 +394,9 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
                   />
                 </div>
 
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-1">
-                    Get Started
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => setShowSignUp(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                <Button type="submit" className="w-full">
+                  Get Started
+                </Button>
                 
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center">
@@ -418,7 +437,25 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
       {/* Login Modal */}
       {showLogin && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
+          <button
+            className="absolute inset-0 w-full h-full"
+            onClick={() => setShowLogin(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setShowLogin(false);
+              }
+            }}
+            aria-label="Close login dialog"
+          />
+          <Card className="w-full max-w-md relative z-10">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2 h-8 w-8 p-0"
+              onClick={() => setShowLogin(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
             <CardContent className="p-6 space-y-6">
               <div className="text-center space-y-2">
                 <h3 className="text-2xl">Welcome Back</h3>
@@ -450,14 +487,15 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
                 {authError && (
                   <p className="text-sm text-destructive" role="alert">{authError}</p>
                 )}
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-1">Log In</Button>
+                <div className="space-y-3">
+                  <Button type="submit" className="w-full">Log In</Button>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setShowLogin(false)}
+                    className="w-full"
+                    onClick={() => { setShowLogin(false); setShowSignUp(true); }}
                   >
-                    Cancel
+                    Create New Account
                   </Button>
                 </div>
                 

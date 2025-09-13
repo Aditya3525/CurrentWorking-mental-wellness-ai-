@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 // Types
 export interface User {
@@ -227,6 +227,10 @@ export const assessmentsApi = {
 
   async getAssessmentHistory(): Promise<ApiResponse<any[]>> {
     return apiClient.get('/assessments/history');
+  },
+
+  async getLatestAssessment(): Promise<ApiResponse<any>> {
+    return apiClient.get('/assessments/latest');
   }
 };
 
@@ -299,6 +303,17 @@ export const contentApi = {
 
   async getContentById(id: string): Promise<ApiResponse<any>> {
     return apiClient.get(`/content/${id}`);
+  }
+};
+
+// Insights API
+export const insightsApi = {
+  async generateAssessmentInsights(assessmentType: string, score: number, responses: any): Promise<ApiResponse<any>> {
+    return apiClient.post('/insights/assessment', { assessmentType, score, responses });
+  },
+
+  async getMentalHealthSummary(): Promise<ApiResponse<any>> {
+    return apiClient.get('/insights/mental-health-summary');
   }
 };
 

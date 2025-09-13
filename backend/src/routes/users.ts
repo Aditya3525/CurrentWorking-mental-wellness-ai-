@@ -1,11 +1,14 @@
 import express from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requirePassword } from '../middleware/auth';
 import { updateProfile, completeOnboarding, logMood, getMoodHistory } from '../controllers/userController';
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticate as any);
+
+// Routes that require password setup
+router.use(requirePassword as any);
 
 // User profile routes
 router.put('/:userId', updateProfile as any);
