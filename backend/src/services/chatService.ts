@@ -1,6 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 import { llmService } from './llmProvider';
 import { UserContext, AIMessage } from '../types/ai';
+import { AIContextService } from './aiContextService';
+import { EnhancedAuditService } from './auditServiceEnhanced';
+import { MentalHealthStateService } from './mentalHealthStateService';
+import { approachRouter } from './langchainRouter';
+import { mentalHealthAgent, MentalHealthAgentConfig } from './langchainAgent';
+import { EnhancedRecommendationEngine } from './enhancedRecommendationEngine';
+import { ContentRetrieverService } from './contentRetrieverService';
+import { MonitoringEscalationService } from './monitoringEscalationService';
 
 const prisma = new PrismaClient();
 
@@ -17,18 +25,46 @@ export class ChatService {
     usage?: any;
     botMessage?: any;
     context?: string;
+    mentalHealthState?: string;
+    contentSuggestions?: string[];
+    contentResources?: Array<{
+      id: string;
+      title: string;
+      type: string;
+      category: string;
+      approach: string;
+      severityLevel?: string | null;
+      url?: string | null;
+      thumbnailUrl?: string | null;
+    }>;
+    shouldSuggestProfessional?: boolean;
   }> {
     try {
+      // Log user interaction
+      await EnhancedAuditService.logUserActivity({
+        userId,
+        action: 'chat_message_sent',
+        details: { messageLength: userMessage.length, sessionId },
+        ipAddress: undefined, // Will be set by controller
+        userAgent: undefined
+      });
+
       // Check for crisis language first
       if (this.detectCrisisLanguage(userMessage)) {
         console.log(`[ChatService] Crisis language detected for user ${userId}`);
         
         // Save user message with crisis flag
-        const userMsg = await this.saveChatMessage(userId, userMessage, 'user', { crisis: true });
+        const userMsg = await this.saveChatMessage(userId, userMessage, 'user', { crisis: true, sessionId });
         
         // Save crisis response
         const crisisResponse = this.getCrisisResponse();
-        const botMessage = await this.saveChatMessage(userId, crisisResponse, 'system', { crisis: true });
+        const botMessage = await this.saveChatMessage(userId, crisisResponse, 'system', { crisis: true, sessionId });
+
+        // Update AI context with crisis information
+        await AIContextService.updateContextFromActivity(userId, 'crisis_detected', {
+          userMessage,
+          response: crisisResponse
+        });
 
         return {
           response: crisisResponse,
@@ -39,8 +75,58 @@ export class ChatService {
         };
       }
 
-      // Get user context for personalization
+      // Build comprehensive AI context
+      const aiContext = await AIContextService.buildChatContext(userId, sessionId);
+      const optimizedContext = AIContextService.optimizeContextForTokens(aiContext);
+
+      // Get user context for personalization (legacy support)
       const userContext = await this.getUserContext(userId);
+      
+      // Check for assessment-related queries
+      const assessmentQuery = this.detectAssessmentQuery(userMessage);
+      if (assessmentQuery.isAssessmentQuery) {
+        console.log(`[ChatService] Assessment query detected: ${assessmentQuery.type}`);
+        
+        // Save user message
+        await this.saveChatMessage(userId, userMessage, 'user');
+        
+        // Generate assessment-specific response
+        const assessmentResponse = await this.generateAssessmentResponse(userId, userMessage, userContext, assessmentQuery);
+        const botMessage = await this.saveChatMessage(userId, assessmentResponse.response, 'bot', {
+          provider: assessmentResponse.provider,
+          context: 'assessment-analysis'
+        });
+
+        return {
+          response: assessmentResponse.response,
+          provider: assessmentResponse.provider,
+          model: 'assessment-analysis',
+          botMessage,
+          context: 'assessment-analysis'
+        };
+      }
+
+      // Check if user needs more assessments (less than 30% completion)
+      const assessmentGuidance = this.checkAssessmentCompletionGuidance(userContext, userMessage);
+      if (assessmentGuidance.shouldSuggest) {
+        console.log(`[ChatService] Assessment completion guidance triggered`);
+        
+        // Save user message
+        await this.saveChatMessage(userId, userMessage, 'user');
+        
+        const botMessage = await this.saveChatMessage(userId, assessmentGuidance.response, 'bot', {
+          provider: 'assessment-guidance',
+          context: 'assessment-suggestion'
+        });
+
+        return {
+          response: assessmentGuidance.response,
+          provider: 'assessment-guidance',
+          model: 'guidance-system',
+          botMessage,
+          context: 'assessment-suggestion'
+        };
+      }
       
       // Get recent chat history for context
       const chatHistory = await this.getChatHistory(userId, 10);
@@ -53,46 +139,109 @@ export class ChatService {
           content: msg.content
         }));
 
-      // Build conversation context
+      // Build enhanced conversation context
       const conversationContext = {
         user: userContext,
         messages: [...historyMessages, { role: 'user' as const, content: userMessage }],
         sessionId: sessionId || `session_${userId}_${Date.now()}`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        // Enhanced context from AI Context Service
+        enhancedContext: optimizedContext.context,
+        contextMetadata: {
+          estimatedTokens: optimizedContext.estimatedTokens,
+          compressionRatio: optimizedContext.compressionRatio,
+          primaryConcerns: aiContext.currentConcerns,
+          conversationGoals: aiContext.conversationGoals
+        }
       };
 
       console.log(`[ChatService] Generating AI response for user ${userId} with ${userContext.approach || 'general'} approach`);
 
-      // Generate AI response using the corrected method name
-      const aiResponse = await llmService.generateResponse(
-        [{ role: 'user', content: userMessage }],
-        {
-          maxTokens: 150,
-          temperature: 0.7
-        },
-        conversationContext
+      // Get current mental health state
+      const mentalHealthState = await MentalHealthStateService.getUserState(userId);
+      console.log(`[ChatService] User mental health state: ${mentalHealthState.state} (${mentalHealthState.score}/100)`);
+
+      // Use approach router for personalized, state-aware responses
+      const approachResponse = await approachRouter.routeResponse(
+        userMessage,
+        userContext,
+        mentalHealthState
       );
 
-      // Save user message
-      await this.saveChatMessage(userId, userMessage, 'user');
-
-      // Save bot response
-      const botMessage = await this.saveChatMessage(userId, aiResponse.content, 'bot', {
-        provider: aiResponse.provider,
-        model: aiResponse.model,
-        processingTime: aiResponse.processingTime,
-        tokensUsed: aiResponse.usage?.total_tokens
+      // Retrieve concrete content resources from library matching approach + severity + top concerns
+      const retrievedResources = await ContentRetrieverService.fromMentalHealthContext({
+        approach: (userContext.approach as any) || 'hybrid',
+        topConcerns: mentalHealthState.topConcerns,
+        severityScore: mentalHealthState.score,
+        limit: 3
       });
 
-      console.log(`[ChatService] ✅ AI response generated using ${aiResponse.provider} in ${aiResponse.processingTime}ms`);
+      const contentResources = retrievedResources.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        type: r.type,
+        category: r.category,
+        approach: r.approach,
+        severityLevel: r.severityLevel || null,
+        url: r.externalUrl || r.fileUrl || null,
+        thumbnailUrl: r.thumbnailUrl || null
+      }));
+
+      console.log(`[ChatService] Generated ${approachResponse.approach} approach response via ${approachResponse.provider}`);
+
+      // Save user message
+      await this.saveChatMessage(userId, userMessage, 'user', {
+        sessionId,
+        mentalHealthState: mentalHealthState.state,
+        stateScore: mentalHealthState.score
+      });
+
+      // Optionally append a friendly suggestion line if we have a concrete resource
+      let finalResponse = approachResponse.message;
+      if (contentResources.length > 0) {
+        const top = contentResources[0];
+        const kind = top.type === 'article' ? 'article' : top.type === 'audio' ? 'audio' : top.type === 'video' ? 'video' : 'resource';
+        finalResponse += `\n\nSuggestion: ${top.title} (${top.category} ${kind}${top.approach ? ` • ${top.approach}` : ''})${top.url ? ` — ${top.url}` : ''}`;
+      }
+
+      // If professional support is suggested, add crisis resources
+      if (approachResponse.shouldSuggestProfessional) {
+        finalResponse += "\n\n" + this.getProfessionalSupportMessage();
+      }
+
+      // Save bot response with enhanced metadata
+      const botMessage = await this.saveChatMessage(userId, finalResponse, 'bot', {
+        provider: approachResponse.provider,
+        approach: approachResponse.approach,
+        mentalHealthState: mentalHealthState.state,
+        stateScore: mentalHealthState.score,
+        contentSuggestions: approachResponse.contentSuggestions,
+        contentResources,
+        shouldSuggestProfessional: approachResponse.shouldSuggestProfessional,
+        sessionId
+      });
+
+      // Update AI context with state and approach information
+      await AIContextService.updateContextFromActivity(userId, 'ai_response_generated', {
+        approach: approachResponse.approach,
+        mentalHealthState: mentalHealthState.state,
+        stateScore: mentalHealthState.score,
+        contentSuggestions: approachResponse.contentSuggestions,
+        professionalSupportSuggested: approachResponse.shouldSuggestProfessional
+      });
+
+      console.log(`[ChatService] ✅ Enhanced AI response generated using ${approachResponse.approach} approach`);
 
       return {
-        response: aiResponse.content,
-        provider: aiResponse.provider,
-        model: aiResponse.model,
-        usage: aiResponse.usage,
+        response: finalResponse,
+        provider: approachResponse.provider,
+        model: `${approachResponse.approach}-approach`,
         botMessage,
-        context: `ai-${aiResponse.provider?.toLowerCase()}`
+        context: `ai-${approachResponse.approach}`,
+        mentalHealthState: mentalHealthState.state,
+        contentSuggestions: approachResponse.contentSuggestions,
+  contentResources,
+        shouldSuggestProfessional: approachResponse.shouldSuggestProfessional
       };
 
     } catch (error: any) {
@@ -204,18 +353,43 @@ export class ChatService {
         return 'severe anxiety';
       
       case 'stress':
-        if (score <= 3) return 'low stress';
-        if (score <= 6) return 'moderate stress';
-        if (score <= 8) return 'high stress';
+        if (score <= 25) return 'low stress';
+        if (score <= 50) return 'moderate stress';
+        if (score <= 75) return 'high stress';
         return 'very high stress';
       
       case 'emotionalintelligence':
-        if (score >= 8) return 'high emotional intelligence';
-        if (score >= 6) return 'moderate emotional intelligence';
-        return 'developing emotional intelligence';
+        if (score >= 75) return 'high emotional intelligence';
+        if (score >= 50) return 'moderate emotional intelligence';
+        if (score >= 25) return 'developing emotional intelligence';
+        return 'needs emotional intelligence support';
+      
+      case 'overthinking':
+        if (score <= 25) return 'minimal overthinking';
+        if (score <= 50) return 'mild overthinking patterns';
+        if (score <= 75) return 'significant overthinking';
+        return 'severe rumination patterns';
+      
+      case 'personality':
+        if (score >= 80) return 'well-balanced personality traits';
+        if (score >= 60) return 'healthy personality patterns';
+        if (score >= 40) return 'moderate personality insights';
+        return 'complex personality patterns';
+      
+      case 'trauma-fear':
+        if (score <= 20) return 'minimal trauma responses';
+        if (score <= 40) return 'mild trauma indicators';
+        if (score <= 60) return 'moderate trauma patterns';
+        if (score <= 80) return 'significant trauma responses';
+        return 'severe trauma indicators requiring support';
+      
+      case 'archetypes':
+        if (score >= 75) return 'clear archetypal patterns';
+        if (score >= 50) return 'emerging archetypal traits';
+        return 'diverse archetypal expressions';
       
       default:
-        return score > 5 ? 'elevated concerns' : 'manageable levels';
+        return score > 50 ? 'elevated concerns' : 'manageable levels';
     }
   }
 
@@ -249,6 +423,44 @@ export class ChatService {
       if (assessmentType.toLowerCase().includes('stress')) {
         if (responses['overwhelmed'] && parseInt(responses['overwhelmed']) > 2) concerns.push('feeling overwhelmed');
         if (responses['physical'] && parseInt(responses['physical']) > 2) concerns.push('physical stress symptoms');
+        if (responses['workload'] && parseInt(responses['workload']) > 2) concerns.push('work-related stress');
+        if (responses['relationships'] && parseInt(responses['relationships']) > 2) concerns.push('relationship stress');
+      }
+      
+      // Overthinking pattern concerns
+      if (assessmentType.toLowerCase().includes('overthinking')) {
+        if (responses['rumination'] && parseInt(responses['rumination']) > 2) concerns.push('repetitive thinking');
+        if (responses['whatif'] && parseInt(responses['whatif']) > 2) concerns.push('catastrophic thinking');
+        if (responses['pastevents'] && parseInt(responses['pastevents']) > 2) concerns.push('dwelling on past');
+        if (responses['selfcriticism'] && parseInt(responses['selfcriticism']) > 2) concerns.push('self-critical thoughts');
+        if (responses['sleepthinking'] && parseInt(responses['sleepthinking']) > 2) concerns.push('racing thoughts at bedtime');
+      }
+      
+      // Personality assessment insights
+      if (assessmentType.toLowerCase().includes('personality')) {
+        if (responses['introversion'] && parseInt(responses['introversion']) > 3) concerns.push('social energy management');
+        if (responses['neuroticism'] && parseInt(responses['neuroticism']) > 3) concerns.push('emotional sensitivity');
+        if (responses['openness'] && parseInt(responses['openness']) < 2) concerns.push('resistance to change');
+        if (responses['conscientiousness'] && parseInt(responses['conscientiousness']) < 2) concerns.push('organization challenges');
+        if (responses['agreeableness'] && parseInt(responses['agreeableness']) < 2) concerns.push('interpersonal difficulties');
+      }
+      
+      // Trauma and fear response concerns
+      if (assessmentType.toLowerCase().includes('trauma') || assessmentType.toLowerCase().includes('fear')) {
+        if (responses['hypervigilance'] && parseInt(responses['hypervigilance']) > 2) concerns.push('heightened alertness');
+        if (responses['avoidance'] && parseInt(responses['avoidance']) > 2) concerns.push('avoidance behaviors');
+        if (responses['flashbacks'] && parseInt(responses['flashbacks']) > 2) concerns.push('intrusive memories');
+        if (responses['dissociation'] && parseInt(responses['dissociation']) > 2) concerns.push('disconnection experiences');
+        if (responses['startle'] && parseInt(responses['startle']) > 2) concerns.push('exaggerated startle response');
+        if (responses['nightmares'] && parseInt(responses['nightmares']) > 2) concerns.push('trauma-related dreams');
+      }
+      
+      // Emotional intelligence areas
+      if (assessmentType.toLowerCase().includes('emotional') || assessmentType.toLowerCase().includes('intelligence')) {
+        if (responses['selfawareness'] && parseInt(responses['selfawareness']) < 2) concerns.push('emotional self-awareness needs');
+        if (responses['empathy'] && parseInt(responses['empathy']) < 2) concerns.push('empathy development');
+        if (responses['regulation'] && parseInt(responses['regulation']) < 2) concerns.push('emotion regulation skills');
+        if (responses['social'] && parseInt(responses['social']) < 2) concerns.push('social emotional skills');
       }
       
     } catch (e) {
@@ -375,6 +587,19 @@ You are not alone, and there are people who want to help you. Please consider re
 Would you like me to help you find local mental health resources?`;
   }
 
+  getProfessionalSupportMessage(): string {
+    return `💡 **Professional Support Suggestion:**
+Based on what you've shared, it might be helpful to speak with a mental health professional who can provide personalized guidance for your situation.
+
+**Options to consider:**
+• **Therapist or Counselor**: For ongoing support and coping strategies
+• **Primary Care Doctor**: Can discuss treatment options and referrals
+• **Mental Health Hotline**: For immediate support and local resources
+• **Employee Assistance Program**: If available through work or school
+
+Remember, seeking professional help is a sign of strength and self-care. You deserve support.`;
+  }
+
   getFallbackResponse(userMessage: string): string {
     const lowerMessage = userMessage.toLowerCase();
     
@@ -471,6 +696,151 @@ Would you like me to help you find local mental health resources?`;
     await prisma.chatMessage.deleteMany({
       where: { userId }
     });
+  }
+
+  /**
+   * Detect if user is asking about their assessment results or mental health analysis
+   */
+  private detectAssessmentQuery(message: string): { isAssessmentQuery: boolean; type: string; keywords: string[] } {
+    const lowerMessage = message.toLowerCase();
+    
+    // Assessment-related keywords
+    const assessmentKeywords = [
+      'my assessment', 'my results', 'assessment results', 'my scores', 'my test',
+      'mental health analysis', 'what do my results mean', 'according to my assessment',
+      'based on my assessment', 'my mental health', 'how am i doing', 'my wellbeing',
+      'my anxiety score', 'my stress level', 'my personality', 'my emotional intelligence'
+    ];
+
+    const foundKeywords = assessmentKeywords.filter(keyword => lowerMessage.includes(keyword));
+    
+    // Determine query type
+    let queryType = 'general';
+    if (lowerMessage.includes('anxiety')) queryType = 'anxiety';
+    else if (lowerMessage.includes('stress')) queryType = 'stress';
+    else if (lowerMessage.includes('personality')) queryType = 'personality';
+    else if (lowerMessage.includes('emotional')) queryType = 'emotional-intelligence';
+    else if (lowerMessage.includes('overthinking')) queryType = 'overthinking';
+    else if (lowerMessage.includes('trauma') || lowerMessage.includes('fear')) queryType = 'trauma-fear';
+
+    return {
+      isAssessmentQuery: foundKeywords.length > 0,
+      type: queryType,
+      keywords: foundKeywords
+    };
+  }
+
+  /**
+   * Generate response based on user's assessment results and insights
+   */
+  private async generateAssessmentResponse(
+    userId: string, 
+    userMessage: string, 
+    userContext: UserContext, 
+    assessmentQuery: { type: string; keywords: string[] }
+  ): Promise<{ response: string; provider: string }> {
+    
+    // Check if user has completed assessments
+    if (!userContext.hasCompletedAssessments || !userContext.recentAssessments || userContext.recentAssessments.length === 0) {
+      return {
+        response: "I'd love to help you understand your mental health better! However, I don't see any completed assessments in your profile yet. To provide you with personalized insights about your wellbeing, I'd recommend completing some assessments first. Would you like me to suggest which assessments might be most helpful for you?",
+        provider: 'assessment-guidance'
+      };
+    }
+
+    // Get assessment insights from database
+    const assessments = await prisma.assessment.findMany({
+      where: { userId },
+      orderBy: { completedAt: 'desc' },
+      take: 5
+    });
+
+    // Build comprehensive assessment summary
+    let assessmentSummary = `Based on your recent assessments, here's what I can share about your mental health:\n\n`;
+    
+    assessments.forEach(assessment => {
+      const interpretation = this.interpretAssessmentScore(assessment.assessmentType, assessment.score);
+      assessmentSummary += `**${assessment.assessmentType.charAt(0).toUpperCase() + assessment.assessmentType.slice(1)} Assessment:**\n`;
+      assessmentSummary += `- Score: ${assessment.score}/100 (${interpretation})\n`;
+      
+      if (assessment.aiInsights) {
+        assessmentSummary += `- AI Insights: ${assessment.aiInsights}\n`;
+      }
+      
+      assessmentSummary += `- Completed: ${new Date(assessment.completedAt).toLocaleDateString()}\n\n`;
+    });
+
+    // Add overall analysis
+    const avgScore = assessments.reduce((sum, a) => sum + a.score, 0) / assessments.length;
+    const overallLevel = avgScore >= 70 ? 'need attention' : avgScore >= 40 ? 'moderate' : 'good';
+    
+    assessmentSummary += `**Overall Analysis:**\n`;
+    assessmentSummary += `Your average wellbeing score is ${Math.round(avgScore)}/100, indicating ${overallLevel} levels. `;
+    
+    if (overallLevel === 'need attention') {
+      assessmentSummary += `Some areas might benefit from focused attention and support. `;
+    } else if (overallLevel === 'moderate') {
+      assessmentSummary += `You're managing reasonably well with some areas for growth. `;
+    } else {
+      assessmentSummary += `You're doing well overall! `;
+    }
+
+    assessmentSummary += `\n\nWould you like to discuss any specific aspect of these results or explore coping strategies for any particular area?`;
+
+    return {
+      response: assessmentSummary,
+      provider: 'assessment-analysis'
+    };
+  }
+
+  /**
+   * Check if user has completed less than 30% of assessments and suggest completing more
+   */
+  private checkAssessmentCompletionGuidance(userContext: UserContext, userMessage: string): { shouldSuggest: boolean; response: string } {
+    
+    // Total available assessments (from the catalog)
+    const totalAssessments = 6; // anxiety, stress, emotional intelligence, overthinking, personality, trauma-fear
+    const completedAssessments = userContext.recentAssessments?.length || 0;
+    const completionPercentage = (completedAssessments / totalAssessments) * 100;
+
+    // Only suggest if user has completed less than 30% (less than 2 assessments)
+    // And if they're asking about mental health or wellbeing in general
+    const isGeneralWellbeingQuery = this.isGeneralWellbeingQuery(userMessage);
+    
+    if (completionPercentage < 30 && isGeneralWellbeingQuery) {
+      const remaining = totalAssessments - completedAssessments;
+      
+      return {
+        shouldSuggest: true,
+        response: `I'd love to give you a comprehensive analysis of your mental health! Currently, you've completed ${completedAssessments} out of ${totalAssessments} assessments (${Math.round(completionPercentage)}%). 
+
+To provide you with more accurate and personalized insights about your wellbeing, I'd recommend completing a few more assessments. This will help me understand your mental health patterns better and give you more targeted recommendations.
+
+Here are some assessments you might find helpful:
+${completedAssessments === 0 ? '• Anxiety Assessment - Understanding worry and nervousness patterns\n• Stress Level Assessment - Evaluating current stress and pressure levels\n• Emotional Intelligence Assessment - Measuring emotional awareness and regulation' : 
+  completedAssessments === 1 ? '• Stress Level Assessment - How you handle daily pressures\n• Emotional Intelligence Assessment - Your emotional awareness skills\n• Overthinking Patterns Assessment - Understanding repetitive thought cycles' :
+  '• Personality Type Assessment - Understanding your core traits\n• Overthinking Patterns Assessment - Identifying thought loops\n• Trauma & Fear Response Assessment - Gentle exploration of trauma responses (optional)'}
+
+Would you like to complete some assessments now so I can give you a more complete picture of your mental health?`
+      };
+    }
+
+    return { shouldSuggest: false, response: '' };
+  }
+
+  /**
+   * Check if user message is asking about general wellbeing/mental health
+   */
+  private isGeneralWellbeingQuery(message: string): boolean {
+    const lowerMessage = message.toLowerCase();
+    const wellbeingKeywords = [
+      'how am i doing', 'my mental health', 'my wellbeing', 'how is my health',
+      'analyze me', 'tell me about myself', 'what do you think about me',
+      'my psychological state', 'my emotional state', 'how am i feeling',
+      'what can you tell me', 'analyze my mood', 'my mental state'
+    ];
+
+    return wellbeingKeywords.some(keyword => lowerMessage.includes(keyword));
   }
 }
 

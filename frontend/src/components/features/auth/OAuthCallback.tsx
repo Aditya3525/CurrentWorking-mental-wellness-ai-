@@ -11,6 +11,7 @@ interface OAuthCallbackProps {
 export function OAuthCallback({ onAuthSuccess, onAuthError }: OAuthCallbackProps) {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Authenticating with Google...');
+  const API_BASE_URL: string = (import.meta as unknown as { env?: { VITE_API_URL?: string } })?.env?.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -49,7 +50,7 @@ export function OAuthCallback({ onAuthSuccess, onAuthError }: OAuthCallbackProps
         }
 
         // Validate the token with the backend
-        const response = await fetch('http://localhost:5000/api/auth/validate', {
+  const response = await fetch(`${API_BASE_URL}/auth/validate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -117,7 +118,7 @@ export function OAuthCallback({ onAuthSuccess, onAuthError }: OAuthCallbackProps
     };
 
     handleCallback();
-  }, [onAuthSuccess, onAuthError]);
+  }, [onAuthSuccess, onAuthError, API_BASE_URL]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">

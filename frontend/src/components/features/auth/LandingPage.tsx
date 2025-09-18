@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
-import { Heart, Brain, Users, Shield, CheckCircle, Sparkles, ArrowRight, MessageCircle, Target, TrendingUp } from 'lucide-react';
+import { Heart, Brain, Users, Shield, CheckCircle, Sparkles, ArrowRight, MessageCircle, Target, TrendingUp, Settings } from 'lucide-react';
+
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 
+import { AdminLoginModal } from './AdminLoginModal';
+
 interface LandingPageProps {
   onSignUp: (userData: { name: string; email: string; password: string }) => void;
   onLogin: (credentials: { email: string; password: string }) => void;
+  onAdminLogin?: (credentials: { email: string; password: string }) => Promise<void>;
   authError?: string | null;
 }
 
-export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) {
+export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError }: LandingPageProps) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +24,8 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
   const [showSignUp, setShowSignUp] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showStartJourney, setShowStartJourney] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(false);
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +44,24 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
   const handleGoogleAuth = () => {
     // Redirect to Google OAuth endpoint
     window.location.href = 'http://localhost:5000/api/auth/google';
+  };
+
+  const handleAdminLogin = async (credentials: { email: string; password: string }) => {
+    if (!onAdminLogin) {
+      console.error('Admin login handler not provided');
+      return;
+    }
+
+    setAdminLoading(true);
+    try {
+      await onAdminLogin(credentials);
+      setShowAdminLogin(false);
+    } catch (error) {
+      console.error('Admin login failed:', error);
+      // Error will be displayed by the modal via authError prop
+    } finally {
+      setAdminLoading(false);
+    }
   };
 
   return (
@@ -288,6 +312,19 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
                 <p>support@wellbeingai.com</p>
                 <p>Emergency: 988</p>
               </div>
+              
+              {/* Discrete Admin Access */}
+              <div className="pt-2 border-t border-muted/50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdminLogin(true)}
+                  className="h-auto p-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Settings className="h-3 w-3 mr-1" />
+                  Admin Access
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -496,6 +533,15 @@ export function LandingPage({ onSignUp, onLogin, authError }: LandingPageProps) 
           </Card>
         </div>
       )}
+
+      {/* Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={showAdminLogin}
+        onClose={() => setShowAdminLogin(false)}
+        onAdminLogin={handleAdminLogin}
+        authError={authError}
+        isLoading={adminLoading}
+      />
     </div>
   );
 }

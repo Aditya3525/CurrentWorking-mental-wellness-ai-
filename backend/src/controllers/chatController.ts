@@ -6,8 +6,111 @@ import { chatService } from '../services/chatService';
 const prisma = new PrismaClient();
 
 const messageSchema = Joi.object({
-  content: Joi.string().min(1).max(2000).required()
+  content: Joi.string().min(1).max(2000).required(),
+  userContext: Joi.object({
+    name: Joi.string().optional(),
+    recentMoods: Joi.array().optional(),
+    completedAssessments: Joi.array().optional(),
+    preferredApproach: Joi.string().optional()
+  }).optional(),
+  messageHistory: Joi.array().items(
+    Joi.object({
+      role: Joi.string().valid('user', 'assistant').required(),
+      content: Joi.string().required()
+    })
+  ).optional()
 });
+
+const streamMessageSchema = Joi.object({
+  message: Joi.string().min(1).max(2000).required(),
+  userContext: Joi.object({
+    name: Joi.string().optional(),
+    recentMoods: Joi.array().optional(),
+    completedAssessments: Joi.array().optional(),
+    preferredApproach: Joi.string().optional()
+  }).optional(),
+  messageHistory: Joi.array().items(
+    Joi.object({
+      role: Joi.string().valid('user', 'assistant').required(),
+      content: Joi.string().required()
+    })
+  ).optional()
+});
+
+export const streamMessage = async (req: any, res: Response) => {
+  try {
+    const { error } = streamMessageSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ success: false, error: error.details[0].message });
+      return;
+    }
+    
+    const userId = req.user.id;
+    const { message, userContext, messageHistory } = req.body;
+
+    // Set up SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Transfer-Encoding': 'chunked',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+
+    // Check for crisis language first
+    if (chatService.detectCrisisLanguage(message)) {
+      // For crisis messages, send the response immediately (no streaming)
+      const result = await chatService.generateAIResponse(userId, message);
+      res.write(result.botMessage?.content || 'Crisis resources are available to help you.');
+      res.end();
+      return;
+    }
+
+    try {
+      // Try to use streaming from chatService
+      const stream = await chatService.generateStreamingResponse(userId, message);
+      
+      // Pipe the stream to the response
+      stream.on('data', (chunk: string) => {
+        res.write(chunk);
+      });
+
+      stream.on('end', () => {
+        res.end();
+      });
+
+      stream.on('error', (error: any) => {
+        console.error('Streaming error:', error);
+        res.write('\n[Error: Stream failed, falling back to regular response]');
+        res.end();
+      });
+
+    } catch (streamError) {
+      console.warn('Streaming not available, falling back to regular response:', streamError);
+      
+      // Fallback to regular response
+      const result = await chatService.generateAIResponse(userId, message);
+      const content = result.botMessage?.content || 'I apologize, but I encountered an issue generating a response.';
+      
+      // Simulate streaming by sending in chunks
+      const words = content.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        const chunk = (i === 0 ? '' : ' ') + words[i];
+        res.write(chunk);
+        
+        // Small delay to simulate streaming
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      res.end();
+    }
+
+  } catch (e) {
+    console.error('Stream message error', e);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+};
 
 export const sendMessage = async (req: any, res: Response) => {
   try {
@@ -18,7 +121,13 @@ export const sendMessage = async (req: any, res: Response) => {
     }
     
     const userId = req.user.id;
-    const { content } = req.body;
+    const { content, userContext, messageHistory } = req.body;
+
+    // Log the enhanced context for debugging
+    console.log(`[ChatController] Received enhanced context for user ${userId}:`, {
+      userContext: userContext ? 'provided' : 'none',
+      messageHistoryLength: messageHistory ? messageHistory.length : 0
+    });
 
     // Check for crisis language first
     if (chatService.detectCrisisLanguage(content)) {

@@ -1,0 +1,886 @@
+// Enhanced Prisma Schema for Mental Wellbeing AI App
+// This schema includes comprehensive content and practice management with admin functionality
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enhanced User model with admin capabilities
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String?
+  googleId  String?  @unique
+  firstName String?
+  lastName  String?
+  profilePhoto String?
+  isOnboarded Boolean @default(false)
+  approach    String? // 'western', 'eastern', 'hybrid'
+  birthday    DateTime?
+  gender      String?
+  region      String?
+  language    String?
+  emergencyContact String?
+  emergencyPhone   String?
+  dataConsent      Boolean @default(false)
+  clinicianSharing Boolean @default(false)
+  tokenVersion    Int @default(1)
+  
+  // Enhanced admin fields
+  isAdmin     Boolean @default(false)
+  role        String  @default("user") // 'user', 'admin', 'super_admin', 'content_manager'
+  permissions String? // JSON array of specific permissions
+  isActive    Boolean @default(true)
+  lastLoginAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  assessments    Assessment[]
+  assessmentVersions AssessmentVersion[]
+  assessmentMedia AssessmentMedia[]
+  moodEntries    MoodEntry[]
+  planModules    UserPlanModule[]
+  chatMessages   ChatMessage[]
+  aiContexts     AIContext[]
+  progressTracking ProgressTracking[]
+  predictiveScores PredictiveScore[]
+  contentRecommendations ContentRecommendation[]
+  refreshTokens  RefreshToken[]
+  userActivities UserActivity[]
+  escalationReports EscalationReport[]
+  contentRatings ContentRating[]
+  playlistRatings PlaylistRating[]
+  
+  // New practice-related relations
+  practiceProgress UserPracticeProgress[]
+  practiceRatings  PracticeRating[]
+  practiceSessionLogs PracticeSessionLog[]
+  
+  // Admin-created content relations
+  createdContent   Content[] @relation("ContentCreator")
+  modifiedContent  Content[] @relation("ContentModifier")
+  createdPractices Practice[] @relation("PracticeCreator")
+  modifiedPractices Practice[] @relation("PracticeModifier")
+  createdPlaylists Playlist[] @relation("PlaylistCreator")
+  modifiedPlaylists Playlist[] @relation("PlaylistModifier")
+  
+  @@map("users")
+}
+
+// Enhanced Content model with comprehensive admin features
+model Content {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // 'video', 'audio', 'article', 'playlist', 'interactive'
+  category    String   // 'Mindfulness', 'Anxiety', 'Stress Management', 'Relaxation', 'Emotional Intelligence', 'Series'
+  subcategory String?  // Specific subcategory within main category
+  approach    String   // 'western', 'eastern', 'hybrid', 'all'
+  
+  // Content sources and files
+  content     String   // Article content, description, or JSON data
+  contentUrl  String?  // YouTube URL or external content link
+  uploadedFileName String? // Original filename if uploaded
+  fileUrl     String?  // Direct file URL if uploaded to server/CDN
+  fileType    String?  // 'mp4', 'mp3', 'pdf', 'youtube', 'webpage', 'interactive'
+  thumbnailUrl String? // Custom thumbnail URL
+  
+  // Content metadata
+  description String?  // Detailed description
+  author      String?  // Content author/creator
+  duration    Int?     // Duration in minutes (changed from String to Int)
+  difficulty  String?  // 'Beginner', 'Intermediate', 'Advanced'
+  severityLevel String @default("Mild") // 'Mild', 'Moderate', 'Severe' - for mental health context
+  tags        String[] // Array of keywords/tags (changed from comma-separated string)
+  
+  // Content status and visibility
+  status      String   @default("Draft") // 'Draft', 'Published', 'Archived', 'Under Review'
+  isPublished Boolean  @default(false) // Kept for backward compatibility
+  featured    Boolean  @default(false) // Featured content for homepage
+  
+  // Analytics and engagement
+  viewCount   Int      @default(0)
+  rating      Float?   // Average user rating (1-5)
+  ratingCount Int      @default(0)
+  
+  // Enhanced recommendation features
+  targetAudience String? // JSON of target demographics/conditions
+  effectiveness  Float?  // Evidence-based effectiveness score (0-5)
+  prerequisites  String? // JSON of required prior knowledge/skills
+  outcomes       String? // JSON of expected outcomes
+  aiSummary      String? // AI-generated summary
+  keywords       String? // SEO and search keywords
+  
+  // Admin management fields
+  adminNotes     String?  // Internal notes for admins
+  createdBy      String   // Admin user ID who created this content
+  lastModifiedBy String?  // Admin user ID who last modified this content
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  publishedAt DateTime? // When content was first published
+  
+  // Relations
+  creator     User @relation("ContentCreator", fields: [createdBy], references: [id])
+  modifier    User? @relation("ContentModifier", fields: [lastModifiedBy], references: [id])
+  
+  recommendations ContentRecommendation[]
+  playlistItems   PlaylistItem[]
+  contentRatings  ContentRating[]
+  
+  @@index([category, subcategory])
+  @@index([approach])
+  @@index([status, isPublished])
+  @@index([createdBy])
+  @@index([tags])
+  @@map("content")
+}
+
+// New comprehensive Practice model
+model Practice {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  // Brief description
+  instructions String  // Detailed practice instructions (rich text/markdown)
+  
+  // Timing and structure
+  duration        Int     // Main practice duration in minutes
+  preparationTime Int?    // Setup/preparation time in minutes
+  windDownTime    Int?    // Closing/integration time in minutes
+  
+  // Classification
+  practiceType String   // 'Meditation', 'Breathing', 'Yoga', 'Mindfulness', 'Visualization', 'Movement'
+  difficulty   String   // 'Beginner', 'Intermediate', 'Advanced'
+  category     String   // 'Stress Relief', 'Sleep', 'Focus', 'Emotional Regulation', 'Physical Wellness'
+  subcategory  String?  // Specific subcategory
+  approach     String   // 'Western', 'Eastern', 'Hybrid', 'All'
+  severityLevel String  @default("Mild") // 'Mild', 'Moderate', 'Severe'
+  
+  // Content and media
+  tags            String[] // Array of keywords/tags
+  audioGuideUrl   String?  // URL to audio guide
+  visualAidsUrl   String?  // URL to visual aids/images
+  videoUrl        String?  // URL to video guide
+  equipment       String?  // Required materials/equipment (JSON array)
+  environment     String?  // Recommended environment settings
+  
+  // Practice metadata
+  benefits        String?  // Expected benefits (JSON array)
+  contraindications String? // When not to use this practice
+  modifications   String?  // Modifications for different needs (JSON)
+  progressMarkers String?  // How to measure progress (JSON)
+  
+  // Status and visibility
+  status      String   @default("Draft") // 'Draft', 'Published', 'Archived', 'Under Review'
+  isPublished Boolean  @default(false)
+  featured    Boolean  @default(false)
+  
+  // Analytics
+  viewCount      Int   @default(0)
+  completionRate Float? // Average completion rate (0-1)
+  rating         Float? // Average user rating (1-5)
+  ratingCount    Int   @default(0)
+  
+  // Admin management
+  adminNotes     String? // Internal notes for admins
+  createdBy      String  // Admin user ID
+  lastModifiedBy String? // Last modifier user ID
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  publishedAt DateTime?
+  
+  // Relations
+  creator  User @relation("PracticeCreator", fields: [createdBy], references: [id])
+  modifier User? @relation("PracticeModifier", fields: [lastModifiedBy], references: [id])
+  
+  userProgress    UserPracticeProgress[]
+  ratings         PracticeRating[]
+  sessionLogs     PracticeSessionLog[]
+  seriesItems     PracticeSeriesItem[]
+  recommendations PracticeRecommendation[]
+  
+  @@index([practiceType, category])
+  @@index([difficulty, approach])
+  @@index([status, isPublished])
+  @@index([createdBy])
+  @@index([tags])
+  @@map("practices")
+}
+
+// Enhanced Playlist model for content collections
+model Playlist {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String
+  subcategory String?
+  approach    String   // 'western', 'eastern', 'hybrid', 'all'
+  difficulty  String?  // 'Beginner', 'Intermediate', 'Advanced'
+  tags        String[] // Array of keywords/tags
+  thumbnailUrl String?
+  
+  // Playlist metadata
+  estimatedDuration Int?    // Total estimated duration in minutes
+  practiceOrder     String? // Recommended practice order (JSON)
+  goals            String? // Playlist goals/objectives (JSON)
+  
+  // Status and visibility
+  status      String  @default("Draft") // 'Draft', 'Published', 'Archived'
+  isPublished Boolean @default(false)
+  featured    Boolean @default(false)
+  severityLevel String @default("Mild") // 'Mild', 'Moderate', 'Severe'
+  
+  // Admin management
+  createdBy      String  // Admin user ID
+  lastModifiedBy String? // Last modifier user ID
+  adminNotes     String? // Internal admin notes
+  
+  // Statistics
+  viewCount   Int   @default(0)
+  rating      Float? // Average rating
+  ratingCount Int   @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  publishedAt DateTime?
+  
+  // Relations
+  creator  User @relation("PlaylistCreator", fields: [createdBy], references: [id])
+  modifier User? @relation("PlaylistModifier", fields: [lastModifiedBy], references: [id])
+  
+  items   PlaylistItem[]
+  ratings PlaylistRating[]
+  
+  @@index([category, subcategory])
+  @@index([approach, difficulty])
+  @@index([status, isPublished])
+  @@map("playlists")
+}
+
+// Practice Series model for structured practice programs
+model PracticeSeries {
+  id          String @id @default(cuid())
+  title       String
+  description String?
+  
+  // Series structure
+  totalSessions    Int     // Number of sessions in series
+  recommendedFrequency String? // How often to practice (daily, weekly, etc.)
+  estimatedDuration Int?   // Total series duration in days/weeks
+  
+  // Classification
+  category     String  // 'Beginner Program', 'Stress Relief Course', etc.
+  difficulty   String  // 'Beginner', 'Intermediate', 'Advanced'
+  approach     String  // 'Western', 'Eastern', 'Hybrid'
+  severityLevel String @default("Mild")
+  
+  // Content
+  tags         String[] // Keywords/tags
+  thumbnailUrl String?
+  overview     String? // Series overview and goals
+  prerequisites String? // What users should know/complete first
+  
+  // Status
+  status      String  @default("Draft")
+  isPublished Boolean @default(false)
+  featured    Boolean @default(false)
+  
+  // Admin management
+  createdBy      String
+  lastModifiedBy String?
+  adminNotes     String?
+  
+  // Analytics
+  enrollmentCount Int @default(0)
+  completionRate  Float? // Average completion rate
+  rating          Float?
+  ratingCount     Int @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  publishedAt DateTime?
+  
+  // Relations
+  items           PracticeSeriesItem[]
+  userEnrollments UserSeriesEnrollment[]
+  
+  @@index([category, difficulty])
+  @@index([status, isPublished])
+  @@map("practice_series")
+}
+
+// Junction table for practice series items
+model PracticeSeriesItem {
+  id       String @id @default(cuid())
+  seriesId String
+  practiceId String
+  sessionNumber Int  // Order in the series (1, 2, 3, etc.)
+  title    String? // Optional custom title for this session
+  notes    String? // Session-specific notes or instructions
+  isRequired Boolean @default(true) // Whether this session is required
+  
+  createdAt DateTime @default(now())
+  
+  // Relations
+  series   PracticeSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  
+  @@unique([seriesId, practiceId])
+  @@unique([seriesId, sessionNumber])
+  @@map("practice_series_items")
+}
+
+// User practice progress tracking
+model UserPracticeProgress {
+  id         String @id @default(cuid())
+  userId     String
+  practiceId String
+  
+  // Progress metrics
+  totalSessions    Int @default(0)
+  completedSessions Int @default(0)
+  totalMinutes     Int @default(0) // Total time practiced
+  averageRating    Float? // User's average rating for this practice
+  
+  // Current session status
+  currentStreak    Int @default(0) // Days in a row
+  longestStreak    Int @default(0)
+  lastPracticeDate DateTime?
+  
+  // Preferences and notes
+  isFavorite Boolean @default(false)
+  userNotes  String? // Personal notes about this practice
+  customReminders String? // Custom reminder settings (JSON)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, practiceId])
+  @@map("user_practice_progress")
+}
+
+// User practice session logs
+model PracticeSessionLog {
+  id         String @id @default(cuid())
+  userId     String
+  practiceId String
+  
+  // Session details
+  startTime     DateTime
+  endTime       DateTime?
+  duration      Int?     // Actual practice duration in minutes
+  completed     Boolean @default(false)
+  quality       Int?     // Session quality rating (1-5)
+  mood_before   String?  // Mood before practice
+  mood_after    String?  // Mood after practice
+  
+  // Session notes and feedback
+  sessionNotes  String? // User's notes about the session
+  challenges    String? // What was challenging
+  insights      String? // What they learned or noticed
+  
+  // Context
+  environment   String? // Where they practiced
+  timeOfDay     String? // Morning, afternoon, evening
+  interruptions Boolean @default(false) // Whether they were interrupted
+  
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, practiceId])
+  @@index([startTime])
+  @@map("practice_session_logs")
+}
+
+// User series enrollment and progress
+model UserSeriesEnrollment {
+  id       String @id @default(cuid())
+  userId   String
+  seriesId String
+  
+  // Enrollment details
+  enrolledAt   DateTime @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  
+  // Progress tracking
+  currentSession Int @default(1)
+  completedSessions Int @default(0)
+  totalMinutes   Int @default(0)
+  
+  // Status
+  status String @default("enrolled") // 'enrolled', 'active', 'paused', 'completed', 'dropped'
+  
+  // User preferences
+  reminderFrequency String? // How often to send reminders
+  preferredTime     String? // Preferred practice time
+  userGoals         String? // Personal goals for this series
+  
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series PracticeSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, seriesId])
+  @@map("user_series_enrollments")
+}
+
+// Practice ratings and reviews
+model PracticeRating {
+  id         String @id @default(cuid())
+  userId     String
+  practiceId String
+  rating     Int    // 1-5 stars
+  review     String? // Text review
+  helpful    Boolean? // Whether practice was helpful
+  difficulty_rating Int? // How difficult was it (1-5)
+  clarity_rating    Int? // How clear were instructions (1-5)
+  
+  // Review metadata
+  isVerified Boolean @default(false) // Verified review
+  isPublic   Boolean @default(true)  // Public review
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, practiceId])
+  @@map("practice_ratings")
+}
+
+// Practice recommendations system
+model PracticeRecommendation {
+  id          String @id @default(cuid())
+  userId      String
+  practiceId  String
+  reason      String // Why this was recommended
+  relevanceScore Float // 0-1 relevance score
+  priority    Int    // 1=high, 5=low priority
+  category    String // Type of recommendation
+  
+  // Recommendation metadata
+  basedOn     String? // What this recommendation is based on (assessment, activity, etc.)
+  confidence  Float?  // AI confidence in recommendation
+  
+  // User interaction
+  viewed      Boolean @default(false)
+  accepted    Boolean @default(false) // User started the practice
+  dismissed   Boolean @default(false)
+  
+  recommendedAt DateTime @default(now())
+  expiresAt     DateTime? // When recommendation expires
+  
+  // Relations
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, priority])
+  @@index([recommendedAt])
+  @@map("practice_recommendations")
+}
+
+// Keep existing models with minimal changes...
+// (Assessment, MoodEntry, PlanModule, etc. remain mostly the same)
+
+model Assessment {
+  id           String   @id @default(cuid())
+  userId       String
+  assessmentType String
+  score        Float
+  responses    String
+  aiInsights   String?
+  completedAt  DateTime @default(now())
+  
+  version      Int      @default(1)
+  isLatest     Boolean  @default(true)
+  parentId     String?
+  metadata     String?
+  confidence   Float?
+  tags         String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions AssessmentVersion[]
+  media AssessmentMedia[]
+  parent   Assessment? @relation("AssessmentRevisions", fields: [parentId], references: [id])
+  revisions Assessment[] @relation("AssessmentRevisions")
+  
+  @@map("assessments")
+}
+
+model MoodEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  mood      String
+  notes     String?
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("mood_entries")
+}
+
+model PlanModule {
+  id          String   @id @default(cuid())
+  title       String
+  type        String
+  duration    String
+  difficulty  String
+  description String
+  content     String
+  approach    String
+  order       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  userModules UserPlanModule[]
+  
+  @@map("plan_modules")
+}
+
+model UserPlanModule {
+  id           String   @id @default(cuid())
+  userId       String
+  moduleId     String
+  completed    Boolean  @default(false)
+  progress     Float    @default(0)
+  scheduledFor DateTime?
+  completedAt  DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module PlanModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, moduleId])
+  @@map("user_plan_modules")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  type      String
+  metadata  String?
+  createdAt DateTime @default(now())
+  
+  contextWindow String?
+  tokenCount    Int?
+  embeddings    String?
+  relevanceScore Float?
+  sessionId     String?
+  
+  attachments   String?
+  audioUrl      String?
+  imageUrl      String?
+  sentiment     String?
+  emotionalTags String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("chat_messages")
+}
+
+model AIContext {
+  id            String   @id @default(cuid())
+  userId        String
+  sessionId     String
+  contextType   String
+  contextData   String
+  tokenCount    Int
+  priority      Int      @default(1)
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("ai_contexts")
+}
+
+model AssessmentMedia {
+  id           String   @id @default(cuid())
+  assessmentId String
+  userId       String
+  mediaType    String
+  mediaUrl     String
+  transcript   String?
+  analysis     String?
+  emotions     String?
+  confidence   Float?
+  createdAt    DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  @@map("assessment_media")
+}
+
+model ProgressTracking {
+  id         String   @id @default(cuid())
+  userId     String
+  metric     String
+  value      Float
+  date       DateTime @default(now())
+  notes      String?
+  
+  trendDirection String?
+  predictedValue Float?
+  confidence     Float?
+  riskFactors    String?
+  interventions  String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("progress_tracking")
+}
+
+model PredictiveScore {
+  id            String   @id @default(cuid())
+  userId        String
+  scoreType     String
+  currentScore  Float
+  predictedScore Float
+  timeframe     Int
+  confidence    Float
+  factors       String
+  recommendations String
+  modelVersion  String
+  calculatedAt  DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("predictive_scores")
+}
+
+model ContentRecommendation {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String
+  reason      String
+  relevanceScore Float
+  priority    Int
+  category    String
+  personalizedTitle String?
+  estimatedBenefit Float?
+  viewed      Boolean  @default(false)
+  completed   Boolean  @default(false)
+  rating      Int?
+  feedback    String?
+  recommendedAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  @@map("content_recommendations")
+}
+
+model PlaylistItem {
+  id         String   @id @default(cuid())
+  playlistId String
+  contentId  String
+  order      Int
+  createdAt  DateTime @default(now())
+  
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  content  Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  @@unique([playlistId, contentId])
+  @@map("playlist_items")
+}
+
+model ContentRating {
+  id        String   @id @default(cuid())
+  userId    String
+  contentId String
+  rating    Int
+  review    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, contentId])
+  @@map("content_ratings")
+}
+
+model PlaylistRating {
+  id         String   @id @default(cuid())
+  userId     String
+  playlistId String
+  rating     Int
+  review     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, playlistId])
+  @@map("playlist_ratings")
+}
+
+model AdminUser {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  password    String
+  role        String   @default("admin")
+  permissions String?
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  sessions AdminSession[]
+  activities AdminActivity[]
+  
+  @@map("admin_users")
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  adminId   String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@map("admin_sessions")
+}
+
+model AdminActivity {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  resource  String?
+  details   String?
+  ipAddress String?
+  timestamp DateTime @default(now())
+  
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@map("admin_activities")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("refresh_tokens")
+}
+
+model TokenBlacklist {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+  
+  @@map("token_blacklist")
+}
+
+model UserActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime @default(now())
+  
+  sessionId String?
+  deviceInfo String?
+  location   String?
+  riskScore  Float?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_activities")
+}
+
+model AssessmentVersion {
+  id           String   @id @default(cuid())
+  assessmentId String
+  userId       String
+  version      Int      @default(1)
+  assessmentType String
+  score        Float
+  responses    String
+  aiInsights   String?
+  changes      String?
+  reason       String?
+  modifiedBy   String?
+  createdAt    DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  @@map("assessment_versions")
+}
+
+model SystemAuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  component String
+  details   String
+  severity  String
+  userId    String?
+  timestamp DateTime @default(now())
+  
+  @@map("system_audit_logs")
+}
+
+model EscalationReport {
+  id                String   @id @default(cuid())
+  userId            String
+  sessionId         String
+  escalationLevel   String
+  triggerReasons    String
+  userMessage       String
+  agentResponse     String
+  mentalHealthState String
+  recommendedActions String
+  status            String   @default("pending")
+  reviewedBy        String?
+  reviewNotes       String?
+  followUpRequired  Boolean  @default(true)
+  notificationSent  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("escalation_reports")
+}

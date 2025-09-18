@@ -1,9 +1,3 @@
-import React, { useState } from 'react';
-import { Button } from '../../ui/button';
-import { Card, CardContent } from '../../ui/card';
-import { Input } from '../../ui/input';
-import { Badge } from '../../ui/badge';
-import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { 
   ArrowLeft,
   Search,
@@ -17,597 +11,893 @@ import {
   Filter,
   Heart,
   Brain,
-  Users
+  Sparkles,
+  TrendingUp,
+  Eye,
+  FileText,
+  List
 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+
+import { contentService, type ContentItem, type ContentFilters } from '../../../services/contentService';
+import { ImageWithFallback } from '../../common/ImageWithFallback';
+import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
+import { Card, CardContent } from '../../ui/card';
+import { Input } from '../../ui/input';
 
 interface ContentLibraryProps {
   onNavigate: (page: string) => void;
-  user?: any;
+  user?: {
+    id: string;
+    approach?: string;
+  };
 }
 
-interface ContentItem {
+interface PersonalizedSection {
   id: string;
   title: string;
   description: string;
-  type: 'video' | 'audio' | 'article' | 'playlist';
-  duration: string;
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  category: string;
-  tags: string[];
-  thumbnail: string;
-  rating: number;
-  isBookmarked: boolean;
-  author: string;
-  approach: 'western' | 'eastern' | 'hybrid' | 'all';
+  content: ContentItem[];
+  icon: React.ReactNode;
 }
 
-export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
+// Mock auth hook for now since the actual one doesn't exist
+const useAuth = () => ({
+  user: null
+});
+
+export function ContentLibrary({ onNavigate }: ContentLibraryProps) {
+  // State management
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedApproach, setSelectedApproach] = useState<'all' | 'western' | 'eastern' | 'hybrid'>(
-    user?.approach || 'all'
-  );
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
-
-  const contentItems: ContentItem[] = [
-    {
-      id: '1',
-      title: '10-Minute Morning Mindfulness',
-      description: 'Start your day with presence and intention through this gentle guided practice.',
-      type: 'audio',
-      duration: '10 min',
-      difficulty: 'Beginner',
-      category: 'Mindfulness',
-      tags: ['morning', 'meditation', 'beginners'],
-      thumbnail: 'https://images.unsplash.com/photo-1622048769696-4d042b1028de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZWFjZWZ1bCUyMHlvZ2ElMjBtZWRpdGF0aW9ufGVufDF8fHx8MTc1NjcxMDg4OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.8,
-      isBookmarked: false,
-      author: 'Dr. Sarah Chen',
-      approach: 'eastern'
-    },
-    {
-      id: '2',
-      title: 'Understanding Anxiety: A Complete Guide',
-      description: 'Comprehensive exploration of anxiety - what it is, why it happens, and how to manage it.',
-      type: 'video',
-      duration: '25 min',
-      difficulty: 'Beginner',
-      category: 'Anxiety',
-      tags: ['anxiety', 'education', 'coping'],
-      thumbnail: 'https://images.unsplash.com/photo-1599744403700-b7330f3c4dbe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxtaW5kZnVsbmVzcyUyMG5hdHVyZSUyMHBlYWNlZnVsfGVufDF8fHx8MTc1NjcxMDg5M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.9,
-      isBookmarked: true,
-      author: 'Dr. Michael Rodriguez',
-      approach: 'western'
-    },
-    {
-      id: '3',
-      title: 'Breathing Techniques for Stress Relief',
-      description: 'Learn powerful breathing methods to instantly calm your nervous system.',
-      type: 'video',
-      duration: '15 min',
-      difficulty: 'Beginner',
-      category: 'Stress Management',
-      tags: ['breathing', 'stress', 'techniques'],
-      thumbnail: 'https://images.unsplash.com/photo-1687180948607-9ba1dd045e10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbWVkaXRhdGlvbiUyMHdlbGxuZXNzfGVufDF8fHx8MTc1NjcxMDg4Nnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.7,
-      isBookmarked: false,
-      author: 'Emma Thompson',
-      approach: 'hybrid'
-    },
-    {
-      id: '4',
-      title: 'Body Scan for Deep Relaxation',
-      description: 'Progressive body scan meditation to release tension and find inner peace.',
-      type: 'audio',
-      duration: '20 min',
-      difficulty: 'Intermediate',
-      category: 'Relaxation',
-      tags: ['body scan', 'relaxation', 'sleep'],
-      thumbnail: 'https://images.unsplash.com/photo-1622048769696-4d042b1028de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZWFjZWZ1bCUyMHlvZ2ElMjBtZWRpdGF0aW9ufGVufDF8fHx8MTc1NjcxMDg4OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.6,
-      isBookmarked: true,
-      author: 'Dr. James Wilson',
-      approach: 'eastern'
-    },
-    {
-      id: '5',
-      title: 'Building Emotional Resilience',
-      description: 'Practical strategies to bounce back from life\'s challenges with greater strength.',
-      type: 'article',
-      duration: '8 min read',
-      difficulty: 'Intermediate',
-      category: 'Emotional Intelligence',
-      tags: ['resilience', 'emotional intelligence', 'coping'],
-      thumbnail: 'https://images.unsplash.com/photo-1599744403700-b7330f3c4dbe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxtaW5kZnVsbmVzcyUyMG5hdHVyZSUyMHBlYWNlZnVsfGVufDF8fHx8MTc1NjcxMDg5M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.5,
-      isBookmarked: false,
-      author: 'Dr. Lisa Park',
-      approach: 'western'
-    },
-    {
-      id: '6',
-      title: 'Beginner\'s Journey to Calm',
-      description: 'A complete 7-day series to introduce you to mindfulness and meditation.',
-      type: 'playlist',
-      duration: '7 sessions',
-      difficulty: 'Beginner',
-      category: 'Series',
-      tags: ['beginner', 'series', 'meditation'],
-      thumbnail: 'https://images.unsplash.com/photo-1687180948607-9ba1dd045e10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbWVkaXRhdGlvbiUyMHdlbGxuZXNzfGVufDF8fHx8MTc1NjcxMDg4Nnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.9,
-      isBookmarked: true,
-      author: 'Mindful Living Team',
-      approach: 'hybrid'
-    },
-    {
-      id: '7',
-      title: 'Cognitive Behavioral Therapy Basics',
-      description: 'Learn fundamental CBT techniques to challenge negative thought patterns.',
-      type: 'video',
-      duration: '30 min',
-      difficulty: 'Intermediate',
-      category: 'Anxiety',
-      tags: ['CBT', 'therapy', 'negative thoughts'],
-      thumbnail: 'https://images.unsplash.com/photo-1599744403700-b7330f3c4dbe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxtaW5kZnVsbmVzcyUyMG5hdHVyZSUyMHBlYWNlZnVsfGVufDF8fHx8MTc1NjcxMDg5M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.7,
-      isBookmarked: false,
-      author: 'Dr. Rachel Thompson',
-      approach: 'western'
-    },
-    {
-      id: '8',
-      title: 'Ancient Yoga Nidra for Deep Rest',
-      description: 'Traditional yogic sleep practice for profound relaxation and healing.',
-      type: 'audio',
-      duration: '45 min',
-      difficulty: 'Intermediate',
-      category: 'Relaxation',
-      tags: ['yoga nidra', 'ancient practice', 'deep rest'],
-      thumbnail: 'https://images.unsplash.com/photo-1622048769696-4d042b1028de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZWFjZWZ1bCUyMHlvZ2ElMjBtZWRpdGF0aW9ufGVufDF8fHx8MTc1NjcxMDg4OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.8,
-      isBookmarked: true,
-      author: 'Swami Ananda',
-      approach: 'eastern'
-    },
-    {
-      id: '9',
-      title: 'The Science of Mindfulness',
-      description: 'Research-backed benefits of meditation combined with practical techniques.',
-      type: 'article',
-      duration: '12 min read',
-      difficulty: 'Intermediate',
-      category: 'Mindfulness',
-      tags: ['science', 'research', 'mindfulness'],
-      thumbnail: 'https://images.unsplash.com/photo-1687180948607-9ba1dd045e10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbWVkaXRhdGlvbiUyMHdlbGxuZXNzfGVufDF8fHx8MTc1NjcxMDg4Nnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.6,
-      isBookmarked: false,
-      author: 'Dr. Jon Kabat-Zinn',
-      approach: 'hybrid'
-    },
-    {
-      id: '10',
-      title: 'Traditional Qi Gong for Energy',
-      description: 'Ancient Chinese practice to cultivate life energy and inner balance.',
-      type: 'video',
-      duration: '20 min',
-      difficulty: 'Beginner',
-      category: 'Stress Management',
-      tags: ['qi gong', 'energy', 'balance'],
-      thumbnail: 'https://images.unsplash.com/photo-1622048769696-4d042b1028de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZWFjZWZ1bCUyMHlvZ2ElMjBtZWRpdGF0aW9ufGVufDF8fHx8MTc1NjcxMDg4OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.5,
-      isBookmarked: false,
-      author: 'Master Li Wei',
-      approach: 'eastern'
-    },
-    {
-      id: '11',
-      title: 'Dialectical Behavior Therapy Skills',
-      description: 'Learn DBT techniques for emotional regulation and distress tolerance.',
-      type: 'video',
-      duration: '28 min',
-      difficulty: 'Advanced',
-      category: 'Emotional Intelligence',
-      tags: ['DBT', 'emotional regulation', 'distress tolerance'],
-      thumbnail: 'https://images.unsplash.com/photo-1599744403700-b7330f3c4dbe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHhtaW5kZnVsbmVzcyUyMG5hdHVyZSUyMHBlYWNlZnVsfGVufDF8fHx8MTc1NjcxMDg5M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.9,
-      isBookmarked: true,
-      author: 'Dr. Marsha Linehan',
-      approach: 'western'
-    },
-    {
-      id: '12',
-      title: 'Integrative Stress Relief Program',
-      description: 'Combines Western psychology with Eastern mindfulness for complete stress management.',
-      type: 'playlist',
-      duration: '10 sessions',
-      difficulty: 'Intermediate',
-      category: 'Stress Management',
-      tags: ['integrative', 'stress relief', 'complete program'],
-      thumbnail: 'https://images.unsplash.com/photo-1687180948607-9ba1dd045e10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbWVkaXRhdGlvbiUyMHdlbGxuZXNzfGVufDF8fHx8MTc1NjcxMDg4Nnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      rating: 4.8,
-      isBookmarked: false,
-      author: 'Integrative Wellness Team',
-      approach: 'hybrid'
-    }
-  ];
-
-  const categories = ['all', 'Mindfulness', 'Anxiety', 'Stress Management', 'Relaxation', 'Emotional Intelligence', 'Series'];
-  const types = ['all', 'video', 'audio', 'article', 'playlist'];
-
-  const filteredContent = contentItems.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    const matchesType = selectedType === 'all' || item.type === selectedType;
-    const matchesApproach = selectedApproach === 'all' || item.approach === selectedApproach || item.approach === 'all';
-    
-    return matchesSearch && matchesCategory && matchesType && matchesApproach;
+  const [searchResults, setSearchResults] = useState<ContentItem[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [personalizedSections, setPersonalizedSections] = useState<PersonalizedSection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Filter states
+  const [filters, setFilters] = useState<ContentFilters>({
+    page: 1,
+    limit: 12,
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
   });
+  const [showFilters, setShowFilters] = useState(false);
+  const [categories, setCategories] = useState<Array<{ name: string; count: number }>>([]);
+  const [types, setTypes] = useState<Array<{ name: string; count: number }>>([]);
+  
+  // Pagination
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 12,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  });
+  
+  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'for-you' | 'featured' | 'bookmarks'>('for-you');
 
-  const getTypeIcon = (type: string) => {
+  const { user: authUser } = useAuth();
+
+  // Content icons mapping
+  const getContentIcon = (type: string) => {
     switch (type) {
-      case 'video': return <Video className="h-4 w-4" />;
-      case 'audio': return <Headphones className="h-4 w-4" />;
-      case 'article': return <BookOpen className="h-4 w-4" />;
-      case 'playlist': return <Play className="h-4 w-4" />;
+      case 'video': return <Video className="w-4 h-4" />;
+      case 'audio': return <Headphones className="w-4 h-4" />;
+      case 'article': return <BookOpen className="w-4 h-4" />;
+      case 'playlist': return <List className="w-4 h-4" />;
+      default: return <FileText className="w-4 h-4" />;
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'video': return 'bg-red-100 text-red-800';
-      case 'audio': return 'bg-green-100 text-green-800';
-      case 'article': return 'bg-blue-100 text-blue-800';
-      case 'playlist': return 'bg-purple-100 text-purple-800';
+  // Load initial data
+  useEffect(() => {
+    loadInitialContent();
+    loadCategories();
+  }, []);
+
+  // Load content when filters change
+  useEffect(() => {
+    loadContent();
+  }, [filters]);
+
+  const loadInitialContent = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [contentResponse, recommendationsResponse] = await Promise.all([
+        contentService.getContent({
+          page: 1,
+          limit: 12,
+          sortBy: 'createdAt',
+          sortOrder: 'desc'
+        }),
+        authUser ? contentService.getRecommendations() : Promise.resolve({ data: { recommendations: [] } })
+      ]);
+
+      setContent(contentResponse.data.content);
+      setPagination(contentResponse.data.pagination);
+      
+      if (authUser) {
+        await createPersonalizedSections(contentResponse.data.content, recommendationsResponse.data.recommendations);
+      }
+    } catch (error) {
+      console.error('Error loading initial content:', error);
+      setError('Failed to load content');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [authUser]);
+
+  const loadContent = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await contentService.getContent(filters);
+      setContent(response.data.content);
+      setPagination(response.data.pagination);
+    } catch (error) {
+      console.error('Error loading content:', error);
+      setError('Failed to load content');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters]);
+
+  const loadCategories = async () => {
+    try {
+      const response = await contentService.getCategories();
+      setCategories(response.data.categories);
+      setTypes(response.data.types);
+    } catch (error) {
+      console.error('Error loading categories:', error);
     }
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'Beginner': return 'bg-green-100 text-green-800';
-      case 'Intermediate': return 'bg-yellow-100 text-yellow-800';
-      case 'Advanced': return 'bg-red-100 text-red-800';
+  const createPersonalizedSections = async (allContent: ContentItem[], userRecommendations: ContentItem[]) => {
+    const sections: PersonalizedSection[] = [];
+
+    // For You section (recommendations)
+    if (userRecommendations.length > 0) {
+      sections.push({
+        id: 'for-you',
+        title: 'For You',
+        description: 'Personalized content based on your journey',
+        content: userRecommendations.slice(0, 6),
+        icon: <Sparkles className="w-5 h-5" />
+      });
+    }
+
+    // Featured content
+    const featured = allContent.filter(item => item.isFeatured).slice(0, 6);
+    if (featured.length > 0) {
+      sections.push({
+        id: 'featured',
+        title: 'Featured',
+        description: 'Editor\'s picks and trending content',
+        content: featured,
+        icon: <Star className="w-5 h-5" />
+      });
+    }
+
+    // Popular content
+    const popular = allContent.filter(item => item.viewCount > 100).slice(0, 6);
+    if (popular.length > 0) {
+      sections.push({
+        id: 'popular',
+        title: 'Popular',
+        description: 'Most viewed content this week',
+        content: popular,
+        icon: <TrendingUp className="w-5 h-5" />
+      });
+    }
+
+    // Approach-based content
+    if (authUser?.approach && authUser.approach !== 'hybrid') {
+      const approachContent = allContent.filter(item => 
+        item.approach === authUser.approach || item.approach === 'hybrid'
+      ).slice(0, 6);
+      
+      if (approachContent.length > 0) {
+        sections.push({
+          id: 'approach',
+          title: `${authUser.approach.charAt(0).toUpperCase() + authUser.approach.slice(1)} Approach`,
+          description: `Content aligned with your ${authUser.approach} approach`,
+          content: approachContent,
+          icon: authUser.approach === 'western' ? <Brain className="w-5 h-5" /> : <Heart className="w-5 h-5" />
+        });
+      }
+    }
+
+    setPersonalizedSections(sections);
+  };
+
+  // Search functionality
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearchSuggestions([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await contentService.searchContent(query, {
+        category: filters.category,
+        type: filters.type,
+        difficulty: filters.difficulty
+      });
+      
+      setSearchResults(response.data.results);
+      setSearchSuggestions(response.data.suggestions);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [filters]);
+
+  // Debounced search
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, handleSearch]);
+
+  // Filter handlers
+  const updateFilters = (newFilters: Partial<ContentFilters>) => {
+    setFilters(prev => ({ ...prev, ...newFilters, page: 1 }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      page: 1,
+      limit: 12,
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    });
+  };
+
+  // Content interaction handlers
+  const handleBookmark = async (contentId: string) => {
+    try {
+      const item = content.find(c => c.id === contentId);
+      if (!item) return;
+
+      if (item.isBookmarked) {
+        await contentService.removeBookmark(contentId);
+      } else {
+        await contentService.bookmarkContent(contentId);
+      }
+
+      // Update local state
+      setContent(prev => prev.map(c => 
+        c.id === contentId ? { ...c, isBookmarked: !c.isBookmarked } : c
+      ));
+    } catch (error) {
+      console.error('Error updating bookmark:', error);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <Button 
-              variant="ghost" 
+  const handleContentClick = async (contentItem: ContentItem) => {
+    setSelectedContent(contentItem);
+    
+    // Track view interaction
+    try {
+      await contentService.trackInteraction(contentItem.id, 'view', {
+        source: 'content_library',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error tracking view:', error);
+    }
+  };
+
+  // Render functions
+  const renderContentCard = (item: ContentItem, size: 'small' | 'medium' | 'large' = 'medium') => {
+    const cardClasses = {
+      small: 'w-64',
+      medium: 'w-80', 
+      large: 'w-96'
+    };
+
+    return (
+      <Card 
+        key={item.id} 
+        className={`${cardClasses[size]} cursor-pointer group hover:shadow-lg transition-all duration-200 bg-gray-800 border-gray-700 hover:border-purple-500`}
+        onClick={() => handleContentClick(item)}
+      >
+        <div className="relative">
+          <ImageWithFallback
+            src={item.thumbnail || item.imageUrl || '/default-content.jpg'}
+            alt={item.title}
+            className="w-full h-48 object-cover rounded-t-lg"
+          />
+          
+          {/* Content type overlay */}
+          <div className="absolute top-2 left-2">
+            <Badge variant="secondary" className="flex items-center gap-1 bg-black/60 text-white border-none">
+              {getContentIcon(item.type)}
+              {item.type}
+            </Badge>
+          </div>
+
+          {/* Duration overlay */}
+          {item.duration && (
+            <div className="absolute top-2 right-2">
+              <Badge variant="secondary" className="flex items-center gap-1 bg-black/60 text-white border-none">
+                <Clock className="w-3 h-3" />
+                {item.duration}m
+              </Badge>
+            </div>
+          )}
+
+          {/* Featured badge */}
+          {item.isFeatured && (
+            <div className="absolute bottom-2 left-2">
+              <Badge variant="secondary" className="flex items-center gap-1 bg-yellow-500/80 text-black border-none">
+                <Star className="w-3 h-3" />
+                Featured
+              </Badge>
+            </div>
+          )}
+
+          {/* Play overlay for videos */}
+          {item.type === 'video' && (
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-t-lg">
+              <div className="bg-white/90 rounded-full p-3">
+                <Play className="w-6 h-6 text-gray-800" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="font-semibold text-white text-sm line-clamp-2 group-hover:text-purple-400 transition-colors">
+              {item.title}
+            </h3>
+            <Button
+              variant="ghost"
               size="sm"
-              onClick={() => onNavigate('dashboard')}
+              className="p-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleBookmark(item.id);
+              }}
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              <Bookmark 
+                className={`w-4 h-4 ${item.isBookmarked ? 'fill-purple-500 text-purple-500' : 'text-gray-400'}`} 
+              />
             </Button>
           </div>
 
-          <div className="space-y-4">
-            <h1 className="text-3xl">Content Library</h1>
-            <p className="text-muted-foreground text-lg">
-              Curated videos, guided meditations, articles, and educational content for your wellbeing journey
-            </p>
+          <p className="text-sm text-gray-400 mb-3 line-clamp-2">
+            {item.shortDescription || item.description}
+          </p>
 
-            {/* Approach preference message */}
-            {user?.approach && user.approach !== selectedApproach && selectedApproach !== 'all' && (
-              <div className="bg-accent/20 border border-accent/30 rounded-lg p-4">
-                <p className="text-sm">
-                  💡 <strong>Tip:</strong> You're currently viewing{' '}
-                  <span className="capitalize font-medium">{selectedApproach}</span> content.{' '}
-                  Your preferred approach is{' '}
-                  <span className="capitalize font-medium">{user.approach}</span>.{' '}
-                  <button 
-                    onClick={() => setSelectedApproach(user.approach!)}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    Switch to your preferred content
-                  </button>
-                </p>
-              </div>
-            )}
-
-            {user?.approach && selectedApproach === user.approach && selectedApproach !== 'all' && (
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                <p className="text-sm">
-                  ✨ Showing content tailored to your{' '}
-                  <span className="capitalize font-medium">{user.approach}</span> approach preference.{' '}
-                  <button 
-                    onClick={() => setSelectedApproach('all')}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    View all content
-                  </button>
-                </p>
-              </div>
-            )}
-
-            {/* Search */}
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search content..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs border-gray-600 text-gray-300">
+                {item.difficulty}
+              </Badge>
+              <Badge variant="outline" className="text-xs border-gray-600 text-gray-300">
+                {item.category}
+              </Badge>
             </div>
+            
+            <div className="flex items-center gap-2">
+              {item.averageRating && (
+                <div className="flex items-center gap-1">
+                  <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                  <span>{item.averageRating.toFixed(1)}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1">
+                <Eye className="w-3 h-3" />
+                <span>{item.viewCount}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderPersonalizedSection = (section: PersonalizedSection) => (
+    <div key={section.id} className="mb-8">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="text-purple-500">{section.icon}</div>
+        <div>
+          <h2 className="text-xl font-bold text-white">{section.title}</h2>
+          <p className="text-sm text-gray-400">{section.description}</p>
+        </div>
+      </div>
+      
+      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+        {section.content.map(item => renderContentCard(item, 'medium'))}
+      </div>
+    </div>
+  );
+
+  const renderFilters = () => (
+    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Filter className="w-5 h-5" />
+          Filters
+        </h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearFilters}
+          className="text-gray-400 hover:text-white"
+        >
+          Clear All
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Category Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
+          <select
+            value={filters.category || ''}
+            onChange={(e) => updateFilters({ category: e.target.value || undefined })}
+            className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white"
+          >
+            <option value="">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat.name} value={cat.name}>
+                {cat.name} ({cat.count})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Type Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+          <select
+            value={filters.type || ''}
+            onChange={(e) => updateFilters({ type: e.target.value || undefined })}
+            className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white"
+          >
+            <option value="">All Types</option>
+            {types.map(type => (
+              <option key={type.name} value={type.name}>
+                {type.name} ({type.count})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Difficulty Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Difficulty</label>
+          <select
+            value={filters.difficulty || ''}
+            onChange={(e) => updateFilters({ difficulty: e.target.value || undefined })}
+            className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white"
+          >
+            <option value="">All Levels</option>
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+          </select>
+        </div>
+
+        {/* Sort Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Sort By</label>
+          <select
+            value={`${filters.sortBy}-${filters.sortOrder}`}
+            onChange={(e) => {
+              const [sortBy, sortOrder] = e.target.value.split('-');
+              updateFilters({ sortBy: sortBy as any, sortOrder: sortOrder as 'asc' | 'desc' });
+            }}
+            className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white"
+          >
+            <option value="createdAt-desc">Newest First</option>
+            <option value="createdAt-asc">Oldest First</option>
+            <option value="viewCount-desc">Most Popular</option>
+            <option value="rating-desc">Highest Rated</option>
+            <option value="title-asc">Title A-Z</option>
+            <option value="title-desc">Title Z-A</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderContentGrid = (contentList: ContentItem[]) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {contentList.map(item => renderContentCard(item, 'medium'))}
+    </div>
+  );
+
+  const renderPagination = () => (
+    <div className="flex items-center justify-between mt-8">
+      <div className="text-sm text-gray-400">
+        Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => updateFilters({ page: pagination.page - 1 })}
+          disabled={!pagination.hasPrev || isLoading}
+          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+        >
+          Previous
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+            const pageNum = Math.max(1, pagination.page - 2) + i;
+            if (pageNum > pagination.totalPages) return null;
+            
+            return (
+              <Button
+                key={pageNum}
+                variant={pageNum === pagination.page ? "default" : "outline"}
+                size="sm"
+                onClick={() => updateFilters({ page: pageNum })}
+                className={pageNum === pagination.page 
+                  ? "bg-purple-600 hover:bg-purple-700" 
+                  : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                }
+              >
+                {pageNum}
+              </Button>
+            );
+          })}
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => updateFilters({ page: pagination.page + 1 })}
+          disabled={!pagination.hasNext || isLoading}
+          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+
+  if (isLoading && content.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading content...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <Button onClick={loadInitialContent} className="bg-purple-600 hover:bg-purple-700">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onNavigate('dashboard')}
+            className="text-gray-400 hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-white">Content Library</h1>
+            <p className="text-gray-400">Discover articles, videos, and resources for your wellbeing journey</p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6">
-        {/* Filters */}
-        <div className="space-y-4 mb-8">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Filters:</span>
-          </div>
-          
-          <div className="space-y-3">
-            {/* Category Filter */}
-            <div className="space-y-2">
-              <span className="text-sm text-muted-foreground">Category:</span>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((category) => (
-                  <Button
-                    key={category}
-                    variant={selectedCategory === category ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedCategory(category)}
-                    className="capitalize"
-                  >
-                    {category}
-                  </Button>
-                ))}
-              </div>
+      {/* Search Bar */}
+      <div className="relative mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <Input
+            type="text"
+            placeholder="Search content, topics, or keywords..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-4 py-3 bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-purple-500"
+          />
+          {isSearching && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
             </div>
-
-            {/* Type Filter */}
-            <div className="space-y-2">
-              <span className="text-sm text-muted-foreground">Content Type:</span>
-              <div className="flex flex-wrap gap-2">
-                {types.map((type) => (
-                  <Button
-                    key={type}
-                    variant={selectedType === type ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedType(type)}
-                    className="capitalize flex items-center gap-1"
-                  >
-                    {type !== 'all' && getTypeIcon(type)}
-                    {type}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Approach Filter */}
-            <div className="space-y-2">
-              <span className="text-sm text-muted-foreground">Approach:</span>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={selectedApproach === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedApproach('all')}
-                >
-                  All Approaches
-                </Button>
-                <Button
-                  variant={selectedApproach === 'western' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedApproach('western')}
-                  className="flex items-center gap-1"
-                >
-                  <Brain className="h-3 w-3" />
-                  Western Therapy
-                </Button>
-                <Button
-                  variant={selectedApproach === 'eastern' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedApproach('eastern')}
-                  className="flex items-center gap-1"
-                >
-                  <Heart className="h-3 w-3" />
-                  Eastern Practices
-                </Button>
-                <Button
-                  variant={selectedApproach === 'hybrid' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedApproach('hybrid')}
-                  className="flex items-center gap-1"
-                >
-                  <Users className="h-3 w-3" />
-                  Hybrid Approach
-                </Button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Content Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredContent.map((item) => (
-            <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-              <div className="relative">
-                <ImageWithFallback
-                  src={item.thumbnail}
-                  alt={item.title}
-                  className="w-full h-48 object-cover"
-                />
-                
-                {/* Overlay with play button */}
-                <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center group">
-                  <Button 
-                    size="sm" 
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    {item.type === 'article' ? 'Read' : 'Play'}
-                  </Button>
-                </div>
-
-                {/* Bookmark button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Toggle bookmark functionality
-                  }}
+        {/* Search Suggestions */}
+        {searchQuery && searchSuggestions.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
+            <div className="p-2">
+              <p className="text-xs text-gray-400 mb-2">Suggestions:</p>
+              {searchSuggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  className="block w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-md"
+                  onClick={() => setSearchQuery(suggestion)}
                 >
-                  <Bookmark 
-                    className={`h-4 w-4 ${item.isBookmarked ? 'fill-current text-primary' : ''}`} 
-                  />
-                </Button>
-
-                {/* Type indicator */}
-                <Badge 
-                  className={`absolute top-2 left-2 ${getTypeColor(item.type)}`}
-                >
-                  <div className="flex items-center gap-1">
-                    {getTypeIcon(item.type)}
-                    <span className="capitalize">{item.type}</span>
-                  </div>
-                </Badge>
-
-                {/* Approach indicator */}
-                {item.approach !== 'all' && (
-                  <Badge 
-                    className="absolute top-12 left-2 bg-white/90 text-gray-700 text-xs"
-                  >
-                    {item.approach === 'western' && '🧠 Western'}
-                    {item.approach === 'eastern' && '🕉️ Eastern'}
-                    {item.approach === 'hybrid' && '🌸 Hybrid'}
-                  </Badge>
-                )}
-              </div>
-
-              <CardContent className="p-4 space-y-3">
-                <div className="space-y-2">
-                  <h3 className="font-semibold leading-tight">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {item.description}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>{item.duration}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-current text-yellow-500" />
-                    <span className="text-sm font-medium">{item.rating}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Badge 
-                    variant="outline"
-                    className={getDifficultyColor(item.difficulty)}
-                  >
-                    {item.difficulty}
-                  </Badge>
-                  
-                  <span className="text-xs text-muted-foreground">
-                    by {item.author}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-1">
-                  {item.tags.slice(0, 3).map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {filteredContent.length === 0 && (
-          <div className="text-center py-12">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No content found</h3>
-            <p className="text-muted-foreground mb-4">
-              Try adjusting your search or filters to find what you're looking for.
-            </p>
-            <Button 
-              variant="outline"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-                setSelectedType('all');
-                setSelectedApproach('all');
-              }}
-            >
-              Clear Filters
-            </Button>
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </div>
         )}
+      </div>
 
-        {/* Featured Collections */}
-        <div className="mt-12 space-y-6">
-          <h2 className="text-2xl">Featured Collections</h2>
-          
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="p-6 bg-gradient-to-br from-primary/10 to-accent/10">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Heart className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">Anxiety Relief</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Immediate techniques and long-term strategies for managing anxiety
-                </p>
-                <Button size="sm" variant="outline">
-                  Explore Collection
-                </Button>
-              </div>
-            </Card>
+      {/* Content Tabs */}
+      <div className="mb-6">
+        <div className="flex space-x-1 bg-gray-800 rounded-lg p-1 w-fit">
+          {[
+            { id: 'for-you', label: 'For You', icon: <Sparkles className="w-4 h-4" /> },
+            { id: 'all', label: 'All Content', icon: <BookOpen className="w-4 h-4" /> },
+            { id: 'featured', label: 'Featured', icon: <Star className="w-4 h-4" /> },
+            { id: 'bookmarks', label: 'Bookmarks', icon: <Bookmark className="w-4 h-4" /> }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-            <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-green-600" />
-                  <h3 className="font-semibold">Better Sleep</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Guided practices and education for improving sleep quality
-                </p>
-                <Button size="sm" variant="outline">
-                  Explore Collection
-                </Button>
-              </div>
-            </Card>
+      {/* Filter Toggle */}
+      <div className="mb-6">
+        <Button
+          variant="outline"
+          onClick={() => setShowFilters(!showFilters)}
+          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+        >
+          <Filter className="w-4 h-4 mr-2" />
+          {showFilters ? 'Hide Filters' : 'Show Filters'}
+        </Button>
+      </div>
 
-            <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-purple-600" />
-                  <h3 className="font-semibold">Relationships</h3>
+      {/* Filters */}
+      {showFilters && renderFilters()}
+
+      {/* Content Display */}
+      {searchQuery && searchResults.length > 0 ? (
+        <div>
+          <h2 className="text-xl font-bold text-white mb-4">
+            Search Results for "{searchQuery}" ({searchResults.length})
+          </h2>
+          {renderContentGrid(searchResults)}
+        </div>
+      ) : searchQuery && searchResults.length === 0 && !isSearching ? (
+        <div className="text-center py-12">
+          <BookOpen className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-300 mb-2">No results found</h3>
+          <p className="text-gray-400">Try adjusting your search terms or filters</p>
+        </div>
+      ) : (
+        <>
+          {/* Personalized Sections */}
+          {activeTab === 'for-you' && authUser && (
+            <div>
+              {personalizedSections.length > 0 ? (
+                personalizedSections.map(section => renderPersonalizedSection(section))
+              ) : (
+                <div className="text-center py-12">
+                  <Sparkles className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-300 mb-2">Building your personalized experience</h3>
+                  <p className="text-gray-400">Complete your assessment to get personalized recommendations</p>
+                  <Button 
+                    onClick={() => onNavigate('assessment')}
+                    className="mt-4 bg-purple-600 hover:bg-purple-700"
+                  >
+                    Take Assessment
+                  </Button>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Building healthy connections and communication skills
-                </p>
-                <Button size="sm" variant="outline">
-                  Explore Collection
-                </Button>
+              )}
+            </div>
+          )}
+
+          {/* All Content */}
+          {activeTab === 'all' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white">All Content</h2>
+                <p className="text-sm text-gray-400">{pagination.total} items</p>
               </div>
-            </Card>
+              {renderContentGrid(content)}
+              {renderPagination()}
+            </div>
+          )}
+
+          {/* Featured Content */}
+          {activeTab === 'featured' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-6">Featured Content</h2>
+              {renderContentGrid(content.filter(item => item.isFeatured))}
+            </div>
+          )}
+
+          {/* Bookmarked Content */}
+          {activeTab === 'bookmarks' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-6">Your Bookmarks</h2>
+              {renderContentGrid(content.filter(item => item.isBookmarked))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Content Detail Modal */}
+      {selectedContent && (
+        <ContentDetailModal
+          content={selectedContent}
+          onClose={() => setSelectedContent(null)}
+          onBookmark={handleBookmark}
+        />
+      )}
+    </div>
+  );
+}
+
+// Content Detail Modal Component
+interface ContentDetailModalProps {
+  content: ContentItem;
+  onClose: () => void;
+  onBookmark: (contentId: string) => void;
+}
+
+function ContentDetailModal({ content, onClose, onBookmark }: ContentDetailModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <h2 className="text-2xl font-bold text-white">{content.title}</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </Button>
+          </div>
+
+          {content.thumbnail && (
+            <div className="mb-6">
+              <ImageWithFallback
+                src={content.thumbnail}
+                alt={content.title}
+                className="w-full h-64 object-cover rounded-lg"
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <p className="text-gray-300 mb-4">{content.description}</p>
+              
+              {content.fullDescription && (
+                <div className="prose prose-invert max-w-none">
+                  <div dangerouslySetInnerHTML={{ __html: content.fullDescription }} />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="bg-gray-700 rounded-lg p-4 mb-4">
+                <h3 className="font-semibold text-white mb-3">Details</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Type:</span>
+                    <span className="text-white capitalize">{content.type}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Category:</span>
+                    <span className="text-white">{content.category}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Difficulty:</span>
+                    <span className="text-white">{content.difficulty}</span>
+                  </div>
+                  {content.duration && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Duration:</span>
+                      <span className="text-white">{content.duration} min</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Views:</span>
+                    <span className="text-white">{content.viewCount}</span>
+                  </div>
+                  {content.averageRating && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Rating:</span>
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                        <span className="text-white">{content.averageRating.toFixed(1)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  onClick={() => onBookmark(content.id)}
+                  variant="outline"
+                  className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+                >
+                  <Bookmark className={`w-4 h-4 mr-2 ${content.isBookmarked ? 'fill-purple-500 text-purple-500' : ''}`} />
+                  {content.isBookmarked ? 'Remove Bookmark' : 'Bookmark'}
+                </Button>
+
+                {content.type === 'video' && (
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                    <Play className="w-4 h-4 mr-2" />
+                    Watch Video
+                  </Button>
+                )}
+
+                {content.type === 'audio' && (
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                    <Headphones className="w-4 h-4 mr-2" />
+                    Listen
+                  </Button>
+                )}
+
+                {content.type === 'article' && (
+                  <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                    <BookOpen className="w-4 h-4 mr-2" />
+                    Read Article
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+export default ContentLibrary;

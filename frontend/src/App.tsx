@@ -1,4 +1,4 @@
-import { MessageCircle, LogOut } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { AssessmentList, AssessmentFlow, InsightsResults } from './components/features/assessment';
@@ -10,7 +10,8 @@ import { OnboardingFlow } from './components/features/onboarding';
 import { PersonalizedPlan } from './components/features/plans';
 import { Progress, Profile } from './components/features/profile';
 import { HelpSafety } from './components/layout';
-import { Button } from './components/ui/button';
+import { AdminAuthProvider } from './contexts/AdminAuthContext';
+import { ChatProvider } from './contexts/ChatContext';
 import { getCurrentUser, loginUser, registerUser, signOut, StoredUser, completeOnboarding, setupUserPassword } from './services/auth';
 
 type Page = 
@@ -90,7 +91,7 @@ export default function App() {
     setCurrentPage('assessment-flow');
   };
 
-  const completeAssessment = (scores: any) => {
+  const completeAssessment = (scores: Record<string, number>) => {
     setUser(prev => prev ? {
       ...prev,
       assessmentScores: { ...prev.assessmentScores, ...scores }
@@ -159,6 +160,37 @@ export default function App() {
     setCurrentPage('landing');
     // Clear any query params that might trigger OAuth callback logic
     window.history.replaceState({}, document.title, '/');
+  };
+
+  const handleAdminLogin = async (credentials: { email: string; password: string }) => {
+    // This will be handled by the AdminAuthContext
+    // Just implement a basic placeholder for now since the actual logic is in AdminLoginModal
+    try {
+      const response = await fetch('/api/admin/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(credentials),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Admin login successful - could redirect to admin dashboard
+          console.log('Admin login successful:', data.admin);
+          // For now, just log success - in a real implementation, 
+          // you might redirect to admin dashboard or show admin UI
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Admin login failed');
+      }
+    } catch (error) {
+      console.error('Admin login error:', error);
+      throw error; // Re-throw to let the modal handle the error display
+    }
   };
 
   const handleOAuthSuccess = (userData: { 
@@ -336,7 +368,7 @@ export default function App() {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'landing':
-  return <LandingPage onSignUp={signUp} onLogin={login} authError={authError} />;
+  return <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} />;
       case 'oauth-callback':
         return <OAuthCallback onAuthSuccess={handleOAuthSuccess} onAuthError={handleOAuthError} />;
       case 'password-setup':
@@ -375,55 +407,44 @@ export default function App() {
       case 'help':
         return <HelpSafety onNavigate={navigateTo} />;
       default:
-  return <LandingPage onSignUp={signUp} onLogin={login} authError={authError} />;
+  return <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {loadingUser ? (
-        <div className="flex items-center justify-center h-screen text-muted-foreground">Loading...</div>
-      ) : (
-        renderCurrentPage()
-      )}
+    <AdminAuthProvider>
+      <ChatProvider>
+        <div className="min-h-screen bg-background">
+        {loadingUser ? (
+          <div className="flex items-center justify-center h-screen text-muted-foreground">Loading...</div>
+        ) : (
+          renderCurrentPage()
+        )}          {/* Floating Chat Button */}
+          {user && (
+            <button
+              onClick={() => setShowChatbot(true)}
+              className="fixed bottom-6 right-6 bg-primary text-primary-foreground p-4 rounded-full shadow-lg hover:bg-primary/90 transition-colors z-40"
+              aria-label="Open AI Chat"
+            >
+              <MessageCircle className="h-6 w-6" />
+            </button>
+          )}
 
-      {/* Simple top-right user bar */}
-      <div className="fixed top-3 right-4 flex gap-3 items-center z-40">
-        {user ? (
-          <>
-            <span className="text-sm text-muted-foreground hidden sm:inline">{user.email}</span>
-            <Button variant="outline" size="sm" onClick={logout} className="flex items-center gap-1">
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Sign out</span>
-            </Button>
-          </>
-        ) : null}
-      </div>
-      
-      {/* Floating Chatbot Button - only show when user is logged in and not on landing/onboarding */}
-      {user && user.isOnboarded && !['landing', 'onboarding', 'chatbot'].includes(currentPage) && (
-        <Button
-          onClick={() => setShowChatbot(true)}
-          className="fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg z-50"
-          size="lg"
-        >
-          <MessageCircle className="h-6 w-6" />
-        </Button>
-      )}
-
-      {/* Chatbot Modal */}
-      {showChatbot && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md h-[600px] flex flex-col">
-            <Chatbot 
-              user={user} 
-              onNavigate={navigateTo}
-              isModal={true}
-              onClose={() => setShowChatbot(false)}
-            />
-          </div>
+          {/* Chat Modal */}
+          {showChatbot && (
+            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl w-full max-w-md h-[600px] flex flex-col">
+                <Chatbot 
+                  user={user} 
+                  onNavigate={navigateTo}
+                  isModal={true}
+                  onClose={() => setShowChatbot(false)}
+                />
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </ChatProvider>
+    </AdminAuthProvider>
   );
 }

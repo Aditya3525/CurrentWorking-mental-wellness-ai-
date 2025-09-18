@@ -78,16 +78,19 @@ export const googleAuthSuccess = async (req: Request, res: Response) => {
 
     // Redirect to frontend OAuth callback with token and comprehensive user data
     const userDataEncoded = encodeURIComponent(JSON.stringify(userData));
-    res.redirect(`http://localhost:3000/auth/callback?token=${token}&redirect=${redirectParam}&needs_setup=${needsSetup}&user_data=${userDataEncoded}`);
+    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendBase}/auth/callback?token=${token}&redirect=${redirectParam}&needs_setup=${needsSetup}&user_data=${userDataEncoded}`);
   } catch (error) {
     console.error('Google OAuth success error:', error);
-    res.redirect('http://localhost:3000/auth/callback?error=oauth_error');
+    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendBase}/auth/callback?error=oauth_error`);
   }
 };
 
 // Google OAuth Failure callback
 export const googleAuthFailure = (req: Request, res: Response) => {
-  res.redirect('http://localhost:3000/auth/callback?error=oauth_cancelled');
+  const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+  res.redirect(`${frontendBase}/auth/callback?error=oauth_cancelled`);
 };
 
 // Stateless logout (client simply discards token; endpoint provided for future blacklisting/session tracking)

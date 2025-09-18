@@ -1,4 +1,4 @@
-import { Heart, Brain, Target, Sparkles, Play, MessageCircle, BookOpen, TrendingUp, Calendar, Award, ArrowRight } from 'lucide-react';
+import { Heart, Brain, Target, Sparkles, Play, MessageCircle, BookOpen, TrendingUp, Calendar, Award, ArrowRight, Shield } from 'lucide-react';
 import React, { useState } from 'react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -93,6 +93,18 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
               <p className="text-muted-foreground">How are you feeling today?</p>
             </div>
             <div className="flex items-center gap-4">
+              {/* Admin Access - Only show for admin users */}
+              {user?.role === 'admin' && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => onNavigate('admin')}
+                  className="border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin Panel
+                </Button>
+              )}
+              
               {/* Profile Completion Indicator */}
               {getProfileCompletion() < 100 && (
                 <div className="text-right">
@@ -290,6 +302,20 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Admin Panel Access - Only for admin users */}
+              {user?.role === 'admin' && (
+                <Button 
+                  className="w-full justify-between bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={() => onNavigate('admin')}
+                >
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Admin Panel
+                  </div>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
+              
               <Button 
                 className="w-full justify-between"
                 onClick={() => onStartAssessment('anxiety')}
@@ -430,7 +456,7 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
         </div>
 
         {/* Navigation Shortcuts */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className={`grid grid-cols-2 md:grid-cols-${user?.role === 'admin' ? '5' : '4'} gap-4`}>
           <Button
             variant="ghost"
             className="h-20 flex-col gap-2"
@@ -466,6 +492,18 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
             <Heart className="h-6 w-6 text-primary" />
             <span className="text-sm">Help</span>
           </Button>
+
+          {/* Admin shortcut - Only show for admin users */}
+          {user?.role === 'admin' && (
+            <Button
+              variant="ghost"
+              className="h-20 flex-col gap-2 border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+              onClick={() => onNavigate('admin')}
+            >
+              <Shield className="h-6 w-6 text-orange-600" />
+              <span className="text-sm">Admin</span>
+            </Button>
+          )}
         </div>
       </div>
     </div>

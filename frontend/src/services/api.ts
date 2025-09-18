@@ -259,8 +259,59 @@ export const moodApi = {
 
 // Chat API
 export const chatApi = {
-  async sendMessage(content: string): Promise<ApiResponse<any>> {
-    return apiClient.post('/chat/message', { content });
+  async sendMessage(content: string, context?: {
+    userContext?: {
+      name?: string;
+      recentMoods?: any[];
+      completedAssessments?: any[];
+      preferredApproach?: string;
+    };
+    messageHistory?: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+    }>;
+  }): Promise<ApiResponse<any>> {
+    return apiClient.post('/chat/message', { 
+      content,
+      userContext: context?.userContext,
+      messageHistory: context?.messageHistory
+    });
+  },
+
+  async streamMessage(message: string, context?: {
+    userContext?: {
+      name?: string;
+      recentMoods?: any[];
+      completedAssessments?: any[];
+      preferredApproach?: string;
+    };
+    messageHistory?: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+    }>;
+  }): Promise<ReadableStream<Uint8Array>> {
+    const response = await fetch(`${API_BASE_URL}/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...TokenManager.getAuthHeaders(),
+      },
+      body: JSON.stringify({ 
+        message,
+        userContext: context?.userContext,
+        messageHistory: context?.messageHistory
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    if (!response.body) {
+      throw new Error('No response body for streaming');
+    }
+    
+    return response.body;
   },
 
   async getChatHistory(): Promise<ApiResponse<any[]>> {

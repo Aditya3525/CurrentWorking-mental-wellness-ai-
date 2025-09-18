@@ -5,6 +5,12 @@ import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
+// Health: is Google OAuth configured?
+router.get('/google/enabled', (_req, res) => {
+  const enabled = !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+  res.json({ success: true, data: { enabled } });
+});
+
 // Traditional email/password routes
 router.post('/register', register);
 router.post('/login', login);

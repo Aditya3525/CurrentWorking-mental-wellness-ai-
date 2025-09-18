@@ -16,8 +16,13 @@ import planRoutes from './routes/plans';
 import chatRoutes from './routes/chat';
 import progressRoutes from './routes/progress';
 import contentRoutes from './routes/content';
+import adminAuthRoutes from './routes/adminAuth';
+import analyticsRoutes from './routes/analytics';
+import fileRoutes from './routes/files';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
+import { startSessionCleanup } from './controllers/adminAuthController';
+import { startPasswordResetCleanup } from './controllers/adminPasswordController';
 
 // Load environment variables
 dotenv.config();
@@ -78,6 +83,9 @@ app.use('/api/plans', planRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/content', contentRoutes);
+app.use('/api/admin/auth', adminAuthRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/files', fileRoutes);
 
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -99,6 +107,13 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
   console.log(`🔗 Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(`🔒 Admin Auth: /api/admin/auth`);
+  
+  // Start admin session cleanup
+  startSessionCleanup();
+  
+  // Start password reset cleanup
+  startPasswordResetCleanup();
 });
 
 export default app;
