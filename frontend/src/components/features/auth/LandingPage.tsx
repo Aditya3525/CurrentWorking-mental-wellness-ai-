@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import { Heart, Brain, Users, Shield, CheckCircle, Sparkles, ArrowRight, MessageCircle, Target, TrendingUp, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { Button } from '../../ui/button';
@@ -10,13 +10,14 @@ import { Label } from '../../ui/label';
 import { AdminLoginModal } from './AdminLoginModal';
 
 interface LandingPageProps {
-  onSignUp: (userData: { name: string; email: string; password: string }) => void;
+  onSignUp: (userData: { name: string; email: string; password: string; connectWithGoogle?: boolean }) => void;
   onLogin: (credentials: { email: string; password: string }) => void;
   onAdminLogin?: (credentials: { email: string; password: string }) => Promise<void>;
   authError?: string | null;
+  loginError?: { error: string; suggestion?: string; message?: string } | null;
 }
 
-export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError }: LandingPageProps) {
+export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginError }: LandingPageProps) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -26,6 +27,23 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError }: Land
   const [showStartJourney, setShowStartJourney] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [duplicateToast, setDuplicateToast] = useState<{ email: string; open: boolean } | null>(null);
+
+  // Listen for duplicate signup event to switch to login & prefill email
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { email?: string } | undefined;
+      if (detail?.email) {
+        setEmail(detail.email);
+        setLoginPassword('');
+        setShowSignUp(false);
+        setShowLogin(true);
+        setDuplicateToast({ email: detail.email, open: true });
+      }
+    };
+    window.addEventListener('show-login-from-duplicate', handler as EventListener);
+    return () => window.removeEventListener('show-login-from-duplicate', handler as EventListener);
+  }, []);
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,8 +84,31 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError }: Land
 
   return (
     <div className="min-h-screen">
+      {/* Duplicate Account Toast */}
+      {duplicateToast?.open && (
+        <div className="fixed top-4 inset-x-0 flex justify-center z-50 px-4">
+          <div className="bg-white shadow-lg border border-destructive/30 rounded-md p-4 max-w-md w-full flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
+            <div className="h-2 w-2 mt-2 rounded-full bg-destructive" aria-hidden="true"></div>
+            <div className="flex-1 text-sm">
+              <p className="font-medium text-destructive mb-1">Account Already Exists</p>
+              <p className="text-muted-foreground">We found an existing account for <span className="font-medium">{duplicateToast.email}</span>. Please log in instead.</p>
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" onClick={() => setDuplicateToast(null)}>Dismiss</Button>
+                <Button size="sm" variant="outline" onClick={() => { setShowLogin(true); setShowSignUp(false); }}>Go to Login</Button>
+              </div>
+            </div>
+            <button
+              aria-label="Dismiss"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setDuplicateToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-background via-muted/30 to-accent/20 px-6 py-16 lg:py-24">
+      <section className="relative overflow-hidden bg-gradient-to-br from-background via-muted/30 to-accent/20 px-6 py-12 lg:py-16">
         <div className="mx-auto max-w-7xl">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
@@ -484,8 +525,37 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError }: Land
                     required
                   />
                 </div>
-                {authError && (
-                  <p className="text-sm text-destructive" role="alert">{authError}</p>
+                {loginError && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-destructive" role="alert">{loginError.error}</p>
+                    {loginError.suggestion === 'create_account' && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => { setShowLogin(false); setShowSignUp(true); }}
+                      >
+                        Create Account
+                      </Button>
+                    )}
+                    {loginError.suggestion === 'use_google_or_setup_password' && (
+                      <div className="space-y-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={handleGoogleAuth}
+                        >
+                          Sign in with Google
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Or contact support to set up a password
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1">Log In</Button>

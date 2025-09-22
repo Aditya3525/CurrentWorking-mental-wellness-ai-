@@ -49,8 +49,8 @@ export function OAuthCallback({ onAuthSuccess, onAuthError }: OAuthCallbackProps
           }
         }
 
-        // Validate the token with the backend
-  const response = await fetch(`${API_BASE_URL}/auth/validate`, {
+        // Validate the token with the backend and get complete user profile
+        const validateResponse = await fetch(`${API_BASE_URL}/auth/validate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -58,54 +58,50 @@ export function OAuthCallback({ onAuthSuccess, onAuthError }: OAuthCallbackProps
           }
         });
 
-        if (!response.ok) {
+        if (!validateResponse.ok) {
           throw new Error('Token validation failed');
         }
 
-        const userData = await response.json();
-        console.log('Backend user data:', userData);
+        const validatedUserData = await validateResponse.json();
+        console.log('Complete user profile from backend:', validatedUserData);
         
-        // Merge with Google user data if available
-        const enhancedUserData = {
-          ...userData,
+        // Merge with Google user data if available, but prioritize backend data
+        const completeUserData = {
+          ...validatedUserData,
           ...(googleUserData || {}),
           token,
           needsSetup,
           needsPassword: redirectTo === 'setup-password',
           isGoogleUser: !!googleUserData,
-          hasPassword: userData.hasPassword !== undefined ? userData.hasPassword : !!userData.password,
+          hasPassword: validatedUserData.hasPassword !== undefined ? validatedUserData.hasPassword : !!validatedUserData.password,
           justCreated: googleUserData?.justCreated
         };
         
-        console.log('Enhanced user data for frontend:', enhancedUserData);
+        console.log('Final complete user data for frontend:', completeUserData);
         
-        // Store token in localStorage
+        // Store token and complete user data
         localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(enhancedUserData));
+        localStorage.setItem('user', JSON.stringify(completeUserData));
 
         setStatus('success');
         
         // Determine the flow based on redirect parameter
-        console.log('OAuth routing decision:', { redirectTo, needsSetup, hasPassword: enhancedUserData.hasPassword, isOnboarded: enhancedUserData.isOnboarded });
+        console.log('OAuth routing decision:', { redirectTo, needsSetup, hasPassword: completeUserData.hasPassword, isOnboarded: completeUserData.isOnboarded, justCreated: completeUserData.justCreated });
         
-  // If backend says dashboard but client thinks needs setup due to stale params, trust backend flags
-  switch (redirectTo) {
+        // Simplified routing - let the main app handle the logic
+        switch (redirectTo) {
           case 'setup-password':
             setMessage('Please set up a secure password...');
             setTimeout(() => {
-              onAuthSuccess(enhancedUserData);
-            }, 1500);
-            break;
-          case 'onboarding':
-            setMessage('Welcome! Let\'s set up your profile...');
-            setTimeout(() => {
-              onAuthSuccess(enhancedUserData);
+              onAuthSuccess(completeUserData);
             }, 1500);
             break;
           default:
+            // For existing users or any other case, go to dashboard
+            // The app will handle onboarding checks
             setMessage('Welcome back! Taking you to your dashboard...');
             setTimeout(() => {
-              onAuthSuccess(enhancedUserData);
+              onAuthSuccess(completeUserData);
             }, 1500);
         }
 

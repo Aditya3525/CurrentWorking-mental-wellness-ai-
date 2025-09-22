@@ -17,8 +17,10 @@ import chatRoutes from './routes/chat';
 import progressRoutes from './routes/progress';
 import contentRoutes from './routes/content';
 import adminAuthRoutes from './routes/adminAuth';
-import analyticsRoutes from './routes/analytics';
-import fileRoutes from './routes/files';
+// import analyticsRoutes from './routes/analytics'; // Temporarily disabled pending schema alignment
+// import fileRoutes from './routes/files'; // Temporarily disabled pending File model and media libs
+import adminPracticesRoutes from './routes/adminPractices';
+import adminContentRoutes from './routes/adminContent';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { startSessionCleanup } from './controllers/adminAuthController';
@@ -84,8 +86,10 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/admin/auth', adminAuthRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/files', fileRoutes);
+// app.use('/api/analytics', analyticsRoutes); // Disabled to avoid runtime errors from outdated analytics controller
+// app.use('/api/files', fileRoutes); // Disabled pending File model and media processing libraries
+app.use('/api/admin/practices', adminPracticesRoutes);
+app.use('/api/admin/content', adminContentRoutes);
 
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {

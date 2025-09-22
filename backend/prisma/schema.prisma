@@ -311,6 +311,36 @@ model Content {
   @@map("content")
 }
 
+// Minimal Practice model added for admin management & analytics
+model Practice {
+  id          String   @id @default(cuid())
+  title       String
+  // Comma separated list of types/categories e.g. "Meditation,Breathing"
+  types       String   // stored as CSV; split in app
+  // Primary type for backward compatibility with analytics/grouping
+  type        String?  // first entry of types
+  duration    Int      // duration in minutes
+  level       String   // 'Beginner','Intermediate','Advanced'
+  // Difficulty alias for backward compatibility
+  difficulty  String?  // mirrors level
+  approach    String   // 'western','eastern','hybrid'
+  description String?  // short description / instructions
+  audioUrl    String?
+  videoUrl    String?
+  youtubeUrl  String?
+  thumbnailUrl String?
+  tags        String?  // comma separated tags
+  isPublished Boolean  @default(false)
+  viewCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // Ratings relation placeholder (not in base schema) handled via analytics by join to practiceRatings if later extended
+
+  @@map("practices")
+  @@index([approach])
+  @@index([level])
+}
+
 // New model for playlists management
 model Playlist {
   id          String   @id @default(cuid())

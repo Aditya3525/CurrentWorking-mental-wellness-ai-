@@ -67,44 +67,21 @@ export const streamMessage = async (req: any, res: Response) => {
       return;
     }
 
-    try {
-      // Try to use streaming from chatService
-      const stream = await chatService.generateStreamingResponse(userId, message);
+    // Fallback to regular response with simulated streaming
+    const result = await chatService.generateAIResponse(userId, message);
+    const content = result.botMessage?.content || 'I apologize, but I encountered an issue generating a response.';
+    
+    // Simulate streaming by sending in chunks
+    const words = content.split(' ');
+    for (let i = 0; i < words.length; i++) {
+      const chunk = (i === 0 ? '' : ' ') + words[i];
+      res.write(chunk);
       
-      // Pipe the stream to the response
-      stream.on('data', (chunk: string) => {
-        res.write(chunk);
-      });
-
-      stream.on('end', () => {
-        res.end();
-      });
-
-      stream.on('error', (error: any) => {
-        console.error('Streaming error:', error);
-        res.write('\n[Error: Stream failed, falling back to regular response]');
-        res.end();
-      });
-
-    } catch (streamError) {
-      console.warn('Streaming not available, falling back to regular response:', streamError);
-      
-      // Fallback to regular response
-      const result = await chatService.generateAIResponse(userId, message);
-      const content = result.botMessage?.content || 'I apologize, but I encountered an issue generating a response.';
-      
-      // Simulate streaming by sending in chunks
-      const words = content.split(' ');
-      for (let i = 0; i < words.length; i++) {
-        const chunk = (i === 0 ? '' : ' ') + words[i];
-        res.write(chunk);
-        
-        // Small delay to simulate streaming
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-      
-      res.end();
+      // Small delay to simulate streaming
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
+    
+    res.end();
 
   } catch (e) {
     console.error('Stream message error', e);

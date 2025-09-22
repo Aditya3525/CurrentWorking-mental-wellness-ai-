@@ -452,7 +452,7 @@ export const getUserAnalytics = async (req: Request, res: Response, next: NextFu
       userRegistrations,
       userActivities,
       topActiveUsers,
-      usersByAge,
+  usersWithBirthday,
       assessmentResults
     ] = await Promise.all([
       // User statistics
@@ -495,12 +495,10 @@ export const getUserAnalytics = async (req: Request, res: Response, next: NextFu
         take: 10
       }),
 
-      // Users by age group
+      // Users with birthday for age derivation
       prisma.user.findMany({
-        where: {
-          age: { not: null }
-        },
-        select: { age: true }
+        where: { birthday: { not: null } },
+        select: { birthday: true }
       }),
 
       // Assessment results summary
@@ -522,12 +520,17 @@ export const getUserAnalytics = async (req: Request, res: Response, next: NextFu
       '56+': 0
     };
 
-    usersByAge.forEach(user => {
-      if (user.age) {
-        if (user.age <= 25) ageGroups['18-25']++;
-        else if (user.age <= 35) ageGroups['26-35']++;
-        else if (user.age <= 45) ageGroups['36-45']++;
-        else if (user.age <= 55) ageGroups['46-55']++;
+    const now = new Date();
+    usersWithBirthday.forEach(user => {
+      if (user.birthday) {
+        const dob = new Date(user.birthday);
+        let age = now.getFullYear() - dob.getFullYear();
+        const m = now.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+        if (age <= 25) ageGroups['18-25']++;
+        else if (age <= 35) ageGroups['26-35']++;
+        else if (age <= 45) ageGroups['36-45']++;
+        else if (age <= 55) ageGroups['46-55']++;
         else ageGroups['56+']++;
       }
     });
@@ -599,7 +602,6 @@ export const getEngagementAnalytics = async (req: Request, res: Response, next: 
     const [
       dailyActiveUsers,
       contentEngagement,
-      practiceEngagement,
       retentionData,
       sessionData
     ] = await Promise.all([
@@ -624,25 +626,13 @@ export const getEngagementAnalytics = async (req: Request, res: Response, next: 
         }
       }),
 
-      // Practice engagement metrics
-      prisma.practiceRating.findMany({
-        where: {
-          createdAt: { gte: startDate, lte: endDate }
-        },
-        include: {
-          practice: {
-            select: { title: true, type: true }
-          }
-        }
-      }),
-
       // User retention (simplified)
       prisma.user.findMany({
         where: {
           createdAt: { gte: startDate, lte: endDate }
         },
         include: {
-          activities: {
+          userActivities: {
             where: {
               createdAt: { gte: startDate, lte: endDate }
             }
@@ -665,14 +655,12 @@ export const getEngagementAnalytics = async (req: Request, res: Response, next: 
       ? contentEngagement.reduce((sum, rating) => sum + rating.rating, 0) / totalContentRatings 
       : 0;
 
-    const totalPracticeRatings = practiceEngagement.length;
-    const averagePracticeRating = totalPracticeRatings > 0 
-      ? practiceEngagement.reduce((sum, rating) => sum + rating.rating, 0) / totalPracticeRatings 
-      : 0;
+    const totalPracticeRatings = 0; // Practice ratings model not implemented in current schema
+    const averagePracticeRating = 0;
 
     // Calculate retention rate (users who returned after first day)
-    const newUsers = retentionData.length;
-    const returningUsers = retentionData.filter(user => user.activities.length > 1).length;
+  const newUsers = retentionData.length;
+  const returningUsers = retentionData.filter(user => user.userActivities.length > 1).length;
     const retentionRate = newUsers > 0 ? (returningUsers / newUsers) * 100 : 0;
 
     res.json({
@@ -699,12 +687,7 @@ export const getEngagementAnalytics = async (req: Request, res: Response, next: 
             contentType: rating.content.type,
             createdAt: rating.createdAt
           })),
-          practiceRatings: practiceEngagement.map(rating => ({
-            rating: rating.rating,
-            practiceTitle: rating.practice.title,
-            practiceType: rating.practice.type,
-            createdAt: rating.createdAt
-          }))
+          practiceRatings: []
         },
         sessionMetrics: {
           totalSessions: sessionData.length,

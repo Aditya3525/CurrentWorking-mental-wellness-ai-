@@ -1,8 +1,3 @@
-import React from 'react';
-import { Button } from '../../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Progress } from '../../ui/progress';
-import { Badge } from '../../ui/badge';
 import { 
   ArrowLeft,
   Brain,
@@ -17,14 +12,42 @@ import {
   MessageCircle,
   Play
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+
+import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Progress } from '../../ui/progress';
+import { Sparkline } from '../../ui/Sparkline';
 
 interface InsightsResultsProps {
-  user: any;
+  user: { assessmentScores?: Record<string, number>; lastAssessmentInsights?: string } | null;
   onNavigate: (page: string) => void;
 }
 
+interface TrendPoint { score: number; t: string }
+
 export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
-  const scores = user?.assessmentScores || {};
+  const scores: Record<string, number> = user?.assessmentScores || {};
+  const [trends, setTrends] = useState<Record<string, TrendPoint[]>>({});
+  const [trendsLoading, setTrendsLoading] = useState(false);
+  const [trendsError, setTrendsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    setTrendsLoading(true);
+    fetch('/api/assessments/trends', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(r => r.json())
+      .then(json => {
+        if (json.success) {
+          setTrends(json.data || {});
+        } else {
+          setTrendsError(json.error || 'Failed to load trends');
+        }
+      })
+      .catch(e => setTrendsError(e.message))
+      .finally(() => setTrendsLoading(false));
+  }, []);
 
   const getScoreColor = (score: number) => {
     if (score >= 70) return 'text-red-600';
@@ -44,7 +67,7 @@ export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
     return 'bg-green-50 border-green-200';
   };
 
-  const getRecommendations = (scores: any) => {
+  const getRecommendations = (scores: Record<string, number>) => {
     const recommendations = [];
     
     if (scores.anxiety >= 60) {
@@ -79,6 +102,8 @@ export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
   };
 
   const recommendations = getRecommendations(scores);
+
+  const wellbeingInsight = user?.lastAssessmentInsights as string | undefined;
 
   return (
     <div className="min-h-screen bg-background">
@@ -115,17 +140,17 @@ export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-4">
-              <h3 className="font-semibold mb-2">What this means</h3>
-              <p className="text-muted-foreground leading-relaxed">
-                Your current wellbeing profile shows {scores.anxiety > 60 ? 'elevated' : 'manageable'} anxiety levels 
-                and {scores.stress > 50 ? 'moderate' : 'low'} stress patterns. 
-                {scores.emotionalIntelligence > 70 
-                  ? ' Your strong emotional intelligence is a great foundation for growth.' 
-                  : ' Building emotional awareness will support your overall wellbeing.'
-                }
-              </p>
-            </div>
+            {wellbeingInsight && (
+              <div className="bg-primary/5 rounded-lg p-4 border border-primary/10">
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary" /> Your Wellbeing Insight
+                </h3>
+                <div className="text-sm whitespace-pre-line leading-relaxed text-muted-foreground">
+                  {wellbeingInsight}
+                </div>
+              </div>
+            )}
+            {/* Removed 'What this means' section per requirement */}
 
             {scores.anxiety > 70 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -135,7 +160,7 @@ export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
                     <p className="font-medium text-amber-800">Consider Professional Support</p>
                     <p className="text-sm text-amber-700">
                       Your anxiety levels suggest you might benefit from speaking with a mental health professional. 
-                      This doesn't mean anything is wrong - it's a proactive step for your wellbeing.
+                      This isn&apos;t a sign something is wrong – it is a proactive step for your wellbeing.
                     </p>
                   </div>
                 </div>
@@ -176,7 +201,7 @@ export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
                   
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-2xl font-semibold">{score}%</span>
+                      <span className="text-2xl font-semibold">{(score as number)}%</span>
                     </div>
                     <Progress value={score as number} className="h-2" />
                   </div>
@@ -238,19 +263,74 @@ export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
               Progress Over Time
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Take more assessments over time to see your progress trends</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-3"
-                onClick={() => onNavigate('assessments')}
-              >
-                Take Another Assessment
-              </Button>
-            </div>
+          <CardContent className="space-y-6">
+            {trendsLoading && (
+              <div className="text-center py-6 text-muted-foreground text-sm">Loading trends…</div>
+            )}
+            {trendsError && (
+              <div className="text-center py-6 text-destructive text-sm">{trendsError}</div>
+            )}
+            {!trendsLoading && !trendsError && (
+              (() => {
+                const entries = Object.entries(trends || {});
+                const hasData = entries.some(([, pts]) => pts && pts.length);
+                if (!hasData) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Take more assessments over time to see your progress trends</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3"
+                        onClick={() => onNavigate('assessments')}
+                      >
+                        Take Another Assessment
+                      </Button>
+                    </div>
+                  );
+                }
+
+                const titleMap: Record<string, string> = {
+                  anxiety: 'Anxiety',
+                  stress: 'Stress',
+                  emotionalIntelligence: 'Emotional Intelligence',
+                  overthinking: 'Overthinking'
+                };
+
+                return (
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {entries.map(([type, pts]) => {
+                      if (!pts?.length) return null;
+                      const scoresArr = pts.map(p => p.score);
+                      const latest = scoresArr[scoresArr.length - 1];
+                      const prev = scoresArr.length > 1 ? scoresArr[scoresArr.length - 2] : undefined;
+                      const delta = prev !== undefined ? latest - prev : 0;
+                      const direction = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+                      return (
+                        <div key={type} className="p-4 rounded-lg border bg-muted/30">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-sm">{titleMap[type] || type}</h4>
+                            <div className="text-xs flex items-center gap-2">
+                              <span className="font-semibold">{latest}%</span>
+                              {prev !== undefined && (
+                                <span className={`font-medium ${direction === 'up' ? 'text-red-600' : direction === 'down' ? 'text-green-600' : 'text-muted-foreground'}`}> 
+                                  {direction === 'up' ? '▲' : direction === 'down' ? '▼' : '■'} {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Sparkline values={scoresArr} height={40} ariaLabel={`${titleMap[type] || type} progress trend`} />
+                          <div className="mt-1 text-[10px] text-muted-foreground tracking-wide">
+                            {pts.length} {pts.length === 1 ? 'data point' : 'assessments'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            )}
           </CardContent>
         </Card>
 
@@ -299,7 +379,7 @@ export function InsightsResults({ user, onNavigate }: InsightsResultsProps) {
                 <div className="text-sm text-muted-foreground space-y-1">
                   <p>• These results are based on self-reported assessments and are for informational purposes only</p>
                   <p>• This is not a clinical diagnosis and should not replace professional medical advice</p>
-                  <p>• If you're experiencing severe symptoms, please consult with a healthcare professional</p>
+                  <p>• If you&apos;re experiencing severe symptoms, please consult with a healthcare professional</p>
                   <p>• Your results are private and encrypted - you control who sees them</p>
                 </div>
                 <Button 

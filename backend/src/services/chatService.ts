@@ -54,11 +54,11 @@ export class ChatService {
         console.log(`[ChatService] Crisis language detected for user ${userId}`);
         
         // Save user message with crisis flag
-        const userMsg = await this.saveChatMessage(userId, userMessage, 'user', { crisis: true, sessionId });
+        const userMsg = await this.saveUniqueChatMessage(userId, userMessage, 'user', { crisis: true, sessionId });
         
         // Save crisis response
         const crisisResponse = this.getCrisisResponse();
-        const botMessage = await this.saveChatMessage(userId, crisisResponse, 'system', { crisis: true, sessionId });
+        const botMessage = await this.saveUniqueChatMessage(userId, crisisResponse, 'system', { crisis: true, sessionId });
 
         // Update AI context with crisis information
         await AIContextService.updateContextFromActivity(userId, 'crisis_detected', {
@@ -82,17 +82,32 @@ export class ChatService {
       // Get user context for personalization (legacy support)
       const userContext = await this.getUserContext(userId);
       
+      // Wellbeing overall report intent (must precede assessment listing logic)
+      if (this.detectWellbeingReportIntent(userMessage)) {
+        console.log(`[ChatService] Wellbeing report intent detected`);
+        await this.saveUniqueChatMessage(userId, userMessage, 'user', { sessionId });
+        const wellbeingReport = await this.generateWellbeingReport(userId);
+        const botMessage = await this.saveUniqueChatMessage(userId, wellbeingReport.response, 'bot', { provider: wellbeingReport.provider, context: 'wellbeing-report' });
+        return {
+          response: wellbeingReport.response,
+          provider: wellbeingReport.provider,
+          model: 'wellbeing-report',
+          botMessage,
+          context: 'wellbeing-report'
+        };
+      }
+
       // Check for assessment-related queries
       const assessmentQuery = this.detectAssessmentQuery(userMessage);
       if (assessmentQuery.isAssessmentQuery) {
         console.log(`[ChatService] Assessment query detected: ${assessmentQuery.type}`);
         
         // Save user message
-        await this.saveChatMessage(userId, userMessage, 'user');
+        await this.saveUniqueChatMessage(userId, userMessage, 'user');
         
         // Generate assessment-specific response
         const assessmentResponse = await this.generateAssessmentResponse(userId, userMessage, userContext, assessmentQuery);
-        const botMessage = await this.saveChatMessage(userId, assessmentResponse.response, 'bot', {
+        const botMessage = await this.saveUniqueChatMessage(userId, assessmentResponse.response, 'bot', {
           provider: assessmentResponse.provider,
           context: 'assessment-analysis'
         });
@@ -112,9 +127,9 @@ export class ChatService {
         console.log(`[ChatService] Assessment completion guidance triggered`);
         
         // Save user message
-        await this.saveChatMessage(userId, userMessage, 'user');
+        await this.saveUniqueChatMessage(userId, userMessage, 'user');
         
-        const botMessage = await this.saveChatMessage(userId, assessmentGuidance.response, 'bot', {
+        const botMessage = await this.saveUniqueChatMessage(userId, assessmentGuidance.response, 'bot', {
           provider: 'assessment-guidance',
           context: 'assessment-suggestion'
         });
@@ -190,7 +205,7 @@ export class ChatService {
       console.log(`[ChatService] Generated ${approachResponse.approach} approach response via ${approachResponse.provider}`);
 
       // Save user message
-      await this.saveChatMessage(userId, userMessage, 'user', {
+      await this.saveUniqueChatMessage(userId, userMessage, 'user', {
         sessionId,
         mentalHealthState: mentalHealthState.state,
         stateScore: mentalHealthState.score
@@ -210,7 +225,7 @@ export class ChatService {
       }
 
       // Save bot response with enhanced metadata
-      const botMessage = await this.saveChatMessage(userId, finalResponse, 'bot', {
+      const botMessage = await this.saveUniqueChatMessage(userId, finalResponse, 'bot', {
         provider: approachResponse.provider,
         approach: approachResponse.approach,
         mentalHealthState: mentalHealthState.state,
@@ -248,11 +263,11 @@ export class ChatService {
       console.error('[ChatService] Error generating AI response:', error);
       
       // Save user message even on error
-      await this.saveChatMessage(userId, userMessage, 'user');
+  await this.saveUniqueChatMessage(userId, userMessage, 'user');
       
       // Get fallback response
       const fallbackResponse = this.getFallbackResponse(userMessage);
-      const botMessage = await this.saveChatMessage(userId, fallbackResponse, 'bot', {
+      const botMessage = await this.saveUniqueChatMessage(userId, fallbackResponse, 'bot', {
         provider: 'fallback',
         error: error.message
       });
@@ -266,6 +281,28 @@ export class ChatService {
         context: 'fallback'
       };
     }
+  }
+
+  /**
+   * Save message but avoid duplicates within a short debounce window (2s) to prevent double responses
+   */
+  private async saveUniqueChatMessage(
+    userId: string,
+    content: string,
+    type: 'user' | 'bot' | 'system',
+    metadata?: any
+  ): Promise<any> {
+    const last = await prisma.chatMessage.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (last && last.type === type && last.content === content) {
+      const delta = Date.now() - last.createdAt.getTime();
+      if (delta < 2000) {
+        return last; // treat as duplicate within debounce window
+      }
+    }
+    return this.saveChatMessage(userId, content, type, metadata);
   }
 
   private async getUserContext(userId: string): Promise<UserContext> {
@@ -572,6 +609,100 @@ export class ChatService {
     
     const lowerMessage = message.toLowerCase();
     return crisisKeywords.some(keyword => lowerMessage.includes(keyword));
+  }
+
+  /** Detect explicit intent for an overall wellbeing / mental wellness report */
+  private detectWellbeingReportIntent(message: string): boolean {
+    const lower = message.toLowerCase();
+    const patterns = [
+      'overall mental wellness report',
+      'overall mental wellbeing report',
+      'overall wellbeing report',
+      'overall wellness report',
+      'overall report',
+      'wellbeing report',
+      'wellness report',
+      'comprehensive mental health report',
+      'summarize my assessments',
+      'summary of my assessments',
+      'overall assessment summary',
+      'overall mental health summary',
+      'my overall mental health',
+      'overall mental health report'
+    ];
+    return patterns.some(p => lower.includes(p));
+  }
+
+  /** Generate synthesized wellbeing report (latest + historical deltas) with AI enhancement */
+  private async generateWellbeingReport(userId: string): Promise<{ response: string; provider: string }> {
+    // Fetch recent assessments (get more to compute previous deltas)
+    const assessments = await prisma.assessment.findMany({
+      where: { userId },
+      orderBy: { completedAt: 'desc' },
+      take: 50
+    });
+    if (!assessments.length) {
+      return { response: 'I do not see any completed assessments yet. Once you complete some, I can generate an overall wellbeing report summarizing patterns and improvements over time.', provider: 'wellbeing-report' };
+    }
+
+    // Group by assessmentType
+    const groups: Record<string, typeof assessments> = {} as any;
+    for (const a of assessments) {
+      (groups[a.assessmentType] = groups[a.assessmentType] || []).push(a);
+    }
+    const positiveHigher = new Set(['emotionalintelligence', 'emotional-intelligence', 'emotional_intelligence']);
+
+    interface MetricSummary { type: string; latest: number; previous?: number; change?: number; direction: 'up'|'down'|'flat'; beneficialChange?: boolean; risk: 'low'|'moderate'|'high'; latestDate: Date; }
+    const summaries: MetricSummary[] = [];
+    for (const [type, arr] of Object.entries(groups)) {
+      const sorted = arr.sort((a,b)=> b.completedAt.getTime()-a.completedAt.getTime());
+      const latest = sorted[0];
+      const previous = sorted[1];
+      const change = previous ? latest.score - previous.score : undefined;
+      let direction: 'up'|'down'|'flat' = 'flat';
+      if (change !== undefined) direction = change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+      const risk = latest.score >= 70 ? 'high' : latest.score >= 40 ? 'moderate' : 'low';
+      const higherIsBetter = positiveHigher.has(type.toLowerCase());
+      const beneficialChange = change === undefined ? undefined : higherIsBetter ? change > 0 : change < 0;
+      summaries.push({ type, latest: latest.score, previous: previous?.score, change, direction, beneficialChange, risk, latestDate: latest.completedAt });
+    }
+
+    const improved = summaries.filter(s => s.beneficialChange);
+    const declined = summaries.filter(s => s.beneficialChange === false);
+    const stable = summaries.filter(s => s.change === 0 || s.change === undefined);
+
+    const earliest = assessments[assessments.length-1].completedAt;
+    const latestDate = assessments[0].completedAt;
+    const spanDays = Math.max(1, Math.round((latestDate.getTime()-earliest.getTime())/(1000*60*60*24)));
+
+    // Deterministic narrative baseline
+    const line = (s: MetricSummary) => `${s.type}: ${s.latest}${s.previous!==undefined?` (${s.change!>=0?'+':''}${s.change})`:''}${s.risk==='high'?' high concern':s.risk==='moderate'?' moderate level':''}`;
+    let narrative = `Overall Wellbeing Report (${spanDays} day span)\n\n`;
+    narrative += `You have completed ${summaries.length} assessment categories recently.\n\n`;
+    if (improved.length) narrative += `Improvements: ${improved.map(line).join('; ')}.\n`;
+    if (declined.length) narrative += `Areas needing attention: ${declined.map(line).join('; ')}.\n`;
+    if (stable.length) narrative += `Stable areas: ${stable.map(s=>s.type).join(', ')}.\n`;
+    const highRisks = summaries.filter(s=> s.risk==='high');
+    if (highRisks.length) narrative += `High priority focus: ${highRisks.map(s=>s.type).join(', ')}.\n`;
+    narrative += `\nNext Step: Focus on one improvement habit at a time; I can suggest targeted practices if you ask.\n`;
+
+    // Attempt AI enhancement
+    try {
+      const structured = JSON.stringify(summaries.map(s=>({type:s.type,latest:s.latest,previous:s.previous,change:s.change,risk:s.risk,beneficialChange:s.beneficialChange})));
+      const systemMsg = `You are a supportive mental wellbeing assistant. Craft concise encouraging overall wellbeing reports.`;
+      const userMsg = `Given these assessment metrics and a baseline summary, write a concise (<=160 words) narrative (no bullet list, no JSON, no prefacing) emphasizing progress, balanced tone, actionable encouragement, and mention scores are self-reported.\nMetrics JSON: ${structured}\nBaseline Summary: ${narrative}\nReturn ONLY the narrative.`;
+      const aiResp = await llmService.generateResponse([
+        { role: 'system', content: systemMsg },
+        { role: 'user', content: userMsg }
+      ], { temperature: 0.4, maxTokens: 400 });
+      if (aiResp?.content && aiResp.content.trim().length > 50) {
+        narrative = aiResp.content.trim();
+        return { response: narrative, provider: aiResp.provider || 'wellbeing-report-ai' };
+      }
+    } catch (e) {
+      console.warn('[ChatService] AI wellbeing report generation failed, using fallback:', (e as any).message);
+    }
+    return { response: narrative, provider: 'wellbeing-report' };
   }
 
   getCrisisResponse(): string {

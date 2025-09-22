@@ -318,11 +318,11 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
               
               <Button 
                 className="w-full justify-between"
-                onClick={() => onStartAssessment('anxiety')}
+                onClick={() => onNavigate('assessments')}
               >
                 <div className="flex items-center gap-2">
                   <Brain className="h-4 w-4" />
-                  Take Assessment
+                  Take Assessments
                 </div>
                 <ArrowRight className="h-4 w-4" />
               </Button>

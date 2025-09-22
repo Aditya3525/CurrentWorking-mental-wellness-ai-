@@ -15,10 +15,10 @@ import {
 const router = express.Router();
 
 // Single file upload
-router.post('/upload', authenticate as any, upload.single('file'), uploadFile as any);
+// router.post('/upload', authenticate as any, upload.single('file'), uploadFile as any);
 
 // Multiple file upload
-router.post('/upload/multiple', authenticate as any, upload.array('files', 10), uploadMultipleFiles as any);
+// router.post('/upload/multiple', authenticate as any, upload.array('files', 10), uploadMultipleFiles as any);
 
 // Get file by ID (public endpoint, no auth required)
 router.get('/:id', getFile as any);
@@ -37,7 +37,5 @@ router.delete('/:id', authenticate as any, deleteFile as any);
 
 // File analytics (admin only)
 router.get('/analytics/overview', authenticate as any, getFileAnalytics as any);
-
-export default router;
 
 export default router;

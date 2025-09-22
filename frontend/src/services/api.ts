@@ -36,6 +36,8 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+  status?: number;
+  [key: string]: unknown; // permit extra backend flags
 }
 
 // Token management
@@ -72,46 +74,62 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    const url = `${this.baseURL}${endpoint}`;
+    const config: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...TokenManager.getAuthHeaders(),
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    let response: Response;
     try {
-      const url = `${this.baseURL}${endpoint}`;
-      const config: RequestInit = {
-        headers: {
-          'Content-Type': 'application/json',
-          ...TokenManager.getAuthHeaders(),
-          ...options.headers,
-        },
-        ...options,
-      };
-
-      const response = await fetch(url, config);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-      }
-
-      return data;
-    } catch (error) {
-      console.error('API request failed:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-      };
+      response = await fetch(url, config);
+    } catch (networkError) {
+      console.error('Network error during fetch:', networkError);
+      return { success: false, error: 'Network request failed', status: 0, networkError: true } as ApiResponse<T>;
     }
+
+  let data: unknown = null;
+    try {
+      // Attempt to parse JSON; fallback to empty object
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+
+    // Ensure we always attach status
+    let shaped: Record<string, unknown>;
+    if (typeof data === 'object' && data !== null) {
+      shaped = data as Record<string, unknown>;
+    } else {
+      shaped = { raw: data } as Record<string, unknown>;
+    }
+    shaped.status = response.status;
+
+    if (!response.ok) {
+      if (shaped.success === undefined) shaped.success = false;
+      if (!shaped.error) shaped.error = `Request failed with status ${response.status}`;
+      return shaped as ApiResponse<T>;
+    }
+
+    return shaped as ApiResponse<T>;
   }
 
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,

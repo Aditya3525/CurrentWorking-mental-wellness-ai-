@@ -42,21 +42,19 @@ export const googleAuthSuccess = async (req: Request, res: Response) => {
     // Detect if this user was just created in passport strategy
     const justCreated = user.justCreated;
 
-    // Determine redirect:
-    // Existing user (has password OR already onboarded) -> dashboard
-    // Newly created Google user with no password -> setup-password
-    // After password but not onboarded -> onboarding
+    // Determine redirect logic:
+    // 1. If user was just created (new Google user) -> setup password
+    // 2. If existing user -> always redirect to dashboard (regardless of onboarding/password status)
     let redirectParam = 'dashboard';
     let needsSetup = false;
 
-    if (justCreated && !user.password) {
+    if (justCreated) {
+      // New Google user - needs to set password first
       redirectParam = 'setup-password';
       needsSetup = true;
-    } else if (!user.isOnboarded) {
-      // Only prompt onboarding if not a fully onboarded existing account
-      redirectParam = 'onboarding';
-      needsSetup = true;
     }
+    // Existing users always go to dashboard - they can complete onboarding/password setup from there if needed
+    // Existing onboarded user -> redirectParam remains 'dashboard'
 
     // Create comprehensive user data object for frontend
     const userData = {
@@ -67,8 +65,8 @@ export const googleAuthSuccess = async (req: Request, res: Response) => {
       lastName: user.lastName,
       profilePhoto: user.profilePhoto,
       isOnboarded: user.isOnboarded,
-  hasPassword: !!user.password,
-    justCreated, // Include justCreated in user data
+      hasPassword: !!user.password,
+      justCreated, // Flag for new Google users
       approach: user.approach,
       birthday: user.birthday,
       gender: user.gender,
@@ -104,7 +102,7 @@ export const logout = async (_req: Request, res: Response) => {
 };
 
 // Register user
-export const register = async (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     // Validate request
     const { error } = registerSchema.validate(req.body);
@@ -115,20 +113,51 @@ export const register = async (req: Request, res: Response) => {
       });
       return;
     }
+    const { name, email, password, connectWithGoogle } = req.body as { name: string; email: string; password: string; connectWithGoogle?: boolean };
+    const emailNormalized = email.toLowerCase();
 
-    const { name, email, password } = req.body;
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+    console.log('[register] Incoming registration attempt:', {
+      emailOriginal: email,
+      emailNormalized,
+      connectWithGoogle: !!connectWithGoogle
     });
 
+    // Deterministic duplicate check using normalized lowercase (schema stores lowercase)
+    let existingUser = null;
+    try {
+      existingUser = await prisma.user.findUnique({ where: { email: emailNormalized } });
+    } catch (lookupErr) {
+      console.error('[register] Lookup error (findUnique):', lookupErr);
+    }
+
     if (existingUser) {
-      res.status(400).json({
-        success: false,
-        error: 'User already exists with this email',
-      });
-      return;
+      // Check if this is a Google-linked account
+      if (existingUser.googleId && connectWithGoogle) {
+        // User exists with Google account and wants to connect - log them in
+        const token = generateToken(existingUser.id);
+
+        // Return user data (excluding password)
+        const { password: userPassword, ...userWithoutPassword } = existingUser;
+
+        res.json({
+          success: true,
+          data: {
+            user: userWithoutPassword,
+            token,
+            message: 'Account connected successfully'
+          },
+        });
+        return;
+      } else {
+        // Duplicate email -> encourage login instead of generic error
+        res.status(409).json({
+          success: false,
+          error: 'An account with this email already exists. Please log in instead.',
+          suggestLogin: true,
+          email: existingUser.email
+        });
+        return;
+      }
     }
 
     // Hash password
@@ -136,23 +165,39 @@ export const register = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-      },
-      select: {
-        id: true,
-        name: true,
-  firstName: true,
-  lastName: true,
-        email: true,
-        isOnboarded: true,
-        approach: true,
-        createdAt: true,
-      },
-    });
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          name,
+            email: emailNormalized,
+          password: hashedPassword,
+          ...(connectWithGoogle && { dataConsent: true })
+        },
+        select: {
+          id: true,
+          name: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          isOnboarded: true,
+          approach: true,
+          createdAt: true,
+        },
+      });
+    } catch (createErr: any) {
+      console.error('[register] Create user error:', createErr);
+      if (createErr?.code === 'P2002') {
+        res.status(409).json({
+          success: false,
+          error: 'An account with this email already exists. Please log in instead.',
+          suggestLogin: true,
+          email: emailNormalized
+        });
+        return;
+      }
+      throw createErr; // Let outer catch handle
+    }
 
     // Generate token
     const token = generateToken(user.id);
@@ -165,11 +210,27 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('Registration error (outer catch):', error);
+    // Handle Prisma unique constraint (race condition or missed pre-check)
+    const err: any = error;
+    if (err?.code === 'P2002') {
+      res.status(409).json({
+        success: false,
+        error: 'An account with this email already exists. Please log in instead.',
+        suggestLogin: true,
+      });
+      return;
+    }
     res.status(500).json({
       success: false,
       error: 'Server error during registration',
+      details: process.env.NODE_ENV === 'development' ? {
+        message: err?.message || 'unknown',
+        code: err?.code,
+        meta: err?.meta
+      } : undefined,
     });
+    return;
   }
 };
 
@@ -194,27 +255,32 @@ export const login = async (req: Request, res: Response) => {
     });
 
     if (!user) {
+      // Email doesn't exist - suggest account creation
+      res.status(404).json({
+        success: false,
+        error: 'Account not found',
+        suggestion: 'create_account',
+        message: 'No account found with this email. Would you like to create one?'
+      });
+      return;
+    }
+
+    // Check if user has a password (might be Google-only account)
+    if (!user.password) {
       res.status(400).json({
         success: false,
-        error: 'Invalid credentials',
+        error: 'This account was created with Google. Please sign in with Google or set up a password first.',
+        suggestion: 'use_google_or_setup_password'
       });
       return;
     }
 
     // Check password
-    if (!user.password) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid credentials',
-      });
-      return;
-    }
-    
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       res.status(400).json({
         success: false,
-        error: 'Invalid credentials',
+        error: 'Invalid password',
       });
       return;
     }

@@ -8,6 +8,7 @@ export interface StoredUser extends User {
     emotionalIntelligence?: number;
     overthinking?: number;
   };
+  lastAssessmentInsights?: string;
 }
 
 export async function registerUser(userData: { name: string; email: string; password: string }): Promise<StoredUser> {
@@ -19,6 +20,10 @@ export async function registerUser(userData: { name: string; email: string; pass
     const response = await authApi.register(userData);
 
     if (!response.success || !response.data) {
+      // If backend provided suggestLogin flag, propagate entire response for UI handling
+      if ('suggestLogin' in response) {
+        throw response; // structured failure
+      }
       throw new Error(response.error || 'Registration failed');
     }
 
@@ -38,6 +43,11 @@ export async function loginUser(credentials: { email: string; password: string }
     const response = await authApi.login(credentials);
 
     if (!response.success || !response.data) {
+      // Check if this is a structured error response
+      if (response.error && typeof response === 'object' && 'suggestion' in response) {
+        // Re-throw structured errors so the UI can handle them
+        throw response;
+      }
       throw new Error(response.error || 'Login failed');
     }
 

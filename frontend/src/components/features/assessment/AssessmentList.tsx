@@ -1,8 +1,3 @@
-import React from 'react';
-import { Button } from '../../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Badge } from '../../ui/badge';
-import { Progress } from '../../ui/progress';
 import { 
   Brain,
   Heart,
@@ -15,102 +10,129 @@ import {
   ArrowLeft,
   Play
 } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+
+import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
+import { Card, CardContent } from '../../ui/card';
+import { Progress } from '../../ui/progress';
+import { Sparkline } from '../../ui/Sparkline';
 
 interface AssessmentListProps {
   onStartAssessment: (assessmentId: string) => void;
   onNavigate: (page: string) => void;
-  user: any;
+  user?: unknown; // retained for future personalization usage
 }
 
-interface Assessment {
+interface CatalogItem {
   id: string;
   title: string;
   description: string;
-  duration: string;
   questions: number;
-  icon: React.ReactNode;
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  category: 'required' | 'recommended' | 'optional';
-  completed: boolean;
-  lastTaken?: string;
-  score?: number;
+  estimatedTime: string;
+  difficulty: string;
+  category: string;
 }
 
-export function AssessmentList({ onStartAssessment, onNavigate, user }: AssessmentListProps) {
-  const assessments: Assessment[] = [
-    {
-      id: 'anxiety',
-      title: 'Anxiety Assessment',
-      description: 'Understand your anxiety patterns and triggers to develop effective coping strategies.',
-      duration: '5-7 minutes',
-      questions: 21,
-      icon: <Brain className="h-6 w-6" />,
-      difficulty: 'Beginner',
-      category: 'required',
-      completed: !!user?.assessmentScores?.anxiety,
-      lastTaken: user?.assessmentScores?.anxiety ? '2 days ago' : undefined,
-      score: user?.assessmentScores?.anxiety,
-    },
-    {
-      id: 'stress',
-      title: 'Stress Level Check',
-      description: 'Evaluate your current stress levels and identify key stressors in your daily life.',
-      duration: '4-6 minutes',
-      questions: 18,
-      icon: <Target className="h-6 w-6" />,
-      difficulty: 'Beginner',
-      category: 'required',
-      completed: !!user?.assessmentScores?.stress,
-      lastTaken: user?.assessmentScores?.stress ? '1 week ago' : undefined,
-      score: user?.assessmentScores?.stress,
-    },
-    {
-      id: 'emotional-intelligence',
-      title: 'Emotional Intelligence',
-      description: 'Assess your ability to understand and manage emotions effectively.',
-      duration: '8-10 minutes',
-      questions: 28,
-      icon: <Heart className="h-6 w-6" />,
-      difficulty: 'Intermediate',
-      category: 'recommended',
-      completed: !!user?.assessmentScores?.emotionalIntelligence,
-      score: user?.assessmentScores?.emotionalIntelligence,
-    },
-    {
-      id: 'overthinking',
-      title: 'Overthinking Patterns',
-      description: 'Identify thought patterns that may be creating unnecessary stress and anxiety.',
-      duration: '6-8 minutes',
-      questions: 24,
-      icon: <Zap className="h-6 w-6" />,
-      difficulty: 'Intermediate',
-      category: 'recommended',
-      completed: !!user?.assessmentScores?.overthinking,
-      score: user?.assessmentScores?.overthinking,
-    },
-    {
-      id: 'trauma-fear',
-      title: 'Trauma & Fear Response',
-      description: 'Gentle assessment of trauma responses and fear patterns (optional, sensitive content).',
-      duration: '10-12 minutes',
-      questions: 32,
-      icon: <Shield className="h-6 w-6" />,
-      difficulty: 'Advanced',
-      category: 'optional',
-      completed: false,
-    },
-    {
-      id: 'archetypes',
-      title: 'Psychological Archetypes',
-      description: 'Discover your core personality patterns and psychological preferences.',
-      duration: '12-15 minutes',
-      questions: 36,
-      icon: <Users className="h-6 w-6" />,
-      difficulty: 'Advanced',
-      category: 'optional',
-      completed: false,
-    },
-  ];
+interface HistoryItem {
+  id: string;
+  assessmentType: string;
+  score: number;
+  completedAt: string;
+  version: number;
+  isLatest: boolean;
+}
+
+interface SummaryItem {
+  type: string;
+  latest: { score: number; completedAt: string; version: number; aiInsights?: string };
+  previous: { score: number; completedAt: string; version: number } | null;
+  change: number;
+  direction: 'up' | 'down' | 'same';
+  risk: 'low' | 'moderate' | 'high';
+}
+
+export function AssessmentList({ onStartAssessment, onNavigate }: AssessmentListProps) {
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<SummaryItem[]>([]);
+  const [trends, setTrends] = useState<Record<string, { score: number; t: string }[]>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem('token');
+        const [catRes, histRes, sumRes, trendRes] = await Promise.all([
+          fetch('/api/assessments', { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+          fetch('/api/assessments/history', { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+          fetch('/api/assessments/summary', { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+          fetch('/api/assessments/trends', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        ]);
+        const catJson = await catRes.json();
+        const histJson = await histRes.json();
+        const sumJson = await sumRes.json();
+        const trendJson = await trendRes.json();
+        if (!catJson.success) throw new Error(catJson.error || 'Failed catalog');
+        if (!histJson.success) throw new Error(histJson.error || 'Failed history');
+        if (!sumJson.success) throw new Error(sumJson.error || 'Failed summary');
+        if (!trendJson.success) throw new Error(trendJson.error || 'Failed trends');
+        if (isMounted) {
+          setCatalog(catJson.data);
+          setHistory(histJson.data);
+          setSummary(sumJson.data);
+          setTrends(trendJson.data);
+        }
+      } catch (e) {
+        if (isMounted) setError(e instanceof Error ? e.message : 'Unknown error');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Map catalog to UI objects with completion info
+  const assessments = useMemo(() => {
+    const latestScores: Record<string, { score: number; completedAt: string }> = {};
+    history.forEach(h => {
+      if (h.isLatest) {
+        latestScores[h.assessmentType] = { score: h.score, completedAt: h.completedAt };
+      }
+    });
+    return catalog.map(item => {
+      const key = item.id;
+      const scoreMeta = latestScores[key];
+      const summaryItem = summary.find(s => s.type === key);
+      return {
+        id: key,
+        title: item.title,
+        description: item.description,
+        duration: item.estimatedTime,
+        questions: item.questions,
+  difficulty: item.difficulty as string,
+  category: item.category as string,
+        completed: !!scoreMeta,
+        lastTaken: scoreMeta ? new Date(scoreMeta.completedAt).toLocaleDateString() : undefined,
+        score: scoreMeta?.score,
+        change: summaryItem?.change,
+        direction: summaryItem?.direction,
+        risk: summaryItem?.risk,
+        icon: key.includes('anxiety') ? <Brain className="h-6 w-6" />
+          : key.includes('stress') ? <Target className="h-6 w-6" />
+          : key.includes('emotional') ? <Heart className="h-6 w-6" />
+          : key.includes('overthinking') ? <Zap className="h-6 w-6" />
+          : key.includes('trauma') ? <Shield className="h-6 w-6" />
+          : key.includes('archetype') ? <Users className="h-6 w-6" />
+          : <Brain className="h-6 w-6" />
+      };
+    });
+  }, [catalog, history, summary]);
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -135,17 +157,33 @@ export function AssessmentList({ onStartAssessment, onNavigate, user }: Assessme
     const completed = assessments.filter(a => a.completed).length;
     const required = assessments.filter(a => a.category === 'required');
     const requiredCompleted = required.filter(a => a.completed).length;
-    
     return {
       total,
       completed,
       required: required.length,
       requiredCompleted,
-      percentage: Math.round((completed / total) * 100)
+      percentage: total === 0 ? 0 : Math.round((completed / total) * 100)
     };
   };
 
   const stats = getCompletionStats();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Loading assessments...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-red-600">Failed to load assessments: {error}</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>Retry</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -268,8 +306,30 @@ export function AssessmentList({ onStartAssessment, onNavigate, user }: Assessme
                                 <span className="font-semibold text-primary">
                                   {assessment.score}%
                                 </span>
+                                {typeof assessment.change === 'number' && (
+                                  <span className={`ml-2 text-xs font-medium ${assessment.direction === 'up' ? 'text-red-600' : assessment.direction === 'down' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                    {assessment.direction === 'up' ? '▲' : assessment.direction === 'down' ? '▼' : '■'} {assessment.change > 0 ? '+' : ''}{assessment.change?.toFixed(1)}
+                                  </span>
+                                )}
                               </div>
                             )}
+                          </div>
+                        )}
+                        {assessment.completed && trends[assessment.id]?.length > 1 && (
+                          <div className="mt-2 flex items-center justify-between">
+                            <Sparkline values={trends[assessment.id].map(p => p.score)} width={140} height={34} ariaLabel={`${assessment.title} trend`} />
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {trends[assessment.id].length} pts
+                            </span>
+                          </div>
+                        )}
+                        {assessment.risk && (
+                          <div className="mt-2">
+                            <Badge variant="outline" className={
+                              assessment.risk === 'high' ? 'border-red-300 text-red-700' : assessment.risk === 'moderate' ? 'border-yellow-300 text-yellow-700' : 'border-green-300 text-green-700'
+                            }>
+                              {assessment.risk.charAt(0).toUpperCase() + assessment.risk.slice(1)} risk
+                            </Badge>
                           </div>
                         )}
                       </div>

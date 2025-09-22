@@ -12,12 +12,21 @@ interface User {
   isOnboarded: boolean;
 }
 
-// Configure Google OAuth Strategy (only if credentials are provided)
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+// Helper to detect placeholder values accidentally left in .env
+function isPlaceholder(value?: string | null) {
+  if (!value) return true;
+  const lower = value.toLowerCase().trim();
+  return lower.startsWith('your_google_oauth_client_id_here') || lower.startsWith('your_google_') || lower.startsWith('your_');
+}
+
+// Configure Google OAuth Strategy (only if credentials are provided & not placeholders)
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && !isPlaceholder(process.env.GOOGLE_CLIENT_ID)) {
+  const resolvedCallback = process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback';
+  console.log('[Google OAuth] Configured. Callback URL:', resolvedCallback);
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID!,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    callbackURL: "/api/auth/google/callback",
+    callbackURL: resolvedCallback,
     scope: ['profile', 'email']
   }, async (accessToken, refreshToken, profile, done) => {
     try {
@@ -95,7 +104,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   }
 }));
 } else {
-  console.log('Google OAuth not configured - Google login will be disabled');
+  if (isPlaceholder(process.env.GOOGLE_CLIENT_ID)) {
+    console.warn('[Google OAuth] Skipping setup: GOOGLE_CLIENT_ID is still a placeholder. Replace it with a real Web OAuth Client ID from Google Cloud Console.');
+  } else if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.log('Google OAuth not configured - missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET. Google login will be disabled.');
+  }
+  console.log('[Google OAuth] Expected local redirect URI (add EXACTLY in Google Console): http://localhost:5000/api/auth/google/callback');
 }
 
 // Serialize user for session

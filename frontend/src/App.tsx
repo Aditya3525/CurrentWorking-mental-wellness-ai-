@@ -1,4 +1,3 @@
-import { MessageCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { AssessmentList, AssessmentFlow, InsightsResults } from './components/features/assessment';
@@ -10,8 +9,10 @@ import { OnboardingFlow } from './components/features/onboarding';
 import { PersonalizedPlan } from './components/features/plans';
 import { Progress, Profile } from './components/features/profile';
 import { HelpSafety } from './components/layout';
-import { AdminAuthProvider } from './contexts/AdminAuthContext';
+import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext';
+import AdminDashboard from './admin/AdminDashboard';
 import { ChatProvider } from './contexts/ChatContext';
+import { ToastProvider } from './contexts/ToastContext';
 import { getCurrentUser, loginUser, registerUser, signOut, StoredUser, completeOnboarding, setupUserPassword } from './services/auth';
 
 type Page = 
@@ -29,16 +30,18 @@ type Page =
   | 'progress'
   | 'profile'
   | 'help'
-  | 'oauth-callback';
+  | 'oauth-callback'
+  | 'admin';
 
 type User = StoredUser;
 
-export default function App() {
+function AppInner() {
+  const { admin, adminLogin } = useAdminAuth();
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [user, setUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [showChatbot, setShowChatbot] = useState(false);
+  const [loginError, setLoginError] = useState<{ error: string; suggestion?: string; message?: string } | null>(null);
   const [currentAssessment, setCurrentAssessment] = useState<string | null>(null);
 
   // Check for existing authentication on app load
@@ -82,6 +85,14 @@ export default function App() {
     }
   }, []);
 
+  // Check for onboarding when navigating to dashboard
+  useEffect(() => {
+    if (currentPage === 'dashboard' && user && !user.isOnboarded && !loadingUser) {
+      console.log('User reached dashboard but not onboarded - redirecting to onboarding');
+      setCurrentPage('onboarding');
+    }
+  }, [currentPage, user, loadingUser]);
+
   const navigateTo = (page: Page) => {
     setCurrentPage(page);
   };
@@ -91,10 +102,11 @@ export default function App() {
     setCurrentPage('assessment-flow');
   };
 
-  const completeAssessment = (scores: Record<string, number>) => {
+  const completeAssessment = (scores: Record<string, number>, meta?: { aiInsights?: string }) => {
     setUser(prev => prev ? {
       ...prev,
-      assessmentScores: { ...prev.assessmentScores, ...scores }
+      assessmentScores: { ...prev.assessmentScores, ...scores },
+      lastAssessmentInsights: meta?.aiInsights || prev.lastAssessmentInsights
     } : null);
     setCurrentAssessment(null);
     setCurrentPage('insights');
@@ -122,35 +134,60 @@ export default function App() {
       
     } catch (error) {
       console.error('Registration error:', error);
+      // Handle structured ApiResponse thrown from registerUser
+      if (error && typeof error === 'object' && 'suggestLogin' in error) {
+        const errObj = error as { suggestLogin?: boolean; email?: string; error?: string; status?: number };
+        if (errObj.suggestLogin) {
+          setAuthError(errObj.error || 'An account already exists. Please log in instead.');
+          window.dispatchEvent(new CustomEvent('show-login-from-duplicate', { detail: { email: errObj.email || userData.email } }));
+          return;
+        }
+      }
       setAuthError(error instanceof Error ? error.message : 'Registration failed');
     }
   };
 
   const login = async (credentials: { email: string; password: string }) => {
     try {
+      setLoginError(null);
       setAuthError(null);
       console.log('Attempting login for:', credentials.email);
-      
       const existing = await loginUser(credentials);
       if (existing) {
         console.log('Login successful:', existing);
         setUser(existing);
-        
-        // Route based on onboarding status
-        if (existing.isOnboarded) {
-          console.log('Existing user routing to dashboard');
-          setCurrentPage('dashboard');
+        setCurrentPage(existing.isOnboarded ? 'dashboard' : 'onboarding');
+      } else {
+        setLoginError({
+          error: 'Invalid credentials',
+          suggestion: 'check_credentials'
+        });
+      }
+    } catch (error: unknown) {
+      console.error('Login error:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { error?: string; suggestion?: string; message?: string } } };
+        const errorData = axiosError.response?.data;
+        if (errorData?.suggestion === 'create_account') {
+          setLoginError({
+            error: errorData.error,
+            suggestion: 'create_account',
+            message: errorData.message
+          });
+        } else if (errorData?.suggestion === 'use_google_or_setup_password') {
+          setLoginError({
+            error: errorData.error,
+            suggestion: 'use_google_or_setup_password'
+          });
         } else {
-          console.log('Existing user needs onboarding');
-          setCurrentPage('onboarding');
+          setLoginError({
+            error: errorData?.error || 'Login failed',
+            suggestion: 'check_credentials'
+          });
         }
       } else {
-        console.log('Login failed - no user found');
-        setAuthError('Login failed. Please check your credentials.');
+        setAuthError(error instanceof Error ? error.message : 'Login failed');
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      setAuthError(error instanceof Error ? error.message : 'Login failed');
     }
   };
 
@@ -163,42 +200,17 @@ export default function App() {
   };
 
   const handleAdminLogin = async (credentials: { email: string; password: string }) => {
-    // This will be handled by the AdminAuthContext
-    // Just implement a basic placeholder for now since the actual logic is in AdminLoginModal
-    try {
-      const response = await fetch('/api/admin/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(credentials),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          // Admin login successful - could redirect to admin dashboard
-          console.log('Admin login successful:', data.admin);
-          // For now, just log success - in a real implementation, 
-          // you might redirect to admin dashboard or show admin UI
-        }
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Admin login failed');
-      }
-    } catch (error) {
-      console.error('Admin login error:', error);
-      throw error; // Re-throw to let the modal handle the error display
-    }
+    await adminLogin(credentials);
+    // Navigate to admin page - the AdminDashboard component will handle authentication checks
+    setCurrentPage('admin');
   };
 
-  const handleOAuthSuccess = (userData: { 
-    id: string; 
-    name: string; 
-    email: string; 
-    token: string; 
-    needsSetup?: boolean; 
+  const handleOAuthSuccess = (userData: {
+    id: string;
+    name: string;
+    email: string;
+    token: string;
+    needsSetup?: boolean;
     needsPassword?: boolean;
     isOnboarded?: boolean;
     hasPassword?: boolean;
@@ -207,10 +219,21 @@ export default function App() {
     profilePhoto?: string;
     isGoogleUser?: boolean;
     justCreated?: boolean;
+    birthday?: string;
+    gender?: string;
+    region?: string;
+    language?: string;
+    approach?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+    dataConsent?: boolean;
+    clinicianSharing?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
   }) => {
     console.log('OAuth Success Data:', userData);
     
-    // Set complete user data
+    // Set complete user data from backend (includes all profile fields)
     setUser({
       id: userData.id,
       name: userData.name,
@@ -220,13 +243,20 @@ export default function App() {
       profilePhoto: userData.profilePhoto,
       isOnboarded: userData.isOnboarded || false,
       assessmentScores: {},
-      dataConsent: true,
-      clinicianSharing: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      dataConsent: userData.dataConsent || true,
+      clinicianSharing: userData.clinicianSharing || false,
+      birthday: userData.birthday,
+      gender: userData.gender,
+      region: userData.region,
+      language: userData.language,
+      approach: userData.approach as 'western' | 'eastern' | 'hybrid' | undefined,
+      emergencyContact: userData.emergencyContact,
+      emergencyPhone: userData.emergencyPhone,
+      createdAt: userData.createdAt || new Date().toISOString(),
+      updatedAt: userData.updatedAt || new Date().toISOString()
     });
     
-    // Store token and user data
+    // Store token and complete user data
     localStorage.setItem('token', userData.token);
     localStorage.setItem('user', JSON.stringify(userData));
     
@@ -238,22 +268,23 @@ export default function App() {
       needsPassword: userData.needsPassword,
       needsSetup: userData.needsSetup,
       isOnboarded: userData.isOnboarded,
-      hasPassword: userData.hasPassword
+      hasPassword: userData.hasPassword,
+      justCreated: userData.justCreated
     });
     
-  const requirePassword = userData.justCreated && !userData.hasPassword;
-  if (requirePassword) {
-      console.log('Routing to password setup');
+    // Simplified routing logic:
+    // - New Google users (justCreated) -> password setup
+    // - Existing users -> dashboard (app will handle onboarding check)
+    if (userData.justCreated) {
+      console.log('Routing new Google user to password setup');
       setCurrentPage('password-setup');
-  } else if (!userData.isOnboarded) {
-      console.log('Routing to onboarding');
-      setCurrentPage('onboarding');
     } else {
-      console.log('Routing to dashboard');
-      // Refresh latest user profile from backend to get all completion fields
-      getCurrentUser().then(fresh => {
-        if (fresh) setUser(fresh);
-      }).finally(() => setCurrentPage('dashboard'));
+      console.log('Routing existing user to dashboard');
+      // Let the app's general onboarding logic handle routing
+      if (!userData.isOnboarded) {
+        console.log('User not onboarded, will redirect to onboarding from dashboard/app logic');
+      }
+      setCurrentPage('dashboard');
     }
   };
 
@@ -368,7 +399,7 @@ export default function App() {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'landing':
-  return <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} />;
+  return <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} loginError={loginError} />;
       case 'oauth-callback':
         return <OAuthCallback onAuthSuccess={handleOAuthSuccess} onAuthError={handleOAuthError} />;
       case 'password-setup':
@@ -406,44 +437,30 @@ export default function App() {
         return <Profile user={user} onNavigate={navigateTo} setUser={setUser} onLogout={logout} />;
       case 'help':
         return <HelpSafety onNavigate={navigateTo} />;
+      case 'admin':
+        return <AdminDashboard />;
       default:
-  return <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} />;
+  return <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} loginError={loginError} />;
     }
   };
+  return (
+    <div className="min-h-screen bg-background">
+      {loadingUser ? (
+        <div className="flex items-center justify-center h-screen text-muted-foreground">Loading...</div>
+      ) : (
+        renderCurrentPage()
+      )}
+    </div>
+  );
+}
 
+export default function App() {
   return (
     <AdminAuthProvider>
       <ChatProvider>
-        <div className="min-h-screen bg-background">
-        {loadingUser ? (
-          <div className="flex items-center justify-center h-screen text-muted-foreground">Loading...</div>
-        ) : (
-          renderCurrentPage()
-        )}          {/* Floating Chat Button */}
-          {user && (
-            <button
-              onClick={() => setShowChatbot(true)}
-              className="fixed bottom-6 right-6 bg-primary text-primary-foreground p-4 rounded-full shadow-lg hover:bg-primary/90 transition-colors z-40"
-              aria-label="Open AI Chat"
-            >
-              <MessageCircle className="h-6 w-6" />
-            </button>
-          )}
-
-          {/* Chat Modal */}
-          {showChatbot && (
-            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl w-full max-w-md h-[600px] flex flex-col">
-                <Chatbot 
-                  user={user} 
-                  onNavigate={navigateTo}
-                  isModal={true}
-                  onClose={() => setShowChatbot(false)}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        <ToastProvider>
+          <AppInner />
+        </ToastProvider>
       </ChatProvider>
     </AdminAuthProvider>
   );

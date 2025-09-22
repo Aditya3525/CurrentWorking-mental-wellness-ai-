@@ -189,6 +189,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
     );
 
     next();
+    return;
 
   } catch (error) {
     console.error('Admin authentication middleware error:', error);
@@ -302,6 +303,7 @@ export const requireAdminRole = (requiredRole: string) => {
     }
 
     next();
+    return;
   };
 };
 
@@ -348,7 +350,7 @@ export const logAdminAction = (actionName: string) => {
         console.error('Failed to log admin action:', error);
       });
 
-      return originalEnd.apply(this, args);
+      return (originalEnd as any).apply(this, args);
     };
 
     next();
@@ -397,6 +399,7 @@ export const requireSuperAdmin = async (req: Request, res: Response, next: NextF
   }
 
   next();
+  return;
 };
 
 // Utility function to check if current request is from admin
