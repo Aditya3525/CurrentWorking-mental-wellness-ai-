@@ -40,7 +40,7 @@ export const ContentList: React.FC<ContentListProps> = ({ embedded, onAdd, onEdi
   const [error,setError]=useState<string|null>(null);
   const [showForm,setShowForm]=useState(false);
   const [editing,setEditing]=useState<ContentItem|null>(null);
-  const [filters,setFilters]=useState({ search:'', approach:'', type:'' });
+  const [filters,setFilters]=useState({ search:'', approach:'all', type:'all' });
 
   // Map ContentRecord to ContentItem for type compatibility
   function mapContent(rec: ContentRecord): ContentItem {
@@ -67,8 +67,8 @@ export const ContentList: React.FC<ContentListProps> = ({ embedded, onAdd, onEdi
     try {
       const params = new URLSearchParams();
       if(filters.search) params.set('search', filters.search);
-      if(filters.approach) params.set('approach', filters.approach);
-      if(filters.type) params.set('contentType', filters.type);
+      if(filters.approach && filters.approach !== 'all') params.set('approach', filters.approach);
+      if(filters.type && filters.type !== 'all') params.set('contentType', filters.type);
   const res = await fetch('/api/admin/content?'+params.toString(), { credentials:'include' });
       const data = await res.json();
       if(!data.success) throw new Error(data.error||'Failed to load');
@@ -145,7 +145,7 @@ export const ContentList: React.FC<ContentListProps> = ({ embedded, onAdd, onEdi
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="audio">Audio</SelectItem>
                   <SelectItem value="video">Video</SelectItem>
                   <SelectItem value="story">Story</SelectItem>
@@ -161,7 +161,7 @@ export const ContentList: React.FC<ContentListProps> = ({ embedded, onAdd, onEdi
                   <SelectValue placeholder="All Approaches" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Approaches</SelectItem>
+                  <SelectItem value="all">All Approaches</SelectItem>
                   <SelectItem value="western">Western</SelectItem>
                   <SelectItem value="eastern">Eastern</SelectItem>
                   <SelectItem value="hybrid">Hybrid</SelectItem>

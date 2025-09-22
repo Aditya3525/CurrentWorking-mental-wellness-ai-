@@ -61,10 +61,10 @@ export const PracticesList: React.FC<PracticesListProps> = ({
 
   const [filters, setFilters] = useState({ 
     search: '', 
-    approach: '', 
-    level: '', 
-    type: '',
-    isPublished: ''
+    approach: 'all', 
+    level: 'all', 
+    type: 'all',
+    isPublished: 'all'
   });
 
   const load = useCallback(async () => {
@@ -78,10 +78,10 @@ export const PracticesList: React.FC<PracticesListProps> = ({
     try {
       const params = new URLSearchParams();
       if(filters.search) params.set('search', filters.search);
-      if(filters.approach) params.set('approach', filters.approach);
-      if(filters.level) params.set('level', filters.level);
-      if(filters.type) params.set('type', filters.type);
-      if(filters.isPublished) params.set('isPublished', filters.isPublished);
+      if(filters.approach && filters.approach !== 'all') params.set('approach', filters.approach);
+      if(filters.level && filters.level !== 'all') params.set('level', filters.level);
+      if(filters.type && filters.type !== 'all') params.set('type', filters.type);
+      if(filters.isPublished && filters.isPublished !== 'all') params.set('isPublished', filters.isPublished);
       
       const res = await fetch('/api/admin/practices?' + params.toString(), { 
         credentials: 'include' 
@@ -150,10 +150,10 @@ export const PracticesList: React.FC<PracticesListProps> = ({
     if (filters.search && !item.title.toLowerCase().includes(filters.search.toLowerCase())) {
       return false;
     }
-    if (filters.approach && item.approach !== filters.approach) return false;
-    if (filters.level && item.level !== filters.level) return false;
-    if (filters.type && item.type !== filters.type) return false;
-    if (filters.isPublished && item.isPublished.toString() !== filters.isPublished) return false;
+    if (filters.approach && filters.approach !== 'all' && item.approach !== filters.approach) return false;
+    if (filters.level && filters.level !== 'all' && item.level !== filters.level) return false;
+    if (filters.type && filters.type !== 'all' && item.type !== filters.type) return false;
+    if (filters.isPublished && filters.isPublished !== 'all' && item.isPublished.toString() !== filters.isPublished) return false;
     return true;
   });
 
@@ -201,7 +201,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="Meditation">Meditation</SelectItem>
               <SelectItem value="Breathing">Breathing</SelectItem>
               <SelectItem value="Yoga">Yoga</SelectItem>
@@ -217,7 +217,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
               <SelectValue placeholder="Level" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Levels</SelectItem>
+              <SelectItem value="all">All Levels</SelectItem>
               <SelectItem value="Beginner">Beginner</SelectItem>
               <SelectItem value="Intermediate">Intermediate</SelectItem>
               <SelectItem value="Advanced">Advanced</SelectItem>
@@ -232,7 +232,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
               <SelectValue placeholder="Approach" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Approaches</SelectItem>
+              <SelectItem value="all">All Approaches</SelectItem>
               <SelectItem value="western">Western</SelectItem>
               <SelectItem value="eastern">Eastern</SelectItem>
               <SelectItem value="hybrid">Hybrid</SelectItem>
@@ -247,7 +247,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="true">Published</SelectItem>
               <SelectItem value="false">Draft</SelectItem>
             </SelectContent>

@@ -200,9 +200,15 @@ function AppInner() {
   };
 
   const handleAdminLogin = async (credentials: { email: string; password: string }) => {
-    await adminLogin(credentials);
-    // Navigate to admin page - the AdminDashboard component will handle authentication checks
-    setCurrentPage('admin');
+    try {
+      await adminLogin(credentials);
+      // Navigate to admin page after successful login
+      setCurrentPage('admin');
+    } catch (error) {
+      console.error('Admin login failed:', error);
+      // Error will be handled by AdminAuthContext and displayed in the modal
+      throw error; // Re-throw to let the modal handle error display
+    }
   };
 
   const handleOAuthSuccess = (userData: {
