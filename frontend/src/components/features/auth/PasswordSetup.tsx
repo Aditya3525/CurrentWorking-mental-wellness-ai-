@@ -1,17 +1,18 @@
+import { 
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Shield
+} from 'lucide-react';
 import React, { useState } from 'react';
+
+import { Alert, AlertDescription } from '../../ui/alert';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
-import { Alert, AlertDescription } from '../../ui/alert';
-import { 
-  Shield, 
-  Eye, 
-  EyeOff, 
-  CheckCircle,
-  AlertTriangle,
-  ArrowRight
-} from 'lucide-react';
 
 interface PasswordSetupProps {
   user: { name: string; email: string; firstName?: string; lastName?: string } | null;
@@ -50,6 +51,22 @@ export function PasswordSetup({ user, onComplete, onSkip, isLoading, error }: Pa
 
   const passwordStrength = getPasswordStrength();
 
+  // Handle case where user is not loaded yet
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-accent/20 flex items-center justify-center p-6">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-12 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading your account...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const userName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.name || 'there';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-accent/20 flex items-center justify-center p-6">
       <Card className="w-full max-w-md">
@@ -60,7 +77,7 @@ export function PasswordSetup({ user, onComplete, onSkip, isLoading, error }: Pa
           <div className="space-y-2">
             <CardTitle className="text-2xl">Secure Your Account</CardTitle>
             <p className="text-muted-foreground">
-              Hi {([user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name)}! To keep your mental health data safe, please set up a secure password.
+              Hi {userName}! To keep your mental health data safe, please set up a secure password.
             </p>
           </div>
         </CardHeader>
@@ -162,7 +179,7 @@ export function PasswordSetup({ user, onComplete, onSkip, isLoading, error }: Pa
                   ) : (
                     <>
                       <AlertTriangle className="h-4 w-4 text-red-600" />
-                      <span className="text-red-600">Passwords don't match</span>
+                      <span className="text-red-600">Passwords don&apos;t match</span>
                     </>
                   )}
                 </div>

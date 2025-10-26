@@ -1,421 +1,368 @@
-import React, { useState, useEffect } from 'react';
+import { AlertCircle, ArrowLeft, ArrowRight, Brain, CheckCircle2, Clock } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { assessmentsApi, type AssessmentTemplate } from '../../../services/api';
+import { scoreAdvancedAssessment } from '../../../services/assessmentScoring';
 import { Button } from '../../ui/button';
-import { Card, CardContent } from '../../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Label } from '../../ui/label';
+import { AssessmentLoadingCard } from '../../ui/loading-card';
 import { Progress } from '../../ui/progress';
 import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
-import { Label } from '../../ui/label';
-import { 
-  ArrowLeft,
-  ArrowRight,
-  Clock,
-  Brain,
-  Heart,
-  Sparkles,
-  CheckCircle,
-  AlertTriangle
-} from 'lucide-react';
+
+export interface AssessmentCompletionPayload {
+	assessmentType: string;
+	sessionId?: string;
+	responses: Record<string, number>;
+	submissionResponses: Record<string, string>;
+	responseDetails: Array<{
+		questionId: string;
+		questionText: string;
+		answerLabel: string;
+		answerValue: string | number | null;
+		answerScore?: number;
+	}>;
+	score: number;
+	rawScore: number;
+	maxScore: number;
+	categoryBreakdown?: Record<string, { raw: number; normalized: number; interpretation?: string }>;
+}
 
 interface AssessmentFlowProps {
-  assessmentId: string;
-  onComplete: (scores: any) => void;
-  onNavigate: (page: string) => void;
+	assessmentId: string;
+	sessionId?: string;
+	onComplete: (payload: AssessmentCompletionPayload) => Promise<void>;
+	onNavigate: (page: string) => void;
 }
 
-interface Question {
-  id: string;
-  text: string;
-  subtext?: string;
-  type: 'likert' | 'multiple-choice' | 'binary';
-  options: Array<{
-    value: string;
-    label: string;
-    score: number;
-  }>;
-}
+export function AssessmentFlow({
+	assessmentId,
+	sessionId,
+	onComplete,
+	onNavigate
+}: AssessmentFlowProps) {
+	const [assessmentDef, setAssessmentDef] = useState<AssessmentTemplate | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+	const [responses, setResponses] = useState<Record<string, number>>({});
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [startTime] = useState(Date.now());
 
-interface AssessmentData {
-  title: string;
-  description: string;
-  totalQuestions: number;
-  estimatedTime: string;
-  questions: Question[];
-  scoringKey: string;
-}
+	// Fetch assessment definition
+	useEffect(() => {
+		const fetchAssessment = async () => {
+			try {
+				setLoading(true);
+				setError(null);
+				// Request the specific assessment template by ID
+				const response = await assessmentsApi.getAssessmentTemplates([assessmentId]);
 
-export function AssessmentFlow({ assessmentId, onComplete, onNavigate }: AssessmentFlowProps) {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [startTime] = useState(Date.now());
-  const [isProcessing, setIsProcessing] = useState(false);
+				if (response.success && response.data && response.data.templates.length > 0) {
+					// Backend resolves aliases and returns the matching template
+					setAssessmentDef(response.data.templates[0]);
+				} else {
+					setError(`Assessment "${assessmentId}" not found`);
+				}
+			} catch (err) {
+				console.error('Error fetching assessment:', err);
+				setError('Unable to load assessment. Please try again.');
+			} finally {
+				setLoading(false);
+			}
+		};
 
-  // Mock assessment data - in real app this would come from API
-  const getAssessmentData = (id: string): AssessmentData => {
-    const assessments: Record<string, AssessmentData> = {
-      anxiety: {
-        title: 'Anxiety Assessment',
-        description: 'This assessment helps identify your anxiety patterns and triggers.',
-        totalQuestions: 10, // Shortened for demo
-        estimatedTime: '5-7 minutes',
-        scoringKey: 'anxiety',
-        questions: [
-          {
-            id: 'anxiety_1',
-            text: 'How often do you feel nervous, anxious, or on edge?',
-            type: 'likert',
-            options: [
-              { value: '0', label: 'Not at all', score: 0 },
-              { value: '1', label: 'Several days', score: 25 },
-              { value: '2', label: 'More than half the days', score: 50 },
-              { value: '3', label: 'Nearly every day', score: 75 },
-            ]
-          },
-          {
-            id: 'anxiety_2',
-            text: 'How often do you have trouble relaxing?',
-            type: 'likert',
-            options: [
-              { value: '0', label: 'Not at all', score: 0 },
-              { value: '1', label: 'Several days', score: 25 },
-              { value: '2', label: 'More than half the days', score: 50 },
-              { value: '3', label: 'Nearly every day', score: 75 },
-            ]
-          },
-          {
-            id: 'anxiety_3',
-            text: 'Do you worry too much about different things?',
-            type: 'likert',
-            options: [
-              { value: '0', label: 'Not at all', score: 0 },
-              { value: '1', label: 'Several days', score: 25 },
-              { value: '2', label: 'More than half the days', score: 50 },
-              { value: '3', label: 'Nearly every day', score: 75 },
-            ]
-          },
-          {
-            id: 'anxiety_4',
-            text: 'How often do you feel restless or find it hard to sit still?',
-            type: 'likert',
-            options: [
-              { value: '0', label: 'Not at all', score: 0 },
-              { value: '1', label: 'Several days', score: 25 },
-              { value: '2', label: 'More than half the days', score: 50 },
-              { value: '3', label: 'Nearly every day', score: 75 },
-            ]
-          },
-          {
-            id: 'anxiety_5',
-            text: 'Do you have trouble falling or staying asleep due to worry?',
-            type: 'binary',
-            options: [
-              { value: 'no', label: 'No, my sleep is fine', score: 0 },
-              { value: 'sometimes', label: 'Sometimes it affects my sleep', score: 50 },
-              { value: 'yes', label: 'Yes, frequently affects my sleep', score: 100 },
-            ]
-          },
-          {
-            id: 'anxiety_6',
-            text: 'How often do you experience physical symptoms when anxious (rapid heartbeat, sweating, trembling)?',
-            type: 'likert',
-            options: [
-              { value: '0', label: 'Never', score: 0 },
-              { value: '1', label: 'Rarely', score: 20 },
-              { value: '2', label: 'Sometimes', score: 50 },
-              { value: '3', label: 'Often', score: 80 },
-            ]
-          },
-          {
-            id: 'anxiety_7',
-            text: 'Do you avoid certain situations because they make you anxious?',
-            type: 'multiple-choice',
-            options: [
-              { value: 'never', label: 'Never avoid situations', score: 0 },
-              { value: 'rarely', label: 'Rarely avoid situations', score: 25 },
-              { value: 'sometimes', label: 'Sometimes avoid situations', score: 50 },
-              { value: 'often', label: 'Often avoid situations', score: 75 },
-              { value: 'always', label: 'Frequently avoid situations', score: 100 },
-            ]
-          },
-          {
-            id: 'anxiety_8',
-            text: 'How would you rate your overall anxiety level in the past two weeks?',
-            type: 'likert',
-            options: [
-              { value: '1', label: 'Very low', score: 10 },
-              { value: '2', label: 'Low', score: 30 },
-              { value: '3', label: 'Moderate', score: 50 },
-              { value: '4', label: 'High', score: 70 },
-              { value: '5', label: 'Very high', score: 90 },
-            ]
-          },
-          {
-            id: 'anxiety_9',
-            text: 'Do you feel like your worries are hard to control?',
-            type: 'binary',
-            options: [
-              { value: 'no', label: 'No, I can usually manage my worries', score: 0 },
-              { value: 'sometimes', label: 'Sometimes they feel out of control', score: 50 },
-              { value: 'yes', label: 'Yes, they often feel uncontrollable', score: 100 },
-            ]
-          },
-          {
-            id: 'anxiety_10',
-            text: 'How much do anxiety symptoms interfere with your daily activities?',
-            type: 'likert',
-            options: [
-              { value: '0', label: 'Not at all', score: 0 },
-              { value: '1', label: 'A little bit', score: 25 },
-              { value: '2', label: 'Moderately', score: 50 },
-              { value: '3', label: 'Quite a bit', score: 75 },
-              { value: '4', label: 'Extremely', score: 100 },
-            ]
-          },
-        ]
-      },
-      // Add other assessments as needed
-    };
+		fetchAssessment();
+	}, [assessmentId]);
 
-    return assessments[id] || assessments.anxiety;
-  };
+	const totalQuestions = assessmentDef?.questions.length || 0;
+	const currentQuestion = assessmentDef?.questions[currentQuestionIndex];
+	const progressPercentage = totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0;
 
-  const assessment = getAssessmentData(assessmentId);
-  const currentQ = assessment.questions[currentQuestion];
-  const progress = ((currentQuestion + 1) / assessment.totalQuestions) * 100;
-  const timeElapsed = Math.floor((Date.now() - startTime) / 1000 / 60);
+	// Calculate estimated time remaining (30 seconds per question average)
+	const estimateTimeRemaining = useMemo(() => {
+		const questionsRemaining = totalQuestions - currentQuestionIndex - 1;
+		const secondsRemaining = questionsRemaining * 30; // 30 seconds per question
+		const minutes = Math.ceil(secondsRemaining / 60);
+		return minutes;
+	}, [currentQuestionIndex, totalQuestions]);
 
-  const handleAnswer = (value: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [currentQ.id]: value
-    }));
-  };
+	const handleAnswer = useCallback((value: number) => {
+		if (!currentQuestion) return;
+		setResponses(prev => ({
+			...prev,
+			[currentQuestion.id]: value
+		}));
+	}, [currentQuestion]);
 
-  const handleNext = () => {
-    if (currentQuestion < assessment.totalQuestions - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-    } else {
-      handleComplete();
-    }
-  };
+	const handleSubmit = useCallback(async () => {
+		if (!assessmentDef) return;
 
-  const handlePrevious = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(currentQuestion - 1);
-    }
-  };
+		setIsSubmitting(true);
+		setError(null);
 
-  const handleComplete = async () => {
-    setIsProcessing(true);
-    
-    // Calculate score based on answers
-    let totalScore = 0;
-    let maxScore = 0;
-    
-    assessment.questions.forEach(question => {
-      const answer = answers[question.id];
-      if (answer) {
-        const option = question.options.find(opt => opt.value === answer);
-        if (option) {
-          totalScore += option.score;
-        }
-      }
-      maxScore += Math.max(...question.options.map(opt => opt.score));
-    });
+		try {
+			// Convert responses to string format for scoring
+			const stringResponses: Record<string, string> = {};
+			for (const [questionId, value] of Object.entries(responses)) {
+				stringResponses[questionId] = String(value);
+			}
 
-    const normalizedScore = Math.round((totalScore / maxScore) * 100);
-    
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    const scores = {
-      [assessment.scoringKey]: normalizedScore
-    };
-    
-    onComplete(scores);
-  };
+			// Score the assessment
+			const scoringResult = scoreAdvancedAssessment({
+				assessmentType: assessmentDef.assessmentType,
+				answers: stringResponses,
+				questions: assessmentDef.questions.map(q => ({
+					id: q.id,
+					options: q.options.map(opt => ({
+						value: String(opt.id),
+						score: opt.value
+					})),
+					reverseScored: q.reverseScored,
+					domain: q.domain
+				})),
+				scoring: assessmentDef.scoring
+			});
 
-  const canProceed = () => {
-    return answers[currentQ?.id] !== undefined;
-  };
+			const responseDetails = assessmentDef.questions
+				.map((question) => {
+					const answerScore = responses[question.id];
+					if (answerScore === undefined) {
+						return null;
+					}
+					const selectedOption = question.options.find((option) => option.value === answerScore);
+					return {
+						questionId: question.id,
+						questionText: question.text,
+						answerLabel: selectedOption?.text ?? '',
+						answerValue: selectedOption?.id ?? answerScore ?? null,
+						answerScore: typeof selectedOption?.value === 'number' ? selectedOption.value : undefined
+					};
+				})
+				.filter((detail): detail is AssessmentCompletionPayload['responseDetails'][number] => detail !== null);
 
-  const getQuestionIcon = () => {
-    if (assessmentId.includes('anxiety')) return <Brain className="h-5 w-5 text-primary" />;
-    if (assessmentId.includes('stress')) return <Heart className="h-5 w-5 text-primary" />;
-    return <Sparkles className="h-5 w-5 text-primary" />;
-  };
+			const payload: AssessmentCompletionPayload = {
+				assessmentType: assessmentDef.assessmentType,
+				sessionId,
+				responses,
+				submissionResponses: stringResponses,
+				responseDetails,
+				score: scoringResult.normalizedScore,
+				rawScore: scoringResult.rawScore,
+				maxScore: scoringResult.maxScore,
+				categoryBreakdown: scoringResult.categoryBreakdown
+			};
 
-  if (isProcessing) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center space-y-6">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto animate-pulse">
-              <Brain className="h-8 w-8 text-primary" />
-            </div>
-            <div className="space-y-3">
-              <h2 className="text-2xl">Processing Your Results</h2>
-              <p className="text-muted-foreground">
-                We're analyzing your responses to provide personalized insights. This won't take long...
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-center">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Generating your personalized recommendations...
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+			await onComplete(payload);
+		} catch (err) {
+			console.error('Error submitting assessment:', err);
+			setError('Failed to submit assessment. Please try again.');
+		} finally {
+			setIsSubmitting(false);
+		}
+	}, [assessmentDef, responses, sessionId, onComplete]);
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-6">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => onNavigate('assessments')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Exit Assessment
-            </Button>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>{timeElapsed} min elapsed</span>
-            </div>
-          </div>
+	const handleNext = useCallback(() => {
+		if (currentQuestionIndex < totalQuestions - 1) {
+			setCurrentQuestionIndex(prev => prev + 1);
+		} else {
+			handleSubmit();
+		}
+	}, [currentQuestionIndex, totalQuestions, handleSubmit]);
 
-          {/* Progress */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {getQuestionIcon()}
-                <span className="font-medium">{assessment.title}</span>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                {currentQuestion + 1} of {assessment.totalQuestions}
-              </span>
-            </div>
-            <Progress value={progress} className="h-2" />
-            <p className="text-sm text-muted-foreground">
-              {Math.round(progress)}% complete
-            </p>
-          </div>
-        </div>
-      </div>
+	const handlePrevious = useCallback(() => {
+		if (currentQuestionIndex > 0) {
+			setCurrentQuestionIndex(prev => prev - 1);
+		}
+	}, [currentQuestionIndex]);
 
-      {/* Question */}
-      <div className="max-w-2xl mx-auto p-6">
-        <Card>
-          <CardContent className="p-8">
-            <div className="space-y-8">
-              {/* Question Text */}
-              <div className="space-y-3">
-                <h2 className="text-2xl leading-relaxed">
-                  {currentQ?.text}
-                </h2>
-                {currentQ?.subtext && (
-                  <p className="text-muted-foreground">
-                    {currentQ.subtext}
-                  </p>
-                )}
-              </div>
+	const canProceed = useMemo(() => {
+		if (!currentQuestion) return false;
+		return responses[currentQuestion.id] !== undefined;
+	}, [currentQuestion, responses]);
 
-              {/* Answer Options */}
-              <RadioGroup
-                value={answers[currentQ?.id] || ''}
-                onValueChange={handleAnswer}
-              >
-                <div className="space-y-3">
-                  {currentQ?.options.map((option) => (
-                    <div 
-                      key={option.value}
-                      className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => handleAnswer(option.value)}
-                    >
-                      <RadioGroupItem value={option.value} id={option.value} className="mt-1" />
-                      <Label 
-                        htmlFor={option.value} 
-                        className="text-base leading-relaxed cursor-pointer flex-1"
-                      >
-                        {option.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
+	if (loading) {
+		return (
+			<div className="min-h-screen bg-background flex items-center justify-center">
+				<AssessmentLoadingCard message="Loading assessment..." />
+			</div>
+		);
+	}
 
-              {/* Safety Note for Sensitive Questions */}
-              {(currentQ?.text.toLowerCase().includes('harm') || 
-                currentQ?.text.toLowerCase().includes('suicide') ||
-                currentQ?.text.toLowerCase().includes('death')) && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="text-sm text-amber-800 font-medium">
-                        Need immediate support?
-                      </p>
-                      <p className="text-sm text-amber-700">
-                        If you're having thoughts of self-harm, please reach out for help immediately. 
-                        Call 988 (US) or your local emergency services.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+	if (error || !assessmentDef) {
+		return (
+			<div className="min-h-screen bg-background flex items-center justify-center p-6">
+				<Card className="w-full max-w-2xl">
+					<CardContent className="p-12 text-center space-y-4">
+						<AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+						<h2 className="text-xl font-semibold">Error Loading Assessment</h2>
+						<p className="text-muted-foreground">{error || 'Assessment not found'}</p>
+						<Button onClick={() => onNavigate('assessments')}>
+							Return to Assessments
+						</Button>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
 
-        {/* Navigation */}
-        <div className="flex justify-between mt-6">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentQuestion === 0}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Previous
-          </Button>
+	return (
+		<div className="min-h-screen bg-background">
+			<div className="max-w-4xl mx-auto p-6 space-y-6">
+				{/* Header */}
+				<div className="flex items-center justify-between">
+					<Button variant="ghost" onClick={() => onNavigate('assessments')}>
+						<ArrowLeft className="h-4 w-4 mr-2" />
+						Back to Assessments
+					</Button>
+					<div className="text-sm text-muted-foreground">
+						Session {sessionId ? `#${sessionId.slice(0, 8)}` : 'Standalone'}
+					</div>
+				</div>
 
-          <Button
-            onClick={handleNext}
-            disabled={!canProceed()}
-            className="flex items-center gap-2"
-          >
-            {currentQuestion === assessment.totalQuestions - 1 ? (
-              <>
-                Complete Assessment
-                <CheckCircle className="h-4 w-4" />
-              </>
-            ) : (
-              <>
-                Next Question
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </div>
+				{/* Assessment Title */}
+				<Card>
+					<CardHeader>
+						<CardTitle className="flex items-center gap-2">
+							<Brain className="h-6 w-6 text-primary" />
+							{assessmentDef.title}
+						</CardTitle>
+						{assessmentDef.description && (
+							<p className="text-sm text-muted-foreground mt-2">
+								{assessmentDef.description}
+							</p>
+						)}
+					</CardHeader>
+				</Card>
 
-        {/* Save Progress */}
-        <div className="text-center mt-4">
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
-            Save & Continue Later
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+				{/* Progress Indicator */}
+				<Card>
+					<CardContent className="p-6 space-y-4">
+						<div className="flex items-center justify-between text-sm">
+							<div className="flex items-center gap-2">
+								<CheckCircle2 className="h-4 w-4 text-primary" />
+								<span className="font-medium">
+									Question {currentQuestionIndex + 1} of {totalQuestions}
+								</span>
+							</div>
+							{estimateTimeRemaining > 0 && (
+								<div className="flex items-center gap-2 text-muted-foreground">
+									<Clock className="h-4 w-4" />
+									<span>~{estimateTimeRemaining} min remaining</span>
+								</div>
+							)}
+						</div>
+						<Progress value={progressPercentage} className="h-2" />
+						<div className="text-xs text-muted-foreground text-center">
+							{Math.round(progressPercentage)}% complete
+						</div>
+					</CardContent>
+				</Card>
+
+				{/* Question Card */}
+				{currentQuestion && (
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-lg leading-relaxed">
+								{currentQuestion.text}
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<RadioGroup
+								value={responses[currentQuestion.id]?.toString()}
+								onValueChange={(value) => handleAnswer(Number(value))}
+							>
+								<div className="space-y-3">
+									{currentQuestion.options.map((option) => (
+										<div
+											key={option.id}
+											className={`
+												flex items-center space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer
+												${responses[currentQuestion.id] === option.value
+													? 'border-primary bg-primary/5'
+													: 'border-border hover:border-primary/50 hover:bg-muted/50'
+												}
+											`}
+											onClick={() => handleAnswer(option.value)}
+											onKeyDown={(e) => {
+												if (e.key === 'Enter' || e.key === ' ') {
+													e.preventDefault();
+													handleAnswer(option.value);
+												}
+											}}
+											role="button"
+											tabIndex={0}
+										>
+											<RadioGroupItem value={option.value.toString()} id={`option-${option.id}`} />
+											<Label
+												htmlFor={`option-${option.id}`}
+												className="flex-1 cursor-pointer font-normal"
+											>
+												{option.text}
+											</Label>
+										</div>
+									))}
+								</div>
+							</RadioGroup>
+
+							{/* Navigation Buttons */}
+							<div className="flex gap-3 pt-6">
+								<Button
+									variant="outline"
+									onClick={handlePrevious}
+									disabled={currentQuestionIndex === 0}
+									className="flex-1"
+								>
+									<ArrowLeft className="h-4 w-4 mr-2" />
+									Previous
+								</Button>
+								<Button
+									onClick={handleNext}
+									disabled={!canProceed || isSubmitting}
+									className="flex-1"
+								>
+									{currentQuestionIndex === totalQuestions - 1 ? (
+										isSubmitting ? (
+											'Submitting...'
+										) : (
+											<>
+												Submit Assessment
+												<CheckCircle2 className="h-4 w-4 ml-2" />
+											</>
+										)
+									) : (
+										<>
+											Next
+											<ArrowRight className="h-4 w-4 ml-2" />
+										</>
+									)}
+								</Button>
+							</div>
+
+							{error && (
+								<div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-lg">
+									<AlertCircle className="h-5 w-5 flex-shrink-0" />
+									<p className="text-sm">{error}</p>
+								</div>
+							)}
+						</CardContent>
+					</Card>
+				)}
+
+				{/* Progress Summary */}
+				<Card className="bg-muted/50">
+					<CardContent className="p-4">
+						<div className="flex items-center justify-between text-sm">
+							<span className="text-muted-foreground">
+								Answered: {Object.keys(responses).length} / {totalQuestions}
+							</span>
+							<span className="text-muted-foreground">
+								Time elapsed: {Math.floor((Date.now() - startTime) / 60000)} min
+							</span>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+		</div>
+	);
 }

@@ -1,0 +1,118 @@
+Basic Overall assessment
+🧠 Onboarding – Basic Mental Health Assessment
+(Mix of short validated screening questions from PHQ-2, GAD-2, PSS-4, etc.)
+Instructions to user:
+Please answer the following questions based on how you have felt over the past 2 weeks. Select the option that best describes your experience.
+
+1. Depression (PHQ-2)
+📌 Official PHQ-2, public domain
+
+Over the last 2 weeks, how often have you been bothered by the following problems?
+
+
+Little interest or pleasure in doing things
+Feeling down, depressed, or hopeless
+
+Options:
+0 = Not at all
+1 = Several days
+2 = More than half the days
+3 = Nearly every day
+
+2. Anxiety (GAD-2)
+📌 Official GAD-2, public domain
+
+Over the last 2 weeks, how often have you been bothered by the following problems?
+
+
+Feeling nervous, anxious, or on edge
+Not being able to stop or control worrying
+
+Options (same as above):
+0 = Not at all
+1 = Several days
+2 = More than half the days
+3 = Nearly every day
+
+3. Stress (PSS-4 – Short Form of Perceived Stress Scale)
+📌 Official PSS-4, public domain
+
+In the last month, how often have you felt the following?
+
+
+Felt that you were unable to control the important things in your life
+Felt confident about your ability to handle personal problems (reverse scored)
+Felt that things were going your way (reverse scored)
+Felt difficulties were piling up so high that you could not overcome them
+
+Options:
+0 = Never
+1 = Almost never
+2 = Sometimes
+3 = Fairly often
+4 = Very often
+
+4. Overthinking / Rumination (Short RRS – 4 Items)
+📌 Based on Ruminative Response Scale Short Form (academic open use)
+
+I think about how sad I feel
+I analyze recent events to try to understand why I feel this way
+I keep thinking about mistakes I’ve made
+I find myself replaying the same thoughts over and over
+
+Options:
+1 = Almost never
+2 = Sometimes
+3 = Often
+4 = Almost always
+
+5. Personality (Mini-IPIP – 10 items short Big Five)
+📌 Public domain version of IPIP
+
+Please indicate how much you agree with the following statements:
+
+
+I see myself as someone who is talkative (Extraversion)
+I see myself as someone who tends to be lazy (Conscientiousness – reverse)
+I see myself as someone who worries a lot (Neuroticism)
+I see myself as someone who is curious about many different things (Openness)
+I see myself as someone who is helpful and unselfish with others (Agreeableness)
+
+Options:
+1 = Strongly disagree
+2 = Disagree
+3 = Neutral
+4 = Agree
+5 = Strongly agree
+
+6. Trauma & Fear Response (PC-PTSD-5 – Short Screen)
+📌 Public domain screening tool (PC-PTSD-5)
+
+In your life, have you ever had any experience that was so frightening, horrible, or upsetting that in the past month you:
+
+
+Had nightmares about it or thought about it when you did not want to?
+Tried hard not to think about it or went out of your way to avoid situations that reminded you of it?
+Were constantly on guard, watchful, or easily startled?
+Felt numb or detached from people, activities, or your surroundings?
+Felt guilty or unable to stop blaming yourself or others for the event(s)?
+
+Options:
+Yes / No
+
+7. Emotional Intelligence (Short EQ – 5 items)
+📌 Adapted from Schutte Self-Report EI Test short items (open use in education/psychology)
+
+I am aware of my emotions as they happen
+I usually stay calm even in stressful situations
+I can easily understand how others are feeling
+I know how to motivate myself when I feel discouraged
+I manage conflicts with others in a constructive way
+
+Options:
+1 = Strongly disagree
+2 = Disagree
+3 = Neutral
+4 = Agree
+5 = Strongly agree
+

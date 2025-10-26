@@ -1,3 +1,5 @@
+import type { AssessmentTypeSummary } from '../services/assessmentInsightsService';
+
 // AI Provider Types and Interfaces
 
 export interface AIMessage {
@@ -36,12 +38,25 @@ export interface UserContext {
   age?: number;
   ageGroup?: 'teen' | 'young-adult' | 'adult' | 'middle-aged' | 'senior';
   approach?: 'western' | 'eastern' | 'hybrid';
+  approachEngine?: 'western' | 'eastern' | 'hybrid';
   recentAssessments?: any[];
   chatHistory?: any[];
   currentMood?: string;
   moodTrend?: string;
   hasCompletedAssessments?: boolean;
   preferences?: any;
+  wellnessScore?: number;
+  wellbeingTrend?: string;
+  aiSummary?: string;
+  assessmentInsights?: {
+    byType: Record<string, AssessmentTypeSummary & { normalizedScore?: number }>;
+    recommendations?: string[];
+  };
+  wellnessInsights?: {
+    trend?: 'improving' | 'stable' | 'declining';
+    score?: number;
+    details?: string;
+  };
 }
 
 export interface ConversationContext {

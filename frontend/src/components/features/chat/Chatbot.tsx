@@ -1,4 +1,3 @@
-import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send,
   ArrowLeft,
@@ -10,17 +9,31 @@ import {
   Phone,
   X,
   Mic,
-  Paperclip,
-  MoreHorizontal
+  MoreHorizontal,
+  Menu
 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 
+import { useConversationMessages } from '../../../hooks/useConversations';
+import { chatApi, conversationsApi } from '../../../services/api';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Input } from '../../ui/input';
-import { chatApi } from '../../../services/api';
+import { Sheet, SheetContent, SheetTrigger } from '../../ui/sheet';
+
+import { ConversationHistorySidebar } from './ConversationHistorySidebar';
+import { EmptyState } from './EmptyState';
+import { ExportDialog } from './ExportDialog';
+import { MarkdownMessage } from './MarkdownMessage';
+import { MessageActions } from './MessageActions';
+import { QuickActionsBar } from './QuickActionsBar';
 
 interface ChatbotProps {
-  user: any;
+  user: {
+    firstName?: string;
+    lastName?: string;
+    name?: string;
+  } | null;
   onNavigate: (page: string) => void;
   isModal?: boolean;
   onClose?: () => void;
@@ -33,28 +46,27 @@ interface Message {
   timestamp: Date;
   suggestions?: string[];
   isTyping?: boolean;
+  feedback?: 'liked' | 'disliked' | null;
+  enableTypewriter?: boolean;
 }
 
 export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      type: 'bot',
-  content: `Hello ${([user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || 'there')}! I'm your AI wellbeing companion. I'm here to listen, support, and help guide you through your mental health journey. How are you feeling today?`,
-      timestamp: new Date(),
-      suggestions: [
-        "I'm feeling anxious",
-        "I need a breathing exercise",
-        "I'm having trouble sleeping",
-        "I want to talk about my day"
-      ]
-    }
-  ]);
-  
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationStarters, setConversationStarters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showCrisisWarning, setShowCrisisWarning] = useState(false);
+  const [isLoadingStarters, setIsLoadingStarters] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [messageFeedback, setMessageFeedback] = useState<Record<string, 'liked' | 'disliked' | null>>({});
+  const [currentlyTypingMessageId, setCurrentlyTypingMessageId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,6 +75,152 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load conversation starters and initial greeting
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        // Load personalized greeting
+        const greetingResponse = await chatApi.getMoodBasedGreeting();
+        let greetingText = `Hello ${([user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || 'there')}! I'm your AI wellbeing companion. I'm here to listen, support, and help guide you through your mental health journey. What would you like to talk about today?`;
+        
+        if (greetingResponse.success && greetingResponse.data?.greeting) {
+          greetingText = greetingResponse.data.greeting;
+        }
+
+        // Set initial greeting
+        const greeting: Message = {
+          id: '1',
+          type: 'bot',
+          content: greetingText,
+          timestamp: new Date(),
+          suggestions: []
+        };
+        setMessages([greeting]);
+
+        // Load conversation starters
+        const startersResponse = await chatApi.getConversationStarters();
+        if (startersResponse.success && startersResponse.data) {
+          setConversationStarters(startersResponse.data);
+        }
+
+        // Check for proactive check-in
+        const checkInResponse = await chatApi.getProactiveCheckIn();
+        if (checkInResponse.success && checkInResponse.data?.shouldCheckIn) {
+          const checkIn = checkInResponse.data;
+          // Add check-in message after a short delay
+          setTimeout(() => {
+            const checkInMessage: Message = {
+              id: `checkin-${Date.now()}`,
+              type: 'bot',
+              content: checkIn.message,
+              timestamp: new Date(),
+              suggestions: ['Tell me more', 'I\'m doing okay', 'Not right now']
+            };
+            setMessages(prev => [...prev, checkInMessage]);
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Failed to load initial data:', error);
+        // Fallback greeting
+        const fallbackGreeting: Message = {
+          id: '1',
+          type: 'bot',
+          content: `Hello! I'm your AI wellbeing companion. How are you feeling today?`,
+          timestamp: new Date(),
+          suggestions: []
+        };
+        setMessages([fallbackGreeting]);
+      } finally {
+        setIsLoadingStarters(false);
+      }
+    };
+
+    loadInitialData();
+  }, [user]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInputValue(transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+
+    // Initialize speech synthesis
+    if ('speechSynthesis' in window) {
+      synthRef.current = window.speechSynthesis;
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      if (synthRef.current) {
+        synthRef.current.cancel();
+      }
+    };
+  }, []);
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      alert('Voice input is not supported in your browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const speakText = (text: string) => {
+    if (!synthRef.current) {
+      console.warn('Speech synthesis not supported');
+      return;
+    }
+
+    // Cancel any ongoing speech
+    synthRef.current.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    synthRef.current.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if (synthRef.current) {
+      synthRef.current.cancel();
+      setIsSpeaking(false);
+    }
+  };
 
   const detectCrisisLanguage = (text: string): boolean => {
     const crisisKeywords = [
@@ -107,23 +265,48 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
     setIsTyping(true);
     
     try {
-      // Call the real backend API with Gemini
-      console.log('🤖 Sending message to chat API:', messageContent);
-      const response = await chatApi.sendMessage(messageContent);
+      // Call the real backend API with Gemini, passing conversationId
+      console.log('🤖 Sending message to chat API:', messageContent, 'conversationId:', currentConversationId);
+      const response = await chatApi.sendMessage(messageContent, currentConversationId || undefined);
       console.log('📥 Chat API response:', response);
       
       if (response.success && response.data) {
+        const messagePayload = response.data;
+        
+        // Update conversationId if returned from API
+        if (messagePayload.conversationId && messagePayload.conversationId !== currentConversationId) {
+          console.log('📝 Setting conversation ID:', messagePayload.conversationId);
+          setCurrentConversationId(messagePayload.conversationId);
+        }
+        
+        const structuredContent =
+          typeof messagePayload.message === 'object' && messagePayload.message !== null
+            ? messagePayload.message.content
+            : undefined;
+        const fallbackContent =
+          typeof messagePayload.response === 'string' ? messagePayload.response : undefined;
+        const resolvedContent =
+          structuredContent ?? fallbackContent ?? 'I apologize, but I encountered an issue generating a response.';
+
+        // Use smart replies from backend if available
+        const smartReplies = messagePayload.smartReplies || [];
+
+        const botMessageId = (Date.now() + 2).toString();
         const botResponse: Message = {
-          id: (Date.now() + 2).toString(),
+          id: botMessageId,
           type: 'bot',
-          content: response.data.message?.content || response.data.response || 'I apologize, but I encountered an issue generating a response.',
+          content: resolvedContent,
           timestamp: new Date(),
-          suggestions: messageContent.toLowerCase().includes('anxious') 
-            ? ['Try breathing exercise', 'Tell me more', 'What helps you calm down?']
-            : ['That\'s helpful', 'Tell me more', 'What else?']
+          suggestions: smartReplies,
+          enableTypewriter: true
         };
 
+        setCurrentlyTypingMessageId(botMessageId);
+
         setMessages(prev => [...prev, botResponse]);
+        
+        // Speak the bot response
+        speakText(resolvedContent);
       } else {
         console.error('❌ Chat API failed:', response.error);
         // Fallback to local response if API fails
@@ -155,10 +338,196 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
     setInputValue(suggestion);
   };
 
+  const handleLike = (messageId: string) => {
+    setMessageFeedback(prev => ({
+      ...prev,
+      [messageId]: 'liked'
+    }));
+  };
+
+  const handleDislike = (messageId: string) => {
+    setMessageFeedback(prev => ({
+      ...prev,
+      [messageId]: 'disliked'
+    }));
+  };
+
+  const handleRegenerate = async (messageId: string) => {
+    // Find the message to regenerate
+    const messageIndex = messages.findIndex(m => m.id === messageId);
+    if (messageIndex === -1) return;
+
+    // Get the last user message before this bot message
+    const userMessages = messages.slice(0, messageIndex).filter(m => m.type === 'user');
+    if (userMessages.length === 0) return;
+
+    const lastUserMessage = userMessages[userMessages.length - 1];
+
+    // Remove the old bot message
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+
+    // Resend the user message to get a new response
+    setIsTyping(true);
+    try {
+      const response = await chatApi.sendMessage(lastUserMessage.content);
+      
+      if (response.success && response.data) {
+        const messagePayload = response.data;
+        const structuredContent =
+          typeof messagePayload.message === 'object' && messagePayload.message !== null
+            ? messagePayload.message.content
+            : undefined;
+        const fallbackContent =
+          typeof messagePayload.response === 'string' ? messagePayload.response : undefined;
+        const resolvedContent =
+          structuredContent ?? fallbackContent ?? 'I apologize, but I encountered an issue generating a response.';
+
+        const smartReplies = messagePayload.smartReplies || [];
+
+        const botResponse: Message = {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: resolvedContent,
+          timestamp: new Date(),
+          suggestions: smartReplies
+        };
+
+        setMessages(prev => [...prev, botResponse]);
+      }
+    } catch (error) {
+      console.error('Error regenerating response:', error);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleGetExercises = () => {
+    // Navigate to exercises page
+    onNavigate('exercises');
+  };
+
+  const handleGetSummary = async () => {
+    // Request a conversation summary from the AI
+    const summaryRequest = 'Can you provide a brief summary of our conversation so far and any key insights or recommendations?';
+    setInputValue(summaryRequest);
+    await handleSendMessage();
+  };
+
+  const handleBookmark = () => {
+    // In a real implementation, this would save the conversation to bookmarks
+    // For now, we'll just show a placeholder message
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      type: 'system',
+      content: 'Bookmark feature coming soon! This conversation will be saved to your bookmarks.',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, systemMessage]);
+  };
+
+  const handleExport = () => {
+    // Only allow export if there's an active conversation
+    if (!currentConversationId) {
+      // Fallback: Export current messages as text (for new chats not yet saved)
+      const conversationText = messages
+        .map(m => {
+          const sender = m.type === 'user' ? 'You' : m.type === 'bot' ? 'AI Assistant' : 'System';
+          const time = m.timestamp.toLocaleString();
+          return `[${time}] ${sender}:\n${m.content}\n`;
+        })
+        .join('\n---\n\n');
+
+      const blob = new Blob([conversationText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chat-export-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // Open export dialog for saved conversations
+    setShowExportDialog(true);
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleTypewriterComplete = (_messageId: string) => {
+    setCurrentlyTypingMessageId(null);
+    // Optionally trigger voice output here if needed
+  };
+
+  const handleSelectConversation = async (conversationId: string | null) => {
+    if (conversationId === null) {
+      // Start a new conversation
+      setCurrentConversationId(null);
+      setMessages([]);
+      setShowMobileSidebar(false);
+      // Reset to initial greeting
+      const greeting: Message = {
+        id: '1',
+        type: 'bot',
+        content: `Hello ${([user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || 'there')}! I'm your AI wellbeing companion. What would you like to talk about today?`,
+        timestamp: new Date(),
+        suggestions: conversationStarters
+      };
+      setMessages([greeting]);
+    } else {
+      // Load existing conversation
+      setCurrentConversationId(conversationId);
+      setShowMobileSidebar(false);
+      
+      // Show loading state
+      const loadingMessage: Message = {
+        id: 'loading',
+        type: 'system',
+        content: 'Loading conversation...',
+        timestamp: new Date()
+      };
+      setMessages([loadingMessage]);
+      
+      // Fetch conversation messages from API
+      try {
+        const response = await conversationsApi.getConversation(conversationId);
+        if (response.success && response.data?.messages) {
+          // Convert API messages to UI Message format
+          const loadedMessages: Message[] = response.data.messages.map((msg) => ({
+            id: msg.id,
+            type: msg.type as 'user' | 'bot' | 'system',
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+            suggestions: [],
+          }));
+          
+          setMessages(loadedMessages);
+        } else {
+          // Show error message
+          const errorMessage: Message = {
+            id: 'error',
+            type: 'system',
+            content: 'Failed to load conversation. Please try again.',
+            timestamp: new Date()
+          };
+          setMessages([errorMessage]);
+        }
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+        const errorMessage: Message = {
+          id: 'error',
+          type: 'system',
+          content: 'Failed to load conversation. Please try again.',
+          timestamp: new Date()
+        };
+        setMessages([errorMessage]);
+      }
     }
   };
 
@@ -167,7 +536,7 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
     const isSystem = message.type === 'system';
 
     return (
-      <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+      <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'} mb-4 group`}>
         {!isUser && (
           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
             isSystem ? 'bg-amber-100' : 'bg-primary/10'
@@ -190,13 +559,30 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
                 : 'bg-muted'
             }`}
           >
-            <p className="text-sm leading-relaxed">{message.content}</p>
+            <MarkdownMessage 
+              content={message.content} 
+              enableTypewriter={message.enableTypewriter && message.id === currentlyTypingMessageId}
+              typewriterSpeed={20}
+              onTypewriterComplete={() => handleTypewriterComplete(message.id)}
+            />
           </div>
           
           <div className={`flex items-center gap-2 mt-1 text-xs text-muted-foreground ${
             isUser ? 'justify-end' : 'justify-start'
           }`}>
             <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            
+            {/* Message Actions - Only show for bot messages */}
+            {!isUser && !isSystem && (
+              <MessageActions
+                messageId={message.id}
+                content={message.content}
+                onLike={handleLike}
+                onDislike={handleDislike}
+                onRegenerate={handleRegenerate}
+                feedback={messageFeedback[message.id] || null}
+              />
+            )}
           </div>
 
           {/* Suggestions */}
@@ -227,20 +613,34 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
   };
 
   const chatContent = (
-    <>
-      {/* Header */}
-      <div className={`border-b p-4 ${isModal ? '' : 'bg-gradient-to-r from-primary/10 to-accent/10'}`}>
+    <div className="flex flex-col h-full">
+      {/* Header - Fixed */}
+      <div className={`flex-shrink-0 border-b p-4 ${isModal ? '' : 'bg-gradient-to-r from-primary/10 to-accent/10'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {!isModal && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => onNavigate('dashboard')}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
+              <>
+                {/* Mobile Menu Button */}
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="lg:hidden"
+                  onClick={() => setShowMobileSidebar(true)}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+                
+                {/* Back Button - Hidden on Mobile */}
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="hidden lg:flex"
+                  onClick={() => onNavigate('dashboard')}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+              </>
             )}
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
@@ -265,11 +665,44 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Messages - Scrollable */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
+        {messages.length === 0 ? (
+          <EmptyState 
+            onStarterClick={(starter) => {
+              setInputValue(starter);
+              handleSendMessage();
+            }}
+            starters={conversationStarters.length > 0 ? conversationStarters : undefined}
+          />
+        ) : (
+          <>
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+
+            {/* Conversation Starters - Show when just initial greeting */}
+            {messages.length === 1 && conversationStarters.length > 0 && (
+              <div className="mt-6">
+                <p className="text-sm text-muted-foreground mb-3 text-center">
+                  Or choose a topic to get started:
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {conversationStarters.map((starter, index) => (
+                    <Button
+                  key={index}
+                  variant="outline"
+                  className="h-auto py-3 px-4 text-left justify-start text-sm hover:bg-primary/5 hover:border-primary/50 transition-all"
+                  onClick={() => handleSuggestionClick(starter)}
+                >
+                  {starter}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+          </>
+        )}
         
         {/* Typing Indicator */}
         {isTyping && (
@@ -290,8 +723,16 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t p-4">
+      {/* Quick Actions Bar */}
+      <QuickActionsBar
+        onExercises={handleGetExercises}
+        onSummary={handleGetSummary}
+        onBookmark={handleBookmark}
+        onExport={handleExport}
+      />
+
+      {/* Input - Fixed Footer */}
+      <div className="flex-shrink-0 border-t p-4 bg-background">
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <Input
@@ -302,11 +743,32 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
               className="pr-20"
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <Paperclip className="h-4 w-4" />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 w-6 p-0"
+                onClick={isSpeaking ? stopSpeaking : undefined}
+                title={isSpeaking ? "Stop speaking" : "Voice output"}
+              >
+                {isSpeaking ? (
+                  <div className="h-4 w-4 relative">
+                    <div className="absolute inset-0 animate-pulse bg-blue-500 rounded-full opacity-50" />
+                    <div className="relative h-full w-full flex items-center justify-center">
+                      🔊
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-sm">🔊</span>
+                )}
               </Button>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <Mic className="h-4 w-4" />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`h-6 w-6 p-0 ${isListening ? 'bg-red-100 text-red-600' : ''}`}
+                onClick={toggleVoiceInput}
+                title={isListening ? "Stop listening" : "Voice input"}
+              >
+                <Mic className={`h-4 w-4 ${isListening ? 'animate-pulse' : ''}`} />
               </Button>
             </div>
           </div>
@@ -323,7 +785,7 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
           </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 
   if (isModal) {
@@ -331,8 +793,31 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {chatContent}
+    <div className="min-h-screen bg-background flex h-screen">
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block w-80 border-r">
+        <ConversationHistorySidebar
+          activeConversationId={currentConversationId}
+          onSelectConversation={handleSelectConversation}
+          className="h-screen"
+        />
+      </div>
+
+      {/* Mobile Sidebar */}
+      <Sheet open={showMobileSidebar} onOpenChange={setShowMobileSidebar}>
+        <SheetContent side="left" className="w-80 p-0">
+          <ConversationHistorySidebar
+            activeConversationId={currentConversationId}
+            onSelectConversation={handleSelectConversation}
+            className="h-full"
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col h-screen">
+        {chatContent}
+      </div>
 
       {/* Crisis Warning Modal */}
       {showCrisisWarning && (
@@ -381,6 +866,17 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Export Dialog */}
+      {currentConversationId && (
+        <ExportDialog
+          open={showExportDialog}
+          onOpenChange={setShowExportDialog}
+          conversationId={currentConversationId}
+          conversationTitle="Current Conversation"
+          messageCount={messages.length}
+        />
       )}
     </div>
   );

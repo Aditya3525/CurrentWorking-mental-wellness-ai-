@@ -41,6 +41,7 @@ src/
 
 ### Mental Health Components
 - **Assessment Flow**: Multi-step mental health evaluations with scientific scoring
+- **Basic Overall Assessment**: Dedicated dashboard card with one-click combined screening, retake, and quick access to the latest wellness results
 - **Personalized Plans**: Adaptive wellness content based on user assessments
 - **Progress Tracking**: Visual charts and metrics for mental health journey
 - **AI Chatbot**: 24/7 emotional support with crisis detection

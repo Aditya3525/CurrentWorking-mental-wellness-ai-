@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { 
+import {
   ArrowLeft,
   User,
   Shield,
@@ -8,18 +7,25 @@ import {
   Download,
   Trash2,
   AlertTriangle,
-  Phone,
   Lock,
   Smartphone,
-  Monitor
+  Monitor,
+  KeyRound,
+  BookOpen,
+  MessageSquareLock
 } from 'lucide-react';
-import { usersApi } from '../../../services/api';
-import { Alert, AlertDescription } from '../../ui/alert';
+import React, { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
+
+import { useAccessibility } from '../../../contexts/AccessibilityContext';
+import { authApi, usersApi } from '../../../services/api';
+import { Alert, AlertDescription, AlertTitle } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
+import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Separator } from '../../ui/separator';
 import { Switch } from '../../ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
@@ -34,14 +40,14 @@ interface ProfileUser {
   emergencyPhone?: string;
   firstName?: string;
   lastName?: string;
+  approach?: 'western' | 'eastern' | 'hybrid';
+  securityQuestion?: string | null;
 }
 
-type SetUserFn = (updater: (prev: ProfileUser) => ProfileUser) => void;
 interface ProfileProps {
   user: ProfileUser | null;
   onNavigate: (page: string) => void;
-  // Broaden type to accept parent React state setter directly
-  setUser: (updater: any) => void;
+  setUser: Dispatch<SetStateAction<ProfileUser | null>>;
   onLogout?: () => void;
 }
 
@@ -51,6 +57,15 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [securityQuestionError, setSecurityQuestionError] = useState<string | null>(null);
+  const [securityQuestionSuccess, setSecurityQuestionSuccess] = useState<string | null>(null);
+  const [passwordResetError, setPasswordResetError] = useState<string | null>(null);
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState<string | null>(null);
+  const [approachUpdateError, setApproachUpdateError] = useState<string | null>(null);
+  const [approachUpdateSuccess, setApproachUpdateSuccess] = useState<string | null>(null);
+  const [isUpdatingSecurityQuestion, setIsUpdatingSecurityQuestion] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isUpdatingApproach, setIsUpdatingApproach] = useState(false);
   const [editedProfile, setEditedProfile] = useState({
   firstName: user?.firstName || '',
   lastName: user?.lastName || '',
@@ -80,19 +95,75 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
     pushNotifications: true
   });
 
-  const [accessibilitySettings, setAccessibilitySettings] = useState({
-    largeText: false,
-    highContrast: false,
-    screenReader: false,
-    reducedMotion: false,
-    voiceGuidance: false
-  });
+  const {
+    settings: accessibilitySettings,
+    setSetting: setAccessibilitySetting,
+    resetSettings: resetAccessibilitySettings,
+    speak: speakAccessibility,
+    isVoiceGuidanceSupported,
+    setFontFamily
+  } = useAccessibility();
+
+  const fontOptions: Array<{ value: typeof accessibilitySettings.fontFamily; label: string; subtitle: string; stack?: string }> = [
+    { value: 'system', label: 'System Default', subtitle: 'Match your device preferences' },
+    { value: 'roboto', label: 'Roboto', subtitle: 'Digital-first sans-serif with confident strokes', stack: '"Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { value: 'openSans', label: 'Open Sans', subtitle: 'Versatile legibility across many devices', stack: '"Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif' },
+    { value: 'lato', label: 'Lato', subtitle: 'Friendly, rounded sans-serif for balanced reading', stack: '"Lato", "Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { value: 'inter', label: 'Inter', subtitle: 'Modern UI font optimized for screens', stack: '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { value: 'poppins', label: 'Poppins', subtitle: 'Geometric sans-serif with approachable character', stack: '"Poppins", "Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { value: 'montserrat', label: 'Montserrat', subtitle: 'Wide geometric sans-serif, crisp and scalable', stack: '"Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { value: 'workSans', label: 'Work Sans', subtitle: 'Readable sans-serif tuned for UI elements', stack: '"Work Sans", "Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { value: 'nunito', label: 'Nunito', subtitle: 'Soft, modern sans-serif with high readability', stack: '"Nunito", "Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { value: 'helvetica', label: 'Helvetica', subtitle: 'Classic neutral sans-serif for a professional look', stack: '"Helvetica Neue", Helvetica, Arial, sans-serif' },
+    { value: 'arial', label: 'Arial', subtitle: 'Clean sans-serif for easy reading', stack: '"Arial", "Helvetica Neue", Helvetica, sans-serif' },
+    { value: 'verdana', label: 'Verdana', subtitle: 'Wide sans-serif for maximum clarity', stack: '"Verdana", "Geneva", sans-serif' },
+    { value: 'georgia', label: 'Georgia', subtitle: 'Elegant serif tuned for screens', stack: '"Georgia", "Times New Roman", serif' },
+    { value: 'times', label: 'Times New Roman', subtitle: 'Classic serif with print-like feel', stack: '"Times New Roman", Times, serif' }
+  ];
+
+  const selectedFontOption = fontOptions.find(o => o.value === accessibilitySettings.fontFamily);
+  const selectedFontStack = selectedFontOption?.stack;
+
+  const DEFAULT_SECURITY_QUESTIONS = useMemo(
+    () => [
+      "What is your mother's maiden name?",
+      'What was the name of your first pet?',
+      'What city were you born in?',
+      "What is your favorite teacher's name?",
+      'What was the model of your first mobile phone?',
+      "What is your favorite childhood friend's name?",
+      'What is your favorite movie?',
+      'What was the name of your first school?',
+      "What's your favorite food?",
+      "What's your dream job as a child?"
+    ],
+    []
+  );
 
   const connectedDevices = [
     { name: 'iPhone 14', type: 'mobile', lastActive: '2 minutes ago', current: true },
     { name: 'MacBook Pro', type: 'desktop', lastActive: '1 hour ago', current: false },
     { name: 'iPad Air', type: 'tablet', lastActive: '3 days ago', current: false }
   ];
+
+  const [securityQuestionForm, setSecurityQuestionForm] = useState({
+    currentPassword: '',
+    mode: 'predefined' as 'predefined' | 'custom',
+    question: DEFAULT_SECURITY_QUESTIONS[0] ?? '',
+    customQuestion: '',
+    answer: ''
+  });
+
+  const [passwordResetForm, setPasswordResetForm] = useState({
+    answer: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  const [approachForm, setApproachForm] = useState({
+    password: '',
+    approach: (user?.approach as 'western' | 'eastern' | 'hybrid' | undefined) || 'hybrid'
+  });
 
   const validateBirthday = (dateStr: string | undefined) => {
     if (!dateStr) return true;
@@ -151,10 +222,7 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
         throw new Error(resp.error || 'Update failed');
       }
       // Merge returned user (authoritative) with any other existing local fields
-      if (typeof setUser === 'function') {
-        const fn = setUser as SetUserFn;
-        fn(prev => ({ ...prev, ...resp.data!.user }));
-      }
+  setUser(prev => (prev ? { ...prev, ...resp.data!.user } : resp.data!.user));
       setSaveSuccess(true);
       setIsEditing(false);
     } catch (e) {
@@ -183,6 +251,143 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
       case 'mobile': return <Smartphone className="h-4 w-4" />;
       case 'desktop': return <Monitor className="h-4 w-4" />;
       case 'tablet': return <Smartphone className="h-4 w-4" />;
+    }
+  };
+
+  const normalizeSecurityQuestionPayload = () => {
+    const question = securityQuestionForm.mode === 'custom'
+      ? securityQuestionForm.customQuestion.trim()
+      : securityQuestionForm.question.trim();
+
+    return {
+      currentPassword: securityQuestionForm.currentPassword,
+      question,
+      answer: securityQuestionForm.answer.trim()
+    };
+  };
+
+  const handleUpdateSecurityQuestion = async () => {
+    if (!user) return;
+    const payload = normalizeSecurityQuestionPayload();
+
+    if (!payload.currentPassword) {
+      setSecurityQuestionError('Please enter your current password to update your security question.');
+      return;
+    }
+
+    if (!payload.question) {
+      setSecurityQuestionError('Please select or provide a security question.');
+      return;
+    }
+
+    if (!payload.answer) {
+      setSecurityQuestionError('Please provide an answer to your security question.');
+      return;
+    }
+
+    setIsUpdatingSecurityQuestion(true);
+    setSecurityQuestionError(null);
+    setSecurityQuestionSuccess(null);
+
+    try {
+      const response = await authApi.updateSecurityQuestionWithPassword(payload);
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to update security question');
+      }
+
+  setUser(prev => (prev ? { ...prev, ...response.data!.user } : response.data!.user));
+
+      setSecurityQuestionSuccess('Security question updated successfully.');
+      setSecurityQuestionForm({
+        currentPassword: '',
+        mode: 'predefined',
+        question: DEFAULT_SECURITY_QUESTIONS[0] ?? '',
+        customQuestion: '',
+        answer: ''
+      });
+    } catch (error) {
+      setSecurityQuestionError(error instanceof Error ? error.message : 'Unable to update security question');
+    } finally {
+      setIsUpdatingSecurityQuestion(false);
+      setTimeout(() => setSecurityQuestionSuccess(null), 4000);
+    }
+  };
+
+  const handleResetPasswordWithAnswer = async () => {
+    if (!user) return;
+    setPasswordResetError(null);
+    setPasswordResetSuccess(null);
+
+    const { answer, newPassword, confirmPassword } = passwordResetForm;
+
+    if (!answer.trim()) {
+      setPasswordResetError('Please answer your security question to continue.');
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordResetError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordResetError('New password and confirmation do not match.');
+      return;
+    }
+
+    setIsResettingPassword(true);
+
+    try {
+      const response = await authApi.resetPasswordAuthenticated({
+        answer: answer.trim(),
+        newPassword
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Unable to update password');
+      }
+
+      setPasswordResetSuccess('Password updated successfully. You can use it the next time you sign in.');
+      setPasswordResetForm({ answer: '', newPassword: '', confirmPassword: '' });
+    } catch (error) {
+      setPasswordResetError(error instanceof Error ? error.message : 'Failed to update password');
+    } finally {
+      setIsResettingPassword(false);
+      setTimeout(() => setPasswordResetSuccess(null), 4000);
+    }
+  };
+
+  const handleUpdateApproach = async () => {
+    if (!user) return;
+    setApproachUpdateError(null);
+    setApproachUpdateSuccess(null);
+
+    if (!approachForm.password) {
+      setApproachUpdateError('Please enter your password to confirm this change.');
+      return;
+    }
+
+    setIsUpdatingApproach(true);
+
+    try {
+      const response = await authApi.updateApproachWithPassword({
+        password: approachForm.password,
+        approach: approachForm.approach,
+      });
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Unable to update approach');
+      }
+
+  setUser(prev => (prev ? { ...prev, ...response.data!.user } : response.data!.user));
+
+      setApproachUpdateSuccess('Approach preference updated successfully.');
+      setApproachForm({ password: '', approach: response.data!.user.approach as 'western' | 'eastern' | 'hybrid' });
+    } catch (error) {
+      setApproachUpdateError(error instanceof Error ? error.message : 'Failed to update approach');
+    } finally {
+      setIsUpdatingApproach(false);
+      setTimeout(() => setApproachUpdateSuccess(null), 4000);
     }
   };
 
@@ -317,6 +522,32 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       ))}
                     </select>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="emergencyContact">Emergency Contact Name</Label>
+                    <Input
+                      id="emergencyContact"
+                      value={editedProfile.emergencyContact}
+                      onChange={(e) => setEditedProfile(prev => ({ ...prev, emergencyContact: e.target.value }))}
+                      disabled={!isEditing}
+                      placeholder="e.g., Mom, Partner, Best Friend"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="emergencyPhone">Emergency Contact Phone</Label>
+                    <Input
+                      id="emergencyPhone"
+                      type="tel"
+                      value={editedProfile.emergencyPhone}
+                      onChange={(e) => setEditedProfile(prev => ({ ...prev, emergencyPhone: e.target.value }))}
+                      disabled={!isEditing}
+                      placeholder="e.g., +1 (555) 123-4567"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      We&apos;ll only suggest contacting this person if our AI detects you might be in crisis. You always have full control.
+                    </p>
+                  </div>
                 </div>
 
                 {isEditing && (
@@ -325,48 +556,6 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>Cancel</Button>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Emergency Contacts */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-primary" />
-                  Emergency Contacts
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="emergencyContact">Contact Name</Label>
-                    <Input
-                      id="emergencyContact"
-                      value={editedProfile.emergencyContact}
-                      onChange={(e) => setEditedProfile(prev => ({ ...prev, emergencyContact: e.target.value }))}
-                      placeholder="e.g., Mom, Partner, Best Friend"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="emergencyPhone">Phone Number</Label>
-                    <Input
-                      id="emergencyPhone"
-                      type="tel"
-                      value={editedProfile.emergencyPhone}
-                      onChange={(e) => setEditedProfile(prev => ({ ...prev, emergencyPhone: e.target.value }))}
-                      placeholder="e.g., +1 (555) 123-4567"
-                    />
-                  </div>
-                </div>
-
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    We&apos;ll only suggest contacting this person if our AI detects you might be in crisis. 
-                    You always have full control over whether to reach out.
-                  </AlertDescription>
-                </Alert>
               </CardContent>
             </Card>
           </TabsContent>
@@ -648,8 +837,10 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     </div>
                     <Switch
                       checked={accessibilitySettings.largeText}
-                      onCheckedChange={(checked) => 
-                        setAccessibilitySettings(prev => ({ ...prev, largeText: checked }))
+                      onCheckedChange={(checked) =>
+                        setAccessibilitySetting('largeText', checked, {
+                          announce: 'Large text {state}'
+                        })
                       }
                     />
                   </div>
@@ -665,8 +856,29 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     </div>
                     <Switch
                       checked={accessibilitySettings.highContrast}
-                      onCheckedChange={(checked) => 
-                        setAccessibilitySettings(prev => ({ ...prev, highContrast: checked }))
+                      onCheckedChange={(checked) =>
+                        setAccessibilitySetting('highContrast', checked, {
+                          announce: 'High contrast mode {state}'
+                        })
+                      }
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label>Dark Mode</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Apply a softer palette for low-light environments
+                      </p>
+                    </div>
+                    <Switch
+                      checked={accessibilitySettings.darkMode}
+                      onCheckedChange={(checked) =>
+                        setAccessibilitySetting('darkMode', checked, {
+                          announce: 'Dark mode {state}'
+                        })
                       }
                     />
                   </div>
@@ -682,8 +894,10 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     </div>
                     <Switch
                       checked={accessibilitySettings.screenReader}
-                      onCheckedChange={(checked) => 
-                        setAccessibilitySettings(prev => ({ ...prev, screenReader: checked }))
+                      onCheckedChange={(checked) =>
+                        setAccessibilitySetting('screenReader', checked, {
+                          announce: 'Screen reader enhancements {state}'
+                        })
                       }
                     />
                   </div>
@@ -699,8 +913,10 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     </div>
                     <Switch
                       checked={accessibilitySettings.reducedMotion}
-                      onCheckedChange={(checked) => 
-                        setAccessibilitySettings(prev => ({ ...prev, reducedMotion: checked }))
+                      onCheckedChange={(checked) =>
+                        setAccessibilitySetting('reducedMotion', checked, {
+                          announce: 'Reduced motion {state}'
+                        })
                       }
                     />
                   </div>
@@ -716,11 +932,70 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     </div>
                     <Switch
                       checked={accessibilitySettings.voiceGuidance}
-                      onCheckedChange={(checked) => 
-                        setAccessibilitySettings(prev => ({ ...prev, voiceGuidance: checked }))
+                      onCheckedChange={(checked) =>
+                        setAccessibilitySetting('voiceGuidance', checked, {
+                          announce: 'Voice guidance {state}'
+                        })
                       }
+                      disabled={!isVoiceGuidanceSupported && !accessibilitySettings.voiceGuidance}
                     />
                   </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <Label>Font Style</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Choose the typography that feels most comfortable across the app.
+                    </p>
+                    <Select
+                      value={accessibilitySettings.fontFamily}
+                      onValueChange={(value) => {
+                        const targetOption = fontOptions.find(option => option.value === value);
+                        setFontFamily(value as typeof accessibilitySettings.fontFamily, {
+                          announce: `Font changed to ${targetOption?.label ?? value}`
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-72">
+                        <SelectValue placeholder="Select a font" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fontOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex flex-col text-left" style={{ fontFamily: option.stack }}>
+                              <span className="font-medium">{option.label}</span>
+                              <span className="text-xs text-muted-foreground">{option.subtitle}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="rounded-md border p-3 text-sm" style={{ fontFamily: selectedFontStack }}>
+                      &ldquo;Small changes in typography can make longer sessions feel calmer.&rdquo; — Accessibility Team
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 border-t pt-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={resetAccessibilitySettings}>
+                      Reset accessibility preferences
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!accessibilitySettings.voiceGuidance || !isVoiceGuidanceSupported}
+                      onClick={() => speakAccessibility('Voice guidance sample. This is how key updates will sound.')}
+                    >
+                      Play voice guidance sample
+                    </Button>
+                  </div>
+                  {!isVoiceGuidanceSupported && (
+                    <p className="text-xs text-muted-foreground">
+                      Voice guidance isn&apos;t available in this browser, but other accessibility improvements will still work.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -758,6 +1033,268 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                   </div>
                   <Badge variant="secondary">Active</Badge>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquareLock className="h-5 w-5 text-primary" />
+                  Password Recovery
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Reset your password using your security question. This is the same process we use when you choose “Forgot password” at sign in.
+                </p>
+
+                {passwordResetError && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Unable to update password</AlertTitle>
+                    <AlertDescription>{passwordResetError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {passwordResetSuccess && (
+                  <Alert className="border-green-200 bg-green-50">
+                    <AlertDescription>{passwordResetSuccess}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label>Your security question</Label>
+                    <p className="text-sm font-medium text-foreground">
+                      {user?.securityQuestion || 'You have not set a security question yet'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="security-answer">Security answer</Label>
+                    <Input
+                      id="security-answer"
+                      value={passwordResetForm.answer}
+                      onChange={(event) => setPasswordResetForm(prev => ({ ...prev, answer: event.target.value }))}
+                      placeholder="Enter your answer"
+                      disabled={isResettingPassword || !user?.securityQuestion}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New password</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      value={passwordResetForm.newPassword}
+                      onChange={(event) => setPasswordResetForm(prev => ({ ...prev, newPassword: event.target.value }))}
+                      placeholder="Choose a new password"
+                      disabled={isResettingPassword}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Confirm new password</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={passwordResetForm.confirmPassword}
+                      onChange={(event) => setPasswordResetForm(prev => ({ ...prev, confirmPassword: event.target.value }))}
+                      placeholder="Retype your new password"
+                      disabled={isResettingPassword}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleResetPasswordWithAnswer}
+                  disabled={isResettingPassword || !user?.securityQuestion}
+                  className="w-full"
+                >
+                  {isResettingPassword ? 'Updating password…' : 'Update password'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-primary" />
+                  Update Security Question
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Change your security question by confirming your password. You&apos;ll use this question whenever you need to recover your account.
+                </p>
+
+                {securityQuestionError && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Unable to update question</AlertTitle>
+                    <AlertDescription>{securityQuestionError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {securityQuestionSuccess && (
+                  <Alert className="border-green-200 bg-green-50">
+                    <AlertDescription>{securityQuestionSuccess}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="current-password">Current password</Label>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      value={securityQuestionForm.currentPassword}
+                      onChange={(event) => setSecurityQuestionForm(prev => ({ ...prev, currentPassword: event.target.value }))}
+                      placeholder="Confirm with your password"
+                      disabled={isUpdatingSecurityQuestion}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Select a question</Label>
+                    <div className="space-y-3">
+                      <RadioGroup
+                        value={securityQuestionForm.mode === 'custom' ? 'custom' : securityQuestionForm.question}
+                        onValueChange={(value) => {
+                          if (value === 'custom') {
+                            setSecurityQuestionForm(prev => ({ ...prev, mode: 'custom' }));
+                          } else {
+                            setSecurityQuestionForm(prev => ({ ...prev, mode: 'predefined', question: value }));
+                          }
+                        }}
+                        className="grid gap-3 md:grid-cols-2"
+                      >
+                        {DEFAULT_SECURITY_QUESTIONS.map((question) => (
+                          <div key={question} className="flex items-start gap-3 rounded-lg border border-border/70 bg-background p-3">
+                            <RadioGroupItem value={question} id={`question-${question}`} className="mt-1" />
+                            <Label htmlFor={`question-${question}`} className="cursor-pointer text-sm leading-6">
+                              {question}
+                            </Label>
+                          </div>
+                        ))}
+                        <div className="flex items-start gap-3 rounded-lg border border-dashed border-border/70 bg-background p-3">
+                          <RadioGroupItem value="custom" id="profile-custom-question" className="mt-1" />
+                          <div className="flex-1 space-y-2">
+                            <Label htmlFor="profile-custom-question" className="cursor-pointer text-sm font-medium">
+                              Use a custom question
+                            </Label>
+                            <Input
+                              type="text"
+                              value={securityQuestionForm.customQuestion}
+                              onChange={(event) => setSecurityQuestionForm(prev => ({ ...prev, customQuestion: event.target.value }))}
+                              placeholder="Enter your own question"
+                              disabled={securityQuestionForm.mode !== 'custom' || isUpdatingSecurityQuestion}
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="security-answer-new">Answer</Label>
+                    <Input
+                      id="security-answer-new"
+                      type="text"
+                      value={securityQuestionForm.answer}
+                      onChange={(event) => setSecurityQuestionForm(prev => ({ ...prev, answer: event.target.value }))}
+                      placeholder="Your answer"
+                      disabled={isUpdatingSecurityQuestion}
+                    />
+                  </div>
+                </div>
+
+                <Button onClick={handleUpdateSecurityQuestion} disabled={isUpdatingSecurityQuestion} className="w-full">
+                  {isUpdatingSecurityQuestion ? 'Updating question…' : 'Save security question'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  Change Your Approach
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Choose how you’d like your wellbeing plan personalized. Confirm with your password to avoid accidental changes.
+                </p>
+
+                {approachUpdateError && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Unable to update preference</AlertTitle>
+                    <AlertDescription>{approachUpdateError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {approachUpdateSuccess && (
+                  <Alert className="border-green-200 bg-green-50">
+                    <AlertDescription>{approachUpdateSuccess}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Your current approach</Label>
+                    <p className="text-sm font-medium text-foreground capitalize">{user?.approach ?? 'Not set'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      This setting tailors recommendations to match western clinical practices, eastern holistic traditions, or a hybrid of both.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Select a new approach</Label>
+                    <RadioGroup
+                      value={approachForm.approach}
+                      onValueChange={(value) => setApproachForm(prev => ({ ...prev, approach: value as 'western' | 'eastern' | 'hybrid' }))}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-start gap-3 rounded-lg border p-3">
+                        <RadioGroupItem value="western" id="approach-western" className="mt-1" />
+                        <div>
+                          <Label htmlFor="approach-western" className="cursor-pointer">Western</Label>
+                          <p className="text-xs text-muted-foreground">Evidence-based therapeutic practices, CBT, and structured interventions.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 rounded-lg border p-3">
+                        <RadioGroupItem value="eastern" id="approach-eastern" className="mt-1" />
+                        <div>
+                          <Label htmlFor="approach-eastern" className="cursor-pointer">Eastern</Label>
+                          <p className="text-xs text-muted-foreground">Meditation-first practices, breath-work, ayurvedic and holistic approaches.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 rounded-lg border p-3">
+                        <RadioGroupItem value="hybrid" id="approach-hybrid" className="mt-1" />
+                        <div>
+                          <Label htmlFor="approach-hybrid" className="cursor-pointer">Hybrid</Label>
+                          <p className="text-xs text-muted-foreground">A balanced mix suited to both science-backed therapy and reflective practices.</p>
+                        </div>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="approach-password">Confirm with password</Label>
+                    <Input
+                      id="approach-password"
+                      type="password"
+                      value={approachForm.password}
+                      onChange={(event) => setApproachForm(prev => ({ ...prev, password: event.target.value }))}
+                      placeholder="Enter your password"
+                      disabled={isUpdatingApproach}
+                    />
+                  </div>
+                </div>
+
+                <Button onClick={handleUpdateApproach} disabled={isUpdatingApproach} className="w-full">
+                  {isUpdatingApproach ? 'Saving preference…' : 'Save approach preference'}
+                </Button>
               </CardContent>
             </Card>
 

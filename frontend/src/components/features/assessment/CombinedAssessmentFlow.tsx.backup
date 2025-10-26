@@ -1,0 +1,778 @@
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Brain, Clock, AlertCircle } from 'lucide-react';
+
+import { Button } from '../../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Label } from '../../ui/label';
+import { Progress } from '../../ui/progress';
+import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
+import { assessmentsApi, AssessmentDefinition, AssessmentQuestion } from '../../../services/api';
+import { scoreAssessment } from '../../../services/assessmentScoring';
+
+interface CombinedAssessmentFlowProps {
+  selectedTypes: string[];
+  sessionId: string;
+  onComplete: (results: {
+    sessionId: string;
+    assessments: Array<{
+      assessmentType: string;
+      responses: Record<string, number>;
+      score: number;
+      rawScore: number;
+      maxScore: number;
+      categoryBreakdown?: Record<string, { raw: number; normalized: number; interpretation?: string }>;
+    }>;
+  }) => void;
+  onCancel: () => void;
+}
+
+export default function CombinedAssessmentFlow({ 
+  selectedTypes, 
+  sessionId, 
+  onComplete, 
+  onCancel 
+}: CombinedAssessmentFlowProps) {
+  const [assessmentCatalog, setAssessmentCatalog] = useState<AssessmentDefinition[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [responses, setResponses] = useState<Record<string, number>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch assessment catalog from backend
+  useEffect(() => {
+    const fetchAssessments = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await assessmentsApi.getAssessmentCatalog();
+        
+        if (response.success && response.data) {
+          setAssessmentCatalog(response.data);
+        } else {
+          setError('Failed to load assessments');
+        }
+      } catch (err) {
+        console.error('Error fetching assessments:', err);
+        setError('Unable to load assessment questions. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssessments();
+  }, []);
+
+  // Build combined question list from selected assessments
+  const allQuestions = React.useMemo(() => {
+    const questions: Array<{
+      question: AssessmentQuestion;
+      assessmentId: string;
+      assessmentName: string;
+    }> = [];
+
+    selectedTypes.forEach(typeId => {
+      const assessment = assessmentCatalog.find(a => a.id === typeId);
+      if (assessment) {
+        assessment.questions.forEach(q => {
+          questions.push({
+            question: q,
+            assessmentId: assessment.id,
+            assessmentName: assessment.name
+          });
+        });
+      }
+    });
+
+    return questions;
+  }, [selectedTypes, assessmentCatalog]);
+
+  // PHQ-2 (Depression)
+  library['depression_phq2'] = {
+    id: 'depression_phq2',
+    title: 'Depression Screening (PHQ-2)',
+    description: 'Quick screening for depression symptoms',
+    questions: [
+      {
+        id: 'phq2_q1',
+        text: 'Over the last 2 weeks, how often have you been bothered by little interest or pleasure in doing things?',
+        options: [
+          { value: 0, label: 'Not at all' },
+          { value: 1, label: 'Several days' },
+          { value: 2, label: 'More than half the days' },
+          { value: 3, label: 'Nearly every day' }
+        ]
+      },
+      {
+        id: 'phq2_q2',
+        text: 'Over the last 2 weeks, how often have you been bothered by feeling down, depressed, or hopeless?',
+        options: [
+          { value: 0, label: 'Not at all' },
+          { value: 1, label: 'Several days' },
+          { value: 2, label: 'More than half the days' },
+          { value: 3, label: 'Nearly every day' }
+        ]
+      }
+    ],
+    scoreCalculation: (responses) => {
+      const rawScore = Object.values(responses).reduce((sum, val) => sum + val, 0);
+      const maxScore = 6;
+      const score = (rawScore / maxScore) * 100;
+      let interpretation = 'Minimal depression';
+      if (score > 66) interpretation = 'Moderate to severe depression';
+      else if (score > 33) interpretation = 'Mild depression';
+      return { score, rawScore, maxScore, interpretation };
+    }
+  };
+
+  // GAD-2 (Anxiety)
+  library['anxiety_gad2'] = {
+    id: 'anxiety_gad2',
+    title: 'Anxiety Screening (GAD-2)',
+    description: 'Quick screening for anxiety symptoms',
+    questions: [
+      {
+        id: 'gad2_q1',
+        text: 'Over the last 2 weeks, how often have you been bothered by feeling nervous, anxious, or on edge?',
+        options: [
+          { value: 0, label: 'Not at all' },
+          { value: 1, label: 'Several days' },
+          { value: 2, label: 'More than half the days' },
+          { value: 3, label: 'Nearly every day' }
+        ]
+      },
+      {
+        id: 'gad2_q2',
+        text: 'Over the last 2 weeks, how often have you been bothered by not being able to stop or control worrying?',
+        options: [
+          { value: 0, label: 'Not at all' },
+          { value: 1, label: 'Several days' },
+          { value: 2, label: 'More than half the days' },
+          { value: 3, label: 'Nearly every day' }
+        ]
+      }
+    ],
+    scoreCalculation: (responses) => {
+      const rawScore = Object.values(responses).reduce((sum, val) => sum + val, 0);
+      const maxScore = 6;
+      const score = (rawScore / maxScore) * 100;
+      let interpretation = 'Minimal anxiety';
+      if (score > 66) interpretation = 'Moderate to severe anxiety';
+      else if (score > 33) interpretation = 'Mild anxiety';
+      return { score, rawScore, maxScore, interpretation };
+    }
+  };
+
+  // PSS-4 (Stress)
+  library['stress_pss4'] = {
+    id: 'stress_pss4',
+    title: 'Perceived Stress Scale (PSS-4)',
+    description: 'Assessment of perceived stress levels',
+    questions: [
+      {
+        id: 'pss4_q1',
+        text: 'In the last month, how often have you felt that you were unable to control the important things in your life?',
+        options: [
+          { value: 0, label: 'Never' },
+          { value: 1, label: 'Almost never' },
+          { value: 2, label: 'Sometimes' },
+          { value: 3, label: 'Fairly often' },
+          { value: 4, label: 'Very often' }
+        ]
+      },
+      {
+        id: 'pss4_q2',
+        text: 'In the last month, how often have you felt confident about your ability to handle your personal problems?',
+        options: [
+          { value: 0, label: 'Never' },
+          { value: 1, label: 'Almost never' },
+          { value: 2, label: 'Sometimes' },
+          { value: 3, label: 'Fairly often' },
+          { value: 4, label: 'Very often' }
+        ],
+        reverse: true
+      },
+      {
+        id: 'pss4_q3',
+        text: 'In the last month, how often have you felt that things were going your way?',
+        options: [
+          { value: 0, label: 'Never' },
+          { value: 1, label: 'Almost never' },
+          { value: 2, label: 'Sometimes' },
+          { value: 3, label: 'Fairly often' },
+          { value: 4, label: 'Very often' }
+        ],
+        reverse: true
+      },
+      {
+        id: 'pss4_q4',
+        text: 'In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?',
+        options: [
+          { value: 0, label: 'Never' },
+          { value: 1, label: 'Almost never' },
+          { value: 2, label: 'Sometimes' },
+          { value: 3, label: 'Fairly often' },
+          { value: 4, label: 'Very often' }
+        ]
+      }
+    ],
+    scoreCalculation: (responses) => {
+      const { pss4_q2, pss4_q3, ...otherResponses } = responses;
+      const reversed2 = pss4_q2 !== undefined ? 4 - pss4_q2 : 0;
+      const reversed3 = pss4_q3 !== undefined ? 4 - pss4_q3 : 0;
+      const rawScore = Object.values(otherResponses).reduce((sum, val) => sum + val, 0) + reversed2 + reversed3;
+      const maxScore = 16;
+      const score = (rawScore / maxScore) * 100;
+      let interpretation = 'Low stress';
+      if (score > 66) interpretation = 'High stress';
+      else if (score > 33) interpretation = 'Moderate stress';
+      return { score, rawScore, maxScore, interpretation };
+    }
+  };
+
+  // RRS-4 (Overthinking)
+  library['overthinking_rrs4'] = {
+    id: 'overthinking_rrs4',
+    title: 'Rumination Scale (RRS-4)',
+    description: 'Assessment of overthinking patterns',
+    questions: [
+      {
+        id: 'rrs4_q1',
+        text: 'How often do you think about how sad you feel?',
+        options: [
+          { value: 1, label: 'Almost never' },
+          { value: 2, label: 'Sometimes' },
+          { value: 3, label: 'Often' },
+          { value: 4, label: 'Almost always' }
+        ]
+      },
+      {
+        id: 'rrs4_q2',
+        text: 'How often do you analyze recent events to try to understand why you feel this way?',
+        options: [
+          { value: 1, label: 'Almost never' },
+          { value: 2, label: 'Sometimes' },
+          { value: 3, label: 'Often' },
+          { value: 4, label: 'Almost always' }
+        ]
+      },
+      {
+        id: 'rrs4_q3',
+        text: 'How often do you keep thinking about mistakes you\'ve made?',
+        options: [
+          { value: 1, label: 'Almost never' },
+          { value: 2, label: 'Sometimes' },
+          { value: 3, label: 'Often' },
+          { value: 4, label: 'Almost always' }
+        ]
+      },
+      {
+        id: 'rrs4_q4',
+        text: 'How often do you find yourself replaying the same thoughts over and over?',
+        options: [
+          { value: 1, label: 'Almost never' },
+          { value: 2, label: 'Sometimes' },
+          { value: 3, label: 'Often' },
+          { value: 4, label: 'Almost always' }
+        ]
+      }
+    ],
+    scoreCalculation: (responses) => {
+      const rawScore = Object.values(responses).reduce((sum, val) => sum + val, 0);
+      const maxScore = 16;
+      const score = ((rawScore - 4) / 12) * 100;
+      let interpretation = 'Low overthinking';
+      if (score > 66) interpretation = 'High overthinking';
+      else if (score > 33) interpretation = 'Moderate overthinking';
+      return { score, rawScore, maxScore, interpretation };
+    }
+  };
+
+  // PC-PTSD-5 (Trauma)
+  library['trauma_pcptsd5'] = {
+    id: 'trauma_pcptsd5',
+    title: 'PTSD Screening (PC-PTSD-5)',
+    description: 'Screening for trauma-related symptoms',
+    questions: [
+      {
+        id: 'pcptsd5_q1',
+        text: 'Have you had nightmares about a stressful experience or thought about it when you did not want to?',
+        options: [
+          { value: 0, label: 'No' },
+          { value: 1, label: 'Yes' }
+        ]
+      },
+      {
+        id: 'pcptsd5_q2',
+        text: 'Have you tried hard not to think about a stressful experience or went out of your way to avoid situations that reminded you of it?',
+        options: [
+          { value: 0, label: 'No' },
+          { value: 1, label: 'Yes' }
+        ]
+      },
+      {
+        id: 'pcptsd5_q3',
+        text: 'Have you been constantly on guard, watchful, or easily startled?',
+        options: [
+          { value: 0, label: 'No' },
+          { value: 1, label: 'Yes' }
+        ]
+      },
+      {
+        id: 'pcptsd5_q4',
+        text: 'Have you felt numb or detached from people, activities, or your surroundings?',
+        options: [
+          { value: 0, label: 'No' },
+          { value: 1, label: 'Yes' }
+        ]
+      },
+      {
+        id: 'pcptsd5_q5',
+        text: 'Have you felt guilty or unable to stop blaming yourself or others for the stressful experience or its consequences?',
+        options: [
+          { value: 0, label: 'No' },
+          { value: 1, label: 'Yes' }
+        ]
+      }
+    ],
+    scoreCalculation: (responses) => {
+      const rawScore = Object.values(responses).reduce((sum, val) => sum + val, 0);
+      const maxScore = 5;
+      const score = (rawScore / maxScore) * 100;
+      let interpretation = 'Low trauma symptoms';
+      if (rawScore >= 3) interpretation = 'Further trauma assessment recommended';
+      return { score, rawScore, maxScore, interpretation };
+    }
+  };
+
+  // EQ-5 (Emotional Intelligence)
+  library['emotional_intelligence_eq5'] = {
+    id: 'emotional_intelligence_eq5',
+    title: 'Emotional Intelligence (EQ-5)',
+    description: 'Assessment of emotional awareness and regulation',
+    questions: [
+      {
+        id: 'eq5_q1',
+        text: 'I am aware of my emotions as they happen',
+        options: [
+          { value: 1, label: 'Strongly disagree' },
+          { value: 2, label: 'Disagree' },
+          { value: 3, label: 'Neutral' },
+          { value: 4, label: 'Agree' },
+          { value: 5, label: 'Strongly agree' }
+        ]
+      },
+      {
+        id: 'eq5_q2',
+        text: 'I usually stay calm even in stressful situations',
+        options: [
+          { value: 1, label: 'Strongly disagree' },
+          { value: 2, label: 'Disagree' },
+          { value: 3, label: 'Neutral' },
+          { value: 4, label: 'Agree' },
+          { value: 5, label: 'Strongly agree' }
+        ]
+      },
+      {
+        id: 'eq5_q3',
+        text: 'I can easily understand how others are feeling',
+        options: [
+          { value: 1, label: 'Strongly disagree' },
+          { value: 2, label: 'Disagree' },
+          { value: 3, label: 'Neutral' },
+          { value: 4, label: 'Agree' },
+          { value: 5, label: 'Strongly agree' }
+        ]
+      },
+      {
+        id: 'eq5_q4',
+        text: 'I know how to motivate myself when I feel discouraged',
+        options: [
+          { value: 1, label: 'Strongly disagree' },
+          { value: 2, label: 'Disagree' },
+          { value: 3, label: 'Neutral' },
+          { value: 4, label: 'Agree' },
+          { value: 5, label: 'Strongly agree' }
+        ]
+      },
+      {
+        id: 'eq5_q5',
+        text: 'I manage conflicts with others in a constructive way',
+        options: [
+          { value: 1, label: 'Strongly disagree' },
+          { value: 2, label: 'Disagree' },
+          { value: 3, label: 'Neutral' },
+          { value: 4, label: 'Agree' },
+          { value: 5, label: 'Strongly agree' }
+        ]
+      }
+    ],
+    scoreCalculation: (responses) => {
+      const rawScore = Object.values(responses).reduce((sum, val) => sum + val, 0);
+      const maxScore = 25;
+      const score = ((rawScore - 5) / 20) * 100;
+      let interpretation = 'Developing emotional intelligence';
+      if (score > 66) interpretation = 'Strong emotional intelligence';
+      else if (score > 33) interpretation = 'Growing emotional intelligence';
+      return { score, rawScore, maxScore, interpretation };
+    }
+  };
+
+  // Personality Big Five (subset)
+  library['personality_bigfive10'] = {
+    id: 'personality_bigfive10',
+    title: 'Personality Traits (Big Five)',
+    description: 'Brief personality assessment',
+    questions: [
+      {
+        id: 'bigfive_q1',
+        text: 'I see myself as someone who is talkative',
+        options: [
+          { value: 1, label: 'Very inaccurate' },
+          { value: 2, label: 'Moderately inaccurate' },
+          { value: 3, label: 'Neither' },
+          { value: 4, label: 'Moderately accurate' },
+          { value: 5, label: 'Very accurate' }
+        ]
+      },
+      {
+        id: 'bigfive_q2',
+        text: 'I see myself as someone who tends to be lazy',
+        options: [
+          { value: 1, label: 'Very inaccurate' },
+          { value: 2, label: 'Moderately inaccurate' },
+          { value: 3, label: 'Neither' },
+          { value: 4, label: 'Moderately accurate' },
+          { value: 5, label: 'Very accurate' }
+        ],
+        reverse: true
+      },
+      {
+        id: 'bigfive_q3',
+        text: 'I see myself as someone who is relaxed, handles stress well',
+        options: [
+          { value: 1, label: 'Very inaccurate' },
+          { value: 2, label: 'Moderately inaccurate' },
+          { value: 3, label: 'Neither' },
+          { value: 4, label: 'Moderately accurate' },
+          { value: 5, label: 'Very accurate' }
+        ]
+      },
+      {
+        id: 'bigfive_q4',
+        text: 'I see myself as someone who has few artistic interests',
+        options: [
+          { value: 1, label: 'Very inaccurate' },
+          { value: 2, label: 'Moderately inaccurate' },
+          { value: 3, label: 'Neither' },
+          { value: 4, label: 'Moderately accurate' },
+          { value: 5, label: 'Very accurate' }
+        ],
+        reverse: true
+      },
+      {
+        id: 'bigfive_q5',
+        text: 'I see myself as someone who is outgoing, sociable',
+        options: [
+          { value: 1, label: 'Very inaccurate' },
+          { value: 2, label: 'Moderately inaccurate' },
+          { value: 3, label: 'Neither' },
+          { value: 4, label: 'Moderately accurate' },
+          { value: 5, label: 'Very accurate' }
+        ]
+      }
+    ],
+    scoreCalculation: (responses) => {
+      const rawScore = Object.values(responses).reduce((sum, val) => sum + val, 0);
+      const maxScore = 25;
+      const score = ((rawScore - 5) / 20) * 100;
+      const interpretation = 'Personality profile recorded';
+      return { score, rawScore, maxScore, interpretation };
+    }
+  };
+
+  return library;
+};
+
+export function CombinedAssessmentFlow({
+  selectedTypes,
+  sessionId,
+  onComplete,
+  onCancel
+}: CombinedAssessmentFlowProps) {
+  const ASSESSMENT_LIBRARY = React.useMemo(() => createAssessmentLibrary(), []);
+  
+  // Build combined question list from all selected assessments
+  const [allQuestions, setAllQuestions] = useState<Array<{
+    questionId: string;
+    assessmentId: string;
+    assessmentTitle: string;
+    questionIndex: number;
+    text: string;
+    options: Array<{ value: number; label: string }>;
+  }>>([]);
+  
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [responses, setResponses] = useState<Record<string, Record<string, number>>>({});
+  const [startTime] = useState(Date.now());
+  const [showGeneratingInsights, setShowGeneratingInsights] = useState(false);
+
+  useEffect(() => {
+    // Build combined questions list
+    const questions: typeof allQuestions = [];
+    selectedTypes.forEach(assessmentType => {
+      const assessment = ASSESSMENT_LIBRARY[assessmentType];
+      if (assessment) {
+        assessment.questions.forEach((q, index) => {
+          questions.push({
+            questionId: q.id,
+            assessmentId: assessment.id,
+            assessmentTitle: assessment.title,
+            questionIndex: index + 1,
+            text: q.text,
+            options: q.options
+          });
+        });
+      }
+    });
+    setAllQuestions(questions);
+    
+    // Initialize responses for all assessments
+    const initialResponses: Record<string, Record<string, number>> = {};
+    selectedTypes.forEach(type => {
+      initialResponses[type] = {};
+    });
+    setResponses(initialResponses);
+  }, [selectedTypes, ASSESSMENT_LIBRARY]);
+
+  const currentQuestion = allQuestions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / allQuestions.length) * 100;
+  const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
+
+  const handleAnswer = (value: number) => {
+    if (!currentQuestion) return;
+    
+    setResponses(prev => ({
+      ...prev,
+      [currentQuestion.assessmentId]: {
+        ...prev[currentQuestion.assessmentId],
+        [currentQuestion.questionId]: value
+      }
+    }));
+  };
+
+  const canGoNext = () => {
+    if (!currentQuestion) return false;
+    return responses[currentQuestion.assessmentId]?.[currentQuestion.questionId] !== undefined;
+  };
+
+  const handleNext = () => {
+    if (currentQuestionIndex < allQuestions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else {
+      handleSubmit();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+    }
+  };
+
+  const handleSubmit = () => {
+    setShowGeneratingInsights(true);
+    
+    // Calculate scores for each assessment
+    const assessmentResults = selectedTypes.map(assessmentType => {
+      const assessment = ASSESSMENT_LIBRARY[assessmentType];
+      const assessmentResponses = responses[assessmentType] || {};
+      
+      const { score, rawScore, maxScore } = assessment.scoreCalculation(assessmentResponses);
+      
+      return {
+        assessmentType,
+        responses: assessmentResponses,
+        score,
+        rawScore,
+        maxScore
+      };
+    });
+
+    // Simulate AI processing time (1-2 seconds)
+    setTimeout(() => {
+      onComplete({
+        sessionId,
+        assessments: assessmentResults
+      });
+    }, 1500);
+  };
+
+  if (showGeneratingInsights) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-6">
+        <Card className="w-full max-w-lg">
+          <CardContent className="pt-12 pb-12 text-center">
+            <div className="flex justify-center mb-6">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
+            </div>
+            <Brain className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
+            <h2 className="text-2xl font-semibold mb-2">Analyzing Your Responses</h2>
+            <p className="text-muted-foreground mb-4">
+              AI is generating personalized insights from your {selectedTypes.length} assessments...
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span>Processing {allQuestions.length} responses</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!currentQuestion) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-6">
+        <Card className="w-full max-w-lg">
+          <CardContent className="pt-12 pb-12 text-center">
+            <p className="text-muted-foreground">Loading assessment questions...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const selectedAnswer = responses[currentQuestion.assessmentId]?.[currentQuestion.questionId];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4 md:p-6">
+      <div className="w-full max-w-3xl">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" size="sm" onClick={onCancel}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>{elapsedMinutes} min</span>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-muted-foreground">Overall Progress</span>
+              <span className="font-semibold">
+                Question {currentQuestionIndex + 1} of {allQuestions.length}
+              </span>
+            </div>
+            <Progress value={progress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-center">
+              {selectedTypes.length} assessments combined • {allQuestions.length} total questions
+            </p>
+          </div>
+        </div>
+
+        {/* Question Card */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded">
+                  {currentQuestion.assessmentTitle}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Question {currentQuestion.questionIndex}
+                </span>
+              </div>
+              <CardTitle className="text-xl leading-relaxed">
+                {currentQuestion.text}
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <RadioGroup
+              value={selectedAnswer?.toString() || ''}
+              onValueChange={(value) => handleAnswer(parseInt(value))}
+            >
+              <div className="space-y-3">
+                {currentQuestion.options.map((option) => (
+                  <div
+                    key={option.value}
+                    role="button"
+                    tabIndex={0}
+                    className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer hover:border-primary/50 ${
+                      selectedAnswer === option.value
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border'
+                    }`}
+                    onClick={() => handleAnswer(option.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleAnswer(option.value);
+                      }
+                    }}
+                  >
+                    <RadioGroupItem value={option.value.toString()} id={`option-${option.value}`} />
+                    <Label
+                      htmlFor={`option-${option.value}`}
+                      className="flex-1 cursor-pointer text-base"
+                    >
+                      {option.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </RadioGroup>
+          </CardContent>
+        </Card>
+
+        {/* Navigation */}
+        <div className="mt-6 flex items-center justify-between gap-4">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            disabled={currentQuestionIndex === 0}
+            className="min-w-[120px]"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Previous
+          </Button>
+          
+          <Button
+            onClick={handleNext}
+            disabled={!canGoNext()}
+            className="min-w-[120px]"
+          >
+            {currentQuestionIndex === allQuestions.length - 1 ? (
+              <>
+                Complete
+                <CheckCircle2 className="h-4 w-4 ml-2" />
+              </>
+            ) : (
+              <>
+                Next
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Progress indicators */}
+        <div className="mt-6 flex justify-center gap-1">
+          {allQuestions.map((_, index) => (
+            <div
+              key={index}
+              className={`h-1 w-8 rounded-full transition-all ${
+                index <= currentQuestionIndex ? 'bg-primary' : 'bg-muted'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

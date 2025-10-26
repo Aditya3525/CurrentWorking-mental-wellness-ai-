@@ -1,9 +1,15 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import Joi from 'joi';
+import { prisma } from '../config/database';
+import { 
+  AppError,
+  NotFoundError, 
+  BadRequestError,
+  ForbiddenError,
+  UnauthorizedError,
+  DatabaseError 
+} from '../shared/errors/AppError';
 import { AuthRequest } from '../middleware/auth';
-
-const prisma = new PrismaClient();
 
 // Dynamic age range (10-100 years)
 const now = new Date();
@@ -52,6 +58,66 @@ const moodSchema = Joi.object({
   mood: Joi.string().required(),
   notes: Joi.string().optional(),
 });
+
+// Get user profile
+export const getUserProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    
+    // Ensure user can only access their own profile (security check)
+    if (userId !== req.user?.id) {
+      res.status(403).json({
+        success: false,
+        error: 'Unauthorized to access this profile',
+      });
+      return;
+    }
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        firstName: true,
+        lastName: true,
+        profilePhoto: true,
+        isOnboarded: true,
+        approach: true,
+        birthday: true,
+        gender: true,
+        region: true,
+        emergencyContact: true,
+        emergencyPhone: true,
+        dataConsent: true,
+        clinicianSharing: true,
+        isPremium: true,
+        createdAt: true,
+        updatedAt: true,
+        // Exclude sensitive fields like password hash
+      },
+    });
+    
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+      return;
+    }
+    
+    res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user profile',
+    });
+  }
+};
 
 // Update user profile
 export const updateProfile = async (req: AuthRequest, res: Response) => {
@@ -143,8 +209,12 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 // Complete onboarding
 export const completeOnboarding = async (req: AuthRequest, res: Response) => {
   try {
+    console.log('completeOnboarding called with req.body:', req.body);
+    console.log('Authenticated user:', req.user);
+    
     const { error } = onboardingSchema.validate(req.body);
     if (error) {
+      console.log('Validation error:', error.details[0].message);
       res.status(400).json({
         success: false,
         error: error.details[0].message,
@@ -165,7 +235,10 @@ export const completeOnboarding = async (req: AuthRequest, res: Response) => {
     } = req.body;
     const userId = req.user?.id;
 
+    console.log('Processing onboarding for userId:', userId, 'with approach:', approach);
+
     if (!userId) {
+      console.log('No user ID found');
       res.status(401).json({
         success: false,
         error: 'User not authenticated',
@@ -222,6 +295,8 @@ export const completeOnboarding = async (req: AuthRequest, res: Response) => {
         updatedAt: true,
       },
     });
+
+    console.log('Onboarding completed successfully for user:', userId, 'updated user:', user);
 
     res.json({
       success: true,

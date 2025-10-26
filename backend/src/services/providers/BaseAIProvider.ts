@@ -4,6 +4,7 @@ export abstract class BaseAIProvider implements AIProvider {
   public name: string;
   protected config: AIProviderConfig;
   protected currentApiKeyIndex: number = 0;
+  private verboseLogging = process.env.AI_VERBOSE_LOGGING?.toLowerCase() === 'true';
 
   constructor(name: string, config: AIProviderConfig) {
     this.name = name;
@@ -36,7 +37,7 @@ export abstract class BaseAIProvider implements AIProvider {
   protected rotateApiKey(): boolean {
     if (this.config.apiKeys && this.config.apiKeys.length > 1) {
       this.currentApiKeyIndex = (this.currentApiKeyIndex + 1) % this.config.apiKeys.length;
-      console.log(`[${this.name}] Rotating to API key index: ${this.currentApiKeyIndex}`);
+      this.logVerbose(`[${this.name}] Rotating to API key index: ${this.currentApiKeyIndex}`);
       return true;
     }
     return false;
@@ -72,11 +73,13 @@ export abstract class BaseAIProvider implements AIProvider {
       }
 
       try {
-        console.log(`[${this.name}] Attempt ${attempt + 1}/${retries} with API key index: ${this.currentApiKeyIndex}`);
+        this.logVerbose(`[${this.name}] Attempt ${attempt + 1}/${retries} with API key index: ${this.currentApiKeyIndex}`);
         return await operation(apiKey);
       } catch (error) {
         lastError = error as Error;
-        console.warn(`[${this.name}] API key ${this.currentApiKeyIndex} failed:`, error);
+        this.logVerbose(`[${this.name}] API key ${this.currentApiKeyIndex} failed: ${
+          (error as Error).message
+        }`);
         
         // If this was the last attempt, don't rotate
         if (attempt === retries - 1) {
@@ -94,19 +97,24 @@ export abstract class BaseAIProvider implements AIProvider {
     throw lastError || new Error(`[${this.name}] All API keys exhausted`);
   }
 
+  protected logVerbose(message: string): void {
+    if (this.verboseLogging) {
+      console.log(message);
+    }
+  }
+
   /**
    * Create therapeutic system prompt based on user context
    */
   protected createSystemPrompt(context?: ConversationContext): string {
-    const basePrompt = `You are a compassionate AI mental health companion. You provide supportive, empathetic responses while following these guidelines:
+  const basePrompt = `You are a licensed mental wellbeing coach. You deliver warm, strengths-based guidance while following these guardrails:
 
-1. NEVER provide medical diagnoses or replace professional therapy
-2. Always be supportive, non-judgmental, and empathetic
-3. If someone mentions self-harm or suicide, express concern and suggest professional help
-4. Keep responses conversational and under 150 words
-5. Use therapeutic techniques appropriate to the context
-6. NEVER explicitly mention the user's therapeutic approach (western/eastern/hybrid) unless they ask about it directly
-7. If user hasn't completed assessments, gently suggest they might benefit from assessments for more personalized support`;
+• Never make medical diagnoses, prescribe medication, or replace emergency/professional care.
+• Keep each response under 150 words, conversational, and trauma-informed.
+• Validate the user’s feelings before offering gentle reframes or practical next steps.
+• If you detect self-harm, suicide, or imminent risk, calmly urge them to seek emergency services or trusted support straight away.
+• Do not mention the internal coaching “approach” labels (western/eastern/hybrid) unless the user explicitly asks.
+• If assessments are missing or limited, you may briefly suggest completing one to personalise guidance.`;
 
     if (!context?.user) {
       return basePrompt;

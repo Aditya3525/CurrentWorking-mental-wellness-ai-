@@ -1,19 +1,41 @@
-import { Heart, Brain, Target, Sparkles, Play, MessageCircle, BookOpen, TrendingUp, Calendar, Award, ArrowRight } from 'lucide-react';
-import React, { useState } from 'react';
+import { Heart, Brain, Target, Sparkles, Play, MessageCircle, BookOpen, TrendingUp, Calendar, Award, ArrowRight, Moon, Sun } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+
+import { useAccessibility } from '../../../contexts/AccessibilityContext';
+import type { StoredUser } from '../../../services/auth';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Progress } from '../../ui/progress';
 
+import {
+  DashboardCustomizer,
+  DashboardTourPrompt,
+  useWidgetVisibility
+} from './';
+
 interface DashboardProps {
-  user: any;
+  user: StoredUser | null;
   onNavigate: (page: string) => void;
-  onStartAssessment: (assessmentId: string) => void;
   onLogout?: () => void;
+  showTour?: boolean;
+  onTourDismiss?: () => void;
+  onTourComplete?: () => void;
 }
 
-export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: DashboardProps) {
+export function Dashboard({ user, onNavigate, onLogout, showTour = false, onTourDismiss, onTourComplete }: DashboardProps) {
   const [todayMood, setTodayMood] = useState<string>('');
+  const { settings: accessibilitySettings, setSetting: setAccessibilitySetting } = useAccessibility();
+  const { visibility, updateVisibility, isVisible } = useWidgetVisibility();
+
+  const handleTourSkip = useCallback(() => {
+    onTourDismiss?.();
+  }, [onTourDismiss]);
+
+  const handleTourComplete = useCallback(() => {
+    onTourComplete?.();
+    onTourDismiss?.();
+  }, [onTourComplete, onTourDismiss]);
 
   const moodOptions = [
     { mood: 'Great', emoji: '😊', color: 'bg-green-100 text-green-800' },
@@ -80,8 +102,21 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
     }
   })();
 
+  const handleToggleDarkMode = () => {
+    const next = !accessibilitySettings.darkMode;
+    setAccessibilitySetting('darkMode', next, {
+      announce: `Dark mode ${next ? 'enabled' : 'disabled'}`
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <DashboardTourPrompt
+        open={showTour}
+        onSkip={handleTourSkip}
+        onComplete={handleTourComplete}
+      />
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-6">
         <div className="max-w-7xl mx-auto">
@@ -93,6 +128,11 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
               <p className="text-muted-foreground">How are you feeling today?</p>
             </div>
             <div className="flex items-center gap-4">
+              {/* Dashboard Customizer */}
+              <DashboardCustomizer
+                visibility={visibility}
+                onVisibilityChange={updateVisibility}
+              />
               {/* Profile Completion Indicator */}
               {getProfileCompletion() < 100 && (
                 <div className="text-right">
@@ -102,6 +142,20 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
                   </Button>
                 </div>
               )}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleToggleDarkMode}
+                aria-label={accessibilitySettings.darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-pressed={accessibilitySettings.darkMode}
+                className="h-9 w-9 rounded-full border-border/60 text-muted-foreground hover:text-foreground"
+              >
+                {accessibilitySettings.darkMode ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
               <Button variant="outline" onClick={() => onNavigate('profile')}>
                 Profile
               </Button>
@@ -118,34 +172,36 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
           </div>
 
           {/* Quick Mood Check */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <Heart className="h-5 w-5 text-primary" />
-                <span className="font-medium">Quick mood check</span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {moodOptions.map(({ mood, emoji }) => (
-                  <Button
-                    key={mood}
-                    variant="outline"
-                    size="sm"
-                    className={`${todayMood === mood ? 'border-primary bg-primary/10' : ''}`}
-                    onClick={() => setTodayMood(mood)}
-                  >
-                    <span className="mr-2">{emoji}</span>
-                    {mood}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {isVisible('mood-check') && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Heart className="h-5 w-5 text-primary" />
+                  <span className="font-medium">Quick mood check</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {moodOptions.map(({ mood, emoji }) => (
+                    <Button
+                      key={mood}
+                      variant="outline"
+                      size="sm"
+                      className={`${todayMood === mood ? 'border-primary bg-primary/10' : ''}`}
+                      onClick={() => setTodayMood(mood)}
+                    >
+                      <span className="mr-2">{emoji}</span>
+                      {mood}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-6 space-y-8">
         {/* Key Metrics Overview */}
-        {user?.assessmentScores && (
+        {isVisible('assessment-scores') && user?.assessmentScores && (
           <div className="grid md:grid-cols-3 gap-6">
             <Card>
               <CardHeader className="pb-3">
@@ -292,7 +348,7 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
             <CardContent className="space-y-3">
               <Button 
                 className="w-full justify-between"
-                onClick={() => onStartAssessment('anxiety')}
+                onClick={() => onNavigate('assessments')}
               >
                 <div className="flex items-center gap-2">
                   <Brain className="h-4 w-4" />
@@ -430,44 +486,47 @@ export function Dashboard({ user, onNavigate, onStartAssessment, onLogout }: Das
         </div>
 
         {/* Navigation Shortcuts */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Button
-            variant="ghost"
-            className="h-20 flex-col gap-2"
-            onClick={() => onNavigate('assessments')}
-          >
-            <Brain className="h-6 w-6 text-primary" />
-            <span className="text-sm">Assessments</span>
-          </Button>
+        {isVisible('navigation-shortcuts') && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button
+              variant="ghost"
+              className="h-20 flex-col gap-2"
+              onClick={() => onNavigate('assessments')}
+            >
+              <Brain className="h-6 w-6 text-primary" />
+              <span className="text-sm">Assessments</span>
+            </Button>
 
-          <Button
-            variant="ghost"
-            className="h-20 flex-col gap-2"
-            onClick={() => onNavigate('practices')}
-          >
-            <Heart className="h-6 w-6 text-primary" />
-            <span className="text-sm">Practices</span>
-          </Button>
+            <Button
+              variant="ghost"
+              className="h-20 flex-col gap-2"
+              onClick={() => onNavigate('practices')}
+            >
+              <Heart className="h-6 w-6 text-primary" />
+              <span className="text-sm">Practices</span>
+            </Button>
 
-          <Button
-            variant="ghost"
-            className="h-20 flex-col gap-2"
-            onClick={() => onNavigate('library')}
-          >
-            <BookOpen className="h-6 w-6 text-primary" />
-            <span className="text-sm">Library</span>
-          </Button>
+            <Button
+              variant="ghost"
+              className="h-20 flex-col gap-2"
+              onClick={() => onNavigate('library')}
+            >
+              <BookOpen className="h-6 w-6 text-primary" />
+              <span className="text-sm">Library</span>
+            </Button>
 
-          <Button
-            variant="ghost"
-            className="h-20 flex-col gap-2"
-            onClick={() => onNavigate('help')}
-          >
-            <Heart className="h-6 w-6 text-primary" />
-            <span className="text-sm">Help</span>
-          </Button>
-        </div>
+            <Button
+              variant="ghost"
+              className="h-20 flex-col gap-2"
+              onClick={() => onNavigate('help')}
+            >
+              <Heart className="h-6 w-6 text-primary" />
+              <span className="text-sm">Help</span>
+            </Button>
+          </div>
+        )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

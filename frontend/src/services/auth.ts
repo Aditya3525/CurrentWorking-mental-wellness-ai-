@@ -8,9 +8,10 @@ export interface StoredUser extends User {
     emotionalIntelligence?: number;
     overthinking?: number;
   };
+  securityQuestion?: string | null;
 }
 
-export async function registerUser(userData: { name: string; email: string; password: string }): Promise<StoredUser> {
+export async function registerUser(userData: { name: string; email: string; password: string }): Promise<{ user: StoredUser; token: string }> {
   try {
     if (!userData.password || userData.password.length < 6) {
       throw new Error('Password must be at least 6 characters long');
@@ -22,14 +23,17 @@ export async function registerUser(userData: { name: string; email: string; pass
       throw new Error(response.error || 'Registration failed');
     }
 
-    return response.data.user as StoredUser;
+    return {
+      user: response.data.user as StoredUser,
+      token: response.data.token
+    };
   } catch (error) {
     console.error('Registration error:', error);
     throw error;
   }
 }
 
-export async function loginUser(credentials: { email: string; password: string }): Promise<StoredUser | null> {
+export async function loginUser(credentials: { email: string; password: string }): Promise<{ user: StoredUser; token: string } | null> {
   try {
     if (!credentials.password) {
       throw new Error('Password is required');
@@ -41,7 +45,10 @@ export async function loginUser(credentials: { email: string; password: string }
       throw new Error(response.error || 'Login failed');
     }
 
-    return response.data.user as StoredUser;
+    return {
+      user: response.data.user as StoredUser,
+      token: response.data.token
+    };
   } catch (error) {
     console.error('Login error:', error);
     throw error;
@@ -121,18 +128,23 @@ export async function completeOnboarding(
   }
 ): Promise<StoredUser | null> {
   try {
+    console.log('completeOnboarding called with approach:', approach, 'and profileData:', profileData);
     // Prepare the complete onboarding data
     const onboardingData = {
       approach,
       ...profileData
     };
     
+    console.log('Sending onboarding data to API:', onboardingData);
     const response = await usersApi.completeOnboarding(onboardingData);
+    console.log('API response:', response);
     
     if (!response.success || !response.data) {
+      console.error('API call failed:', response.error);
       throw new Error(response.error || 'Onboarding completion failed');
     }
 
+    console.log('Onboarding completed successfully, returning user:', response.data.user);
     return response.data.user as StoredUser;
   } catch (error) {
     console.error('Complete onboarding error:', error);
@@ -176,6 +188,49 @@ export async function updateUserProfile(profileData: {
     return null;
   } catch (error) {
     console.error('Update profile error:', error);
+    throw error;
+  }
+}
+
+export async function setupSecurityQuestion(payload: { question: string; answer: string }): Promise<StoredUser | null> {
+  try {
+    const response = await authApi.setSecurityQuestion(payload);
+    if (response.success && response.data) {
+      return response.data.user as StoredUser;
+    }
+    throw new Error(response.error || 'Unable to save security question');
+  } catch (error) {
+    console.error('Setup security question error:', error);
+    throw error;
+  }
+}
+
+export async function requestSecurityQuestion(email: string): Promise<{ questionAvailable: boolean; question?: string }> {
+  try {
+    const response = await authApi.requestSecurityQuestion(email);
+    if (response.success && response.data) {
+      return response.data;
+    }
+    throw new Error(response.error || 'Unable to retrieve security question');
+  } catch (error) {
+    console.error('Request security question error:', error);
+    throw error;
+  }
+}
+
+export async function resetPasswordWithSecurityAnswer(payload: { email: string; answer: string; password: string }): Promise<void> {
+  try {
+    const response = await authApi.resetPasswordWithSecurityAnswer({
+      email: payload.email,
+      answer: payload.answer,
+      newPassword: payload.password,
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Password reset failed');
+    }
+  } catch (error) {
+    console.error('Reset password with security answer error:', error);
     throw error;
   }
 }

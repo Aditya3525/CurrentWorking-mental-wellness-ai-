@@ -1,10 +1,16 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
 import Joi from 'joi';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/database';
+import { 
+  AppError,
+  NotFoundError, 
+  ConflictError, 
+  UnauthorizedError,
+  DatabaseError,
+  BadRequestError
+} from '../shared/errors/AppError';
 
 // Validation schemas
 const registerSchema = Joi.object({
@@ -17,6 +23,39 @@ const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
 });
+
+const securityQuestionSchema = Joi.object({
+  question: Joi.string().min(5).max(200).required(),
+  answer: Joi.string().min(2).max(200).required(),
+});
+
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+const resetPasswordWithSecuritySchema = Joi.object({
+  email: Joi.string().email().required(),
+  answer: Joi.string().min(2).max(200).required(),
+  newPassword: Joi.string().min(6).required(),
+});
+
+const selfResetPasswordSchema = Joi.object({
+  answer: Joi.string().min(2).max(200).required(),
+  newPassword: Joi.string().min(6).required(),
+});
+
+const updateSecurityQuestionWithPasswordSchema = Joi.object({
+  currentPassword: Joi.string().required(),
+  question: Joi.string().min(5).max(200).required(),
+  answer: Joi.string().min(2).max(200).required(),
+});
+
+const updateApproachWithPasswordSchema = Joi.object({
+  password: Joi.string().required(),
+  approach: Joi.string().valid('western', 'eastern', 'hybrid').required(),
+});
+
+const normalizeSecurityAnswer = (answer: string): string => answer.trim().toLowerCase();
 
 // Generate JWT token
 const generateToken = (userId: string): string => {
@@ -106,11 +145,7 @@ export const register = async (req: Request, res: Response) => {
     // Validate request
     const { error } = registerSchema.validate(req.body);
     if (error) {
-      res.status(400).json({
-        success: false,
-        error: error.details[0].message,
-      });
-      return;
+      throw new BadRequestError(error.details[0].message);
     }
 
     const { name, email, password } = req.body;
@@ -121,11 +156,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     if (existingUser) {
-      res.status(400).json({
-        success: false,
-        error: 'User already exists with this email',
-      });
-      return;
+      throw new ConflictError('User already exists with this email');
     }
 
     // Hash password
@@ -133,23 +164,15 @@ export const register = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create user
-    const user = await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
         name,
         email: email.toLowerCase(),
         password: hashedPassword,
-      },
-      select: {
-        id: true,
-        name: true,
-  firstName: true,
-  lastName: true,
-        email: true,
-        isOnboarded: true,
-        approach: true,
-        createdAt: true,
-      },
+      }
     });
+
+    const { password: _createdPassword, securityAnswerHash: _createdAnswerHash, ...user } = createdUser as any;
 
     // Generate token
     const token = generateToken(user.id);
@@ -162,11 +185,12 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
+    // Re-throw AppError instances to be handled by error middleware
+    if (error instanceof AppError) {
+      throw error;
+    }
     console.error('Registration error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error during registration',
-    });
+    throw new DatabaseError('Server error during registration');
   }
 };
 
@@ -176,11 +200,7 @@ export const login = async (req: Request, res: Response) => {
     // Validate request
     const { error } = loginSchema.validate(req.body);
     if (error) {
-      res.status(400).json({
-        success: false,
-        error: error.details[0].message,
-      });
-      return;
+      throw new BadRequestError(error.details[0].message);
     }
 
     const { email, password } = req.body;
@@ -191,98 +211,66 @@ export const login = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid credentials',
-      });
-      return;
+      throw new UnauthorizedError('Invalid credentials');
     }
 
     // Check password
     if (!user.password) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid credentials',
-      });
-      return;
+      throw new UnauthorizedError('Invalid credentials');
     }
     
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid credentials',
-      });
-      return;
+      throw new UnauthorizedError('Invalid credentials');
     }
 
     // Generate token
     const token = generateToken(user.id);
 
-    // Return user data (excluding password)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: userPassword, ...userWithoutPassword } = user;
+    // Return user data (excluding sensitive fields)
+    const { password: userPassword, securityAnswerHash, ...userWithoutSensitive } = user as any;
 
     res.json({
       success: true,
       data: {
-        user: userWithoutPassword,
+        user: userWithoutSensitive,
         token,
       },
     });
   } catch (error) {
+    // Re-throw AppError instances to be handled by error middleware
+    if (error instanceof AppError) {
+      throw error;
+    }
     console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error during login',
-    });
+    throw new DatabaseError('Server error during login');
   }
 };
 
 // Get current user
 export const getCurrentUser = async (req: any, res: Response) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        name: true,
-  firstName: true,
-  lastName: true,
-        email: true,
-        isOnboarded: true,
-        approach: true,
-        birthday: true,
-        gender: true,
-        region: true,
-        language: true,
-        emergencyContact: true,
-        emergencyPhone: true,
-        dataConsent: true,
-        clinicianSharing: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const userRecord = await prisma.user.findUnique({
+      where: { id: req.user.id }
     });
 
-    if (!user) {
-      res.status(404).json({
-        success: false,
-        error: 'User not found',
-      });
-      return;
+    if (!userRecord) {
+      throw new NotFoundError('User');
     }
+
+    const { password: _password, securityAnswerHash: _answerHash, ...user } = userRecord as any;
 
     res.json({
       success: true,
       data: { user },
     });
   } catch (error) {
+    // Re-throw AppError instances to be handled by error middleware
+    if (error instanceof AppError) {
+      throw error;
+    }
     console.error('Get current user error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error',
-    });
+    throw new DatabaseError('Server error');
   }
 };
 
@@ -297,42 +285,18 @@ export const validateToken = async (req: Request, res: Response): Promise<void> 
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        googleId: true,
-        firstName: true,
-        lastName: true,
-        profilePhoto: true,
-        isOnboarded: true,
-        approach: true,
-        birthday: true,
-        gender: true,
-        region: true,
-        language: true,
-        emergencyContact: true,
-        emergencyPhone: true,
-        dataConsent: true,
-        clinicianSharing: true,
-        password: true,
-        createdAt: true,
-        updatedAt: true
-      }
+    const userRecord = await prisma.user.findUnique({
+      where: { id: decoded.id }
     });
 
-    if (!user) {
+    if (!userRecord) {
       res.status(401).json({ error: 'Invalid token' });
       return;
     }
 
-  // Derive hasPassword flag and remove password hash
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { password, ...safeUser } = user as any;
-  (safeUser as any).hasPassword = !!password;
-  res.json(safeUser);
+    const { password, securityAnswerHash, ...safeUser } = userRecord as any;
+    (safeUser as any).hasPassword = !!password;
+    res.json(safeUser);
   } catch (error) {
     console.error('Token validation error:', error);
     res.status(401).json({ error: 'Invalid token' });
@@ -373,29 +337,12 @@ export const setupPassword = async (req: any, res: Response) => {
 
     // Update user with password
     console.log('Updating user password in database');
-    const user = await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
-      data: { password: hashedPassword },
-      select: {
-        id: true,
-        name: true,
-  firstName: true,
-  lastName: true,
-        email: true,
-        isOnboarded: true,
-        approach: true,
-        birthday: true,
-        gender: true,
-        region: true,
-        language: true,
-        emergencyContact: true,
-        emergencyPhone: true,
-        dataConsent: true,
-        clinicianSharing: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      data: { password: hashedPassword }
     });
+
+    const { password: _password, securityAnswerHash: _answerHash, ...user } = updatedUser as any;
 
     console.log('Password setup successful for user:', user.id);
     res.json({
@@ -407,6 +354,302 @@ export const setupPassword = async (req: any, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Server error during password setup',
+    });
+  }
+};
+
+// Save or update a user's security question and answer
+export const setSecurityQuestion = async (req: any, res: Response) => {
+  try {
+    const { error } = securityQuestionSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ success: false, error: error.details[0].message });
+      return;
+    }
+
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, error: 'User not authenticated' });
+      return;
+    }
+
+    const question = (req.body.question as string).trim();
+    const normalizedAnswer = normalizeSecurityAnswer(req.body.answer as string);
+    const hashedAnswer = await bcrypt.genSalt(12).then((salt) => bcrypt.hash(normalizedAnswer, salt));
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        securityQuestion: question,
+        securityAnswerHash: hashedAnswer,
+      } as any
+    });
+
+    const { password: _password, securityAnswerHash: _answerHash, ...user } = updatedUser as any;
+
+    res.json({
+      success: true,
+      data: { user },
+    });
+  } catch (error) {
+    console.error('Set security question error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while saving security question',
+    });
+  }
+};
+
+// Provide a user's security question during forgot password flow
+export const getSecurityQuestionForReset = async (req: Request, res: Response) => {
+  try {
+    const { error } = forgotPasswordSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ success: false, error: error.details[0].message });
+      return;
+    }
+
+    const { email } = req.body;
+    const userRecord = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
+    const user = userRecord as any;
+
+    if (!user || !user.securityQuestion || !user.securityAnswerHash) {
+      res.json({ success: true, data: { questionAvailable: false } });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        questionAvailable: true,
+        question: user.securityQuestion,
+      }
+    });
+  } catch (error) {
+    console.error('Get security question error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error retrieving security question',
+    });
+  }
+};
+
+// Reset password after verifying security question answer
+export const resetPasswordWithSecurityAnswer = async (req: Request, res: Response) => {
+  try {
+    const { error } = resetPasswordWithSecuritySchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ success: false, error: error.details[0].message });
+      return;
+    }
+
+    const { email, answer, newPassword } = req.body as { email: string; answer: string; newPassword: string };
+
+    const userRecord = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
+    const user = userRecord as any;
+
+    if (!user || !user.securityAnswerHash) {
+      res.status(400).json({ success: false, error: 'Security verification failed' });
+      return;
+    }
+
+    const normalizedAnswer = normalizeSecurityAnswer(answer);
+    const isValidAnswer = await bcrypt.compare(normalizedAnswer, user.securityAnswerHash);
+
+    if (!isValidAnswer) {
+      res.status(400).json({ success: false, error: 'Security verification failed' });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.genSalt(12).then((salt) => bcrypt.hash(newPassword, salt));
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    });
+
+    res.json({
+      success: true,
+      data: { message: 'Password reset successful' },
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error during password reset',
+    });
+  }
+};
+
+// Reset password from profile (authenticated) using stored security answer
+export const resetPasswordWithSecurityAnswerAuthenticated = async (req: any, res: Response) => {
+  try {
+    const { error } = selfResetPasswordSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ success: false, error: error.details[0].message });
+      return;
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'User not authenticated' });
+      return;
+    }
+
+    const { answer, newPassword } = req.body as { answer: string; newPassword: string };
+
+    const userRecord = await prisma.user.findUnique({ where: { id: userId } });
+    const user = userRecord as any;
+
+    if (!user || !user.securityAnswerHash) {
+      res.status(400).json({ success: false, error: 'Security question not set' });
+      return;
+    }
+
+    const normalizedAnswer = normalizeSecurityAnswer(answer);
+    const isValidAnswer = await bcrypt.compare(normalizedAnswer, user.securityAnswerHash);
+
+    if (!isValidAnswer) {
+      res.status(400).json({ success: false, error: 'Security verification failed' });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.genSalt(12).then((salt) => bcrypt.hash(newPassword, salt));
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword }
+    });
+
+    res.json({
+      success: true,
+      data: { message: 'Password updated successfully' },
+    });
+  } catch (error) {
+    console.error('Authenticated password reset error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error during password update',
+    });
+  }
+};
+
+// Update security question after verifying password
+export const updateSecurityQuestionWithPassword = async (req: any, res: Response) => {
+  try {
+    const { error } = updateSecurityQuestionWithPasswordSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ success: false, error: error.details[0].message });
+      return;
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'User not authenticated' });
+      return;
+    }
+
+    const { currentPassword, question, answer } = req.body as { currentPassword: string; question: string; answer: string };
+
+    const userRecord = await prisma.user.findUnique({ where: { id: userId } });
+    const user = userRecord as any;
+
+    if (!user || !user.password) {
+      res.status(400).json({ success: false, error: 'Password not set for this account' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!passwordValid) {
+      res.status(400).json({ success: false, error: 'Incorrect password' });
+      return;
+    }
+
+    const normalizedAnswer = normalizeSecurityAnswer(answer);
+    const hashedAnswer = await bcrypt.genSalt(12).then((salt) => bcrypt.hash(normalizedAnswer, salt));
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        securityQuestion: question.trim(),
+        securityAnswerHash: hashedAnswer,
+      },
+    });
+
+    const { password: _password, securityAnswerHash: _answerHash, ...safeUser } = updatedUser as any;
+
+    res.json({
+      success: true,
+      data: { user: safeUser },
+    });
+  } catch (error) {
+    console.error('Update security question with password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while updating security question',
+    });
+  }
+};
+
+// Update approach after verifying password
+export const updateApproachWithPassword = async (req: any, res: Response) => {
+  try {
+    const { error } = updateApproachWithPasswordSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ success: false, error: error.details[0].message });
+      return;
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'User not authenticated' });
+      return;
+    }
+
+    const { password, approach } = req.body as { password: string; approach: 'western' | 'eastern' | 'hybrid' };
+
+    const userRecord = await prisma.user.findUnique({ where: { id: userId } });
+    const user = userRecord as any;
+
+    if (!user || !user.password) {
+      res.status(400).json({ success: false, error: 'Password not set for this account' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(password, user.password);
+    if (!passwordValid) {
+      res.status(400).json({ success: false, error: 'Incorrect password' });
+      return;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { approach },
+      select: {
+        id: true,
+        name: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        approach: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: { user: updatedUser },
+    });
+  } catch (error) {
+    console.error('Update approach with password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error while updating approach',
     });
   }
 };
@@ -427,7 +670,7 @@ export const updateProfile = async (req: any, res: Response) => {
       isOnboarded
     } = req.body;
 
-    const user = await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
       data: {
         ...(birthday && { 
@@ -451,26 +694,9 @@ export const updateProfile = async (req: any, res: Response) => {
   ...(lastName && { lastName }),
         ...(isOnboarded !== undefined && { isOnboarded }),
       },
-      select: {
-        id: true,
-        name: true,
-  firstName: true,
-  lastName: true,
-        email: true,
-        isOnboarded: true,
-        approach: true,
-        birthday: true,
-        gender: true,
-        region: true,
-        language: true,
-        emergencyContact: true,
-        emergencyPhone: true,
-        dataConsent: true,
-        clinicianSharing: true,
-        createdAt: true,
-        updatedAt: true,
-      },
     });
+
+    const { password: _password, securityAnswerHash: _answerHash, ...user } = updatedUser as any;
 
     res.json({
       success: true,

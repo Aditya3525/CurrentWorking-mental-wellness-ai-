@@ -8,7 +8,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
 
   constructor(config: AIProviderConfig) {
     super('huggingface', config);
-    this.apiKey = config.apiKey || '';
+    this.apiKey = this.getCurrentApiKey() || '';
     
     if (!this.apiKey) {
       throw new Error('HuggingFace API key is required');
@@ -105,23 +105,17 @@ export class HuggingFaceProvider extends BaseAIProvider {
     } catch (error: any) {
       const endTime = Date.now();
       const processingTime = endTime - startTime;
-      
-      console.error('❌ HuggingFace Error:', error);
-      
-      // Rotate API key on certain errors
-      if (error.message?.includes('rate limit') || error.message?.includes('quota')) {
+
+      const message = error?.message || 'Unknown error occurred';
+      console.error('❌ HuggingFace Error:', message);
+
+      if (message.toLowerCase().includes('rate limit') || message.toLowerCase().includes('quota')) {
         this.rotateApiKey();
       }
 
-      return {
-        content: '',
-        provider: 'huggingface',
-        model: this.model,
-        processingTime,
-        success: false,
-        error: error.message || 'Unknown error occurred',
-        apiKeyUsed: this.currentApiKeyIndex
-      };
+      const enrichedError = new Error(`HuggingFace provider error: ${message}`);
+      (enrichedError as any).processingTime = processingTime;
+      throw enrichedError;
     }
   }
 

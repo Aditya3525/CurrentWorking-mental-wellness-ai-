@@ -47,26 +47,26 @@ export class GeminiProvider extends BaseAIProvider {
           model: this.config.model || 'gemini-2.0-flash-exp',
           generationConfig: {
             temperature: options.temperature || this.config.temperature || 0.7,
-            topP: options.topP || 0.9,
-            topK: options.topK || 40,
-            maxOutputTokens: options.maxTokens || this.config.maxTokens || 150,
+            topP: options.topP || 0.95,
+            topK: options.topK || 64,
+            maxOutputTokens: options.maxTokens || this.config.maxTokens || 800,
           },
           safetySettings: [
             {
               category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-              threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+              threshold: HarmBlockThreshold.BLOCK_NONE,
             },
             {
               category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-              threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+              threshold: HarmBlockThreshold.BLOCK_NONE,
             },
             {
               category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-              threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+              threshold: HarmBlockThreshold.BLOCK_NONE,
             },
             {
               category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-              threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+              threshold: HarmBlockThreshold.BLOCK_NONE,
             },
           ],
         });
@@ -82,9 +82,37 @@ export class GeminiProvider extends BaseAIProvider {
         // Generate response
         const result = await model.generateContent(conversationHistory);
         const response = await result.response;
-        const text = response.text();
+        
+        // Log full response for debugging
+        console.log('[Gemini] Response candidates:', response.candidates?.length || 0);
+        console.log('[Gemini] Prompt feedback:', response.promptFeedback);
+        
+        // Check if response was blocked
+        if (response.promptFeedback?.blockReason) {
+          console.error(`[Gemini] Response blocked: ${response.promptFeedback.blockReason}`);
+          throw new Error(`Response blocked by safety filters: ${response.promptFeedback.blockReason}`);
+        }
+        
+        // Check if we have candidates
+        if (!response.candidates || response.candidates.length === 0) {
+          console.error('[Gemini] No candidates in response');
+          console.error('[Gemini] Full response:', JSON.stringify(response, null, 2));
+          throw new Error('No response candidates from Gemini');
+        }
+        
+        // Try to get text
+        let text: string;
+        try {
+          text = response.text();
+        } catch (textError: any) {
+          console.error('[Gemini] Error calling response.text():', textError.message);
+          console.error('[Gemini] First candidate:', JSON.stringify(response.candidates[0], null, 2));
+          throw new Error(`Failed to extract text from Gemini response: ${textError.message}`);
+        }
 
         if (!text || text.trim().length === 0) {
+          console.error('[Gemini] Empty text in response');
+          console.error('[Gemini] Response object:', JSON.stringify(response, null, 2));
           throw new Error('Empty response from Gemini');
         }
 
