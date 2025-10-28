@@ -26,6 +26,7 @@ import adminRoutes from './routes/admin';
 import publicPracticesRoutes from './routes/practices';
 import publicContentRoutes from './routes/publicContent';
 import engagementRoutes from './routes/engagement';
+import dashboardRoutes from './routes/dashboard';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { logger, refreshLogLevelFromEnv } from './utils/logger';
@@ -36,7 +37,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 refreshLogLevelFromEnv();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = typeof process.env.PORT === 'string' ? parseInt(process.env.PORT, 10) : 5000;
 const readinessPrisma = new PrismaClient();
 // When deployed behind a proxy, trust it so secure cookies and IP work correctly
 app.set('trust proxy', 1);
@@ -80,7 +81,9 @@ if (process.env.NODE_ENV === 'production') {
   app.use(limiter);
 }
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.FRONTEND_URL || 'http://localhost:3000')
+    : true, // Allow all origins in development
   credentials: true,
 }));
 
@@ -170,6 +173,7 @@ app.use('/api/content', contentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/practices', publicPracticesRoutes);
 app.use('/api/public-content', publicContentRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 // Enhanced engagement & recommendation endpoints
 app.use('/api/content', engagementRoutes); // For /api/content/:id/engage and /api/content/:id/engagement
 app.use('/api/recommendations', engagementRoutes); // For /api/recommendations/personalized
@@ -192,13 +196,14 @@ app.use(errorHandler);
 
 // Start server
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     logger.info({
       event: 'server_started',
       port: PORT,
       environment: process.env.NODE_ENV,
-      frontendUrl: process.env.FRONTEND_URL
-    }, 'HTTP server is listening');
+      frontendUrl: process.env.FRONTEND_URL,
+      host: '0.0.0.0'
+    }, 'HTTP server is listening on all network interfaces');
   });
 }
 

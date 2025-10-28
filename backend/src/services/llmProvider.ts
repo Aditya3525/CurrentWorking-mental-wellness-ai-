@@ -20,19 +20,19 @@ export class LLMService {
   private lastWorkingProvider: AIProviderType | null = null;
   private fallbackEnabled = true;
   private providerState: Map<AIProviderType, ProviderState> = new Map();
-  private maxFailuresBeforeCooldown = 3;
-  private providerCooldownMs = 300000;
+  private maxFailuresBeforeCooldown = 10; // INCREASED from 3 to 10
+  private providerCooldownMs = 180000; // DECREASED from 300000 (5 min) to 180000 (3 min)
   private usageLoggingEnabled = true;
 
   constructor() {
     this.usageLoggingEnabled = (process.env.AI_USAGE_LOGGING ?? 'true').toLowerCase() !== 'false';
     this.maxFailuresBeforeCooldown = Math.max(
       1,
-      Math.floor(this.parseNumber(process.env.AI_PROVIDER_MAX_FAILURES_BEFORE_COOLDOWN, 3))
+      Math.floor(this.parseNumber(process.env.AI_PROVIDER_MAX_FAILURES_BEFORE_COOLDOWN, 10)) // Changed default from 3 to 10
     );
     this.providerCooldownMs = Math.max(
       1000,
-      this.parseNumber(process.env.AI_PROVIDER_COOLDOWN_MS, 300000)
+      this.parseNumber(process.env.AI_PROVIDER_COOLDOWN_MS, 180000) // Changed default from 300000 to 180000
     );
     this.initializeProviders();
   }

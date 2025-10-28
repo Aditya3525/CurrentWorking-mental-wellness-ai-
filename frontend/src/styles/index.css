@@ -5623,3 +5623,306 @@ html {
     padding-bottom: 1.25rem;
   }
 }
+
+/* ==========================================
+   Mobile & Tablet Dashboard Enhancements
+   ========================================== */
+
+/* Hide scrollbars for carousel containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Safe area padding for iOS devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/* Touch-optimized interactions */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Snap scrolling for carousels */
+.snap-x {
+  scroll-snap-type: x mandatory;
+}
+
+.snap-center {
+  scroll-snap-align: center;
+}
+
+.snap-start {
+  scroll-snap-align: start;
+}
+
+.scroll-px-4 {
+  scroll-padding-inline: 1rem;
+}
+
+/* Smooth scrolling for carousels */
+.overflow-x-auto {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Minimum touch target size enforcement */
+.min-h-\[44px\] {
+  min-height: 44px;
+}
+
+.min-w-\[44px\] {
+  min-width: 44px;
+}
+
+/* Responsive breakpoint utilities matching dashboard spec */
+@media (max-width: 575px) {
+  /* Small phones: <576px */
+  .dashboard-mobile-sm {
+    font-size: 0.875rem; /* 14px */
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+  /* Large phones: 576-767px */
+  .dashboard-mobile-lg {
+    font-size: 0.9375rem; /* 15px */
+  }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  /* Tablet portrait: 768-991px */
+  .dashboard-tablet-portrait {
+    font-size: 1rem; /* 16px */
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+  /* Tablet landscape: 992-1199px */
+  .dashboard-tablet-landscape {
+    font-size: 1rem; /* 16px */
+  }
+}
+
+/* Prevent layout shift with skeleton loading */
+@media (prefers-reduced-motion: reduce) {
+  .overflow-x-auto {
+    scroll-behavior: auto;
+  }
+  
+  .snap-x {
+    scroll-snap-type: none;
+  }
+}
+
+/* Focus visible styles for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Improve contrast for status badges on cards */
+.text-xs {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Carousel card width classes */
+.w-\[85vw\] {
+  width: 85vw;
+}
+
+.w-\[92vw\] {
+  width: 92vw;
+}
+
+.max-w-\[340px\] {
+  max-width: 340px;
+}
+
+/* Bottom navigation z-index management */
+.z-50 {
+  z-index: 50;
+}
+
+/* Backdrop blur support for bottom nav */
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.bg-background\/95 {
+  background-color: var(--background);
+  opacity: 0.95;
+}
+
+@supports (backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px)) {
+  .bg-background\/95 {
+    opacity: 1;
+    background-color: color-mix(in oklab, var(--background) 95%, transparent);
+  }
+}
+
+/* Compact spacing for mobile */
+@media (max-width: 767px) {
+  .space-y-3 > :not(:last-child) {
+    margin-bottom: 0.75rem;
+  }
+  
+  .space-y-4 > :not(:last-child) {
+    margin-bottom: 1rem;
+  }
+  
+  .p-3 {
+    padding: 0.75rem;
+  }
+  
+  .p-4 {
+    padding: 1rem;
+  }
+}
+
+/* Fluid typography for responsive scaling */
+@media (min-width: 768px) {
+  :root {
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --text-base: 0.9375rem; /* 15px */
+    --text-lg: 1rem;
+    --text-xl: 1.125rem;
+    --text-2xl: 1.25rem;
+  }
+}
+
+/* Horizontal scroll container optimizations */
+.-mx-4 {
+  margin-left: -1rem;
+  margin-right: -1rem;
+}
+
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Collapsible section animations */
+.collapsible-content {
+  overflow: hidden;
+  transition: height 0.2s ease-out;
+}
+
+/* Progress bar visibility on mobile */
+@media (max-width: 767px) {
+  .h-3 {
+    height: 0.75rem;
+  }
+}
+
+/* Bottom navigation label sizing */
+.text-\[10px\] {
+  font-size: 10px;
+}
+
+.whitespace-nowrap {
+  white-space: nowrap;
+}
+
+.leading-none {
+  line-height: 1;
+}
+
+/* Mobile Responsive Onboarding - Safe Areas & Touch Targets */
+
+/* Safe area padding for notched devices (iOS, Android) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Ensure minimum touch target size (44x44px) for mobile */
+@media (max-width: 767px) {
+  button, .button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  input[type="radio"], input[type="checkbox"] {
+    min-height: 24px;
+    min-width: 24px;
+  }
+  
+  /* Touch-friendly spacing for form elements */
+  label {
+    padding-block: 8px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Sticky positioning support */
+@supports (position: sticky) {
+  .sticky {
+    position: sticky;
+  }
+}
+
+/* Backdrop blur support */
+@supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
+  .backdrop-blur {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+}

@@ -13,24 +13,37 @@ import {
   Bookmark,
   CheckCircle,
   SkipForward,
-  Check,
   Timer,
   Layers,
   Filter,
   ChevronDown,
-  ChevronUp,
   Music,
   Video as VideoIcon,
-  Star
+  X,
+  Search,
+  SlidersHorizontal,
+  Grid3x3,
+  List,
+  ArrowUp
 } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
 
+import { useDevice } from '../../../hooks/use-device';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { MediaPlayer } from '../../common/MediaPlayer';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Input } from '../../ui/input';
 import { Progress } from '../../ui/progress';
+import { ResponsiveContainer } from '../../ui/responsive-layout';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter
+} from '../../ui/sheet';
 import { Slider } from '../../ui/slider';
 
 interface PracticesProps {
@@ -64,6 +77,8 @@ interface PracticeSession {
 }
 
 export function Practices({ onNavigate }: PracticesProps) {
+  const device = useDevice();
+  
   const [currentSession, setCurrentSession] = useState<PracticeSession | null>(null);
   // Filter state (multi-select except duration)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // empty = All
@@ -74,6 +89,13 @@ export function Practices({ onNavigate }: PracticesProps) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
   const [postPracticeRating, setPostPracticeRating] = useState<number | null>(null);
   const [showPostPractice, setShowPostPractice] = useState(false);
+
+  // Mobile-responsive state
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(device.isMobile ? 'list' : 'grid');
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isActiveFiltersExpanded, setIsActiveFiltersExpanded] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -159,9 +181,63 @@ export function Practices({ onNavigate }: PracticesProps) {
     const matchesFormat = selectedFormats.length === 0 || selectedFormats.includes(practice.format) || (practice.format === 'Audio/Video' && (selectedFormats.includes('Audio') || selectedFormats.includes('Video')));
     const matchesApproach = selectedApproaches.length === 0 || selectedApproaches.includes(practice.approach);
     const matchesDifficulty = selectedDifficulties.length === 0 || selectedDifficulties.includes(practice.difficulty);
+    const matchesSearch = searchQuery.trim() === '' || 
+      practice.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      practice.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      practice.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    return matchesCategory && matchesDuration && matchesFormat && matchesApproach && matchesDifficulty;
+    return matchesCategory && matchesDuration && matchesFormat && matchesApproach && matchesDifficulty && matchesSearch;
   });
+
+  // Sorting (currently fixed to 'recommended' - future: add sort UI)
+  const sortedPractices = [...filteredPractices].sort((a, b) => {
+    const sortBy: 'recommended' | 'popular' | 'duration' | 'newest' = 'recommended' as 'recommended' | 'popular' | 'duration' | 'newest'; // Default sort mode
+    switch (sortBy) {
+      case 'popular':
+        // Sort by a popularity score (could be based on ratings, completions, etc.)
+        return 0; // Placeholder - implement with real data
+      case 'duration':
+        return a.duration - b.duration;
+      case 'newest':
+        return 0; // Placeholder - would need a createdAt field
+      case 'recommended':
+      default:
+        return 0; // Default order
+    }
+  });
+
+  // Active filter count
+  const activeFilterCount = 
+    selectedCategories.length + 
+    (selectedDuration !== 'all' ? 1 : 0) +
+    selectedFormats.length +
+    selectedApproaches.length +
+    selectedDifficulties.length;
+
+  const hasActiveFilters = activeFilterCount > 0 || searchQuery.trim() !== '';
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSelectedCategories([]);
+    setSelectedDuration('all');
+    setSelectedFormats([]);
+    setSelectedApproaches([]);
+    setSelectedDifficulties([]);
+    setSearchQuery('');
+  };
+
+  // Scroll handler for back to top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 500);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Toggle helpers
   const toggleMulti = (value: string, list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>) => {
@@ -544,129 +620,388 @@ export function Practices({ onNavigate }: PracticesProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => onNavigate('dashboard')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            <h1 className="text-3xl">Mindful Practices</h1>
-            <p className="text-muted-foreground text-lg">
-              Guided meditations, breathing exercises, and gentle yoga practices for your wellbeing
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-6xl mx-auto p-6">
-        {/* Filters */}
-        <div className="space-y-6 mb-10">
-          {/* Practice Type & Format */}
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-start gap-6">
-                <div className="flex flex-col gap-2 bg-muted/30 rounded-lg p-3">
-                  <span className="text-xs font-semibold tracking-wide text-primary/90 uppercase">Practice Type</span>
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map(category => {
-                      const Icon = category.icon;
-                      const active = selectedCategories.length === 0 ? category.id === 'all' : selectedCategories.includes(category.id);
-                      return (
-                        <Button
-                          key={category.id}
-                          variant={active ? 'default' : 'outline'}
-                          size="sm"
-                          aria-pressed={active}
-                          onClick={() => toggleMulti(category.id, selectedCategories, setSelectedCategories)}
-                          className={`flex items-center gap-1 transition-all ${active ? 'shadow-sm font-semibold' : ''}`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {category.label}
-                          {active && category.id !== 'all' && <Check className="h-3 w-3 ml-0.5" />}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 bg-muted/30 rounded-lg p-3">
-                  <span className="text-xs font-semibold tracking-wide text-primary/90 uppercase">Format</span>
-                  <div className="flex flex-wrap gap-2">
-                    {formats.map(f => {
-                      const Icon = f.icon;
-                      const active = selectedFormats.length === 0 ? f.id === 'all' : selectedFormats.includes(f.id);
-                      return (
-                        <Button
-                          key={f.id}
-                          variant={active ? 'default' : 'outline'}
-                          size="sm"
-                          aria-pressed={active}
-                          onClick={() => toggleMulti(f.id, selectedFormats, setSelectedFormats)}
-                          className={`flex items-center gap-1 transition-all ${active ? 'shadow-sm font-semibold' : ''}`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {f.label}
-                          {active && f.id !== 'all' && <Check className="h-3 w-3 ml-0.5" />}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          {/* Duration */}
-          <div className="flex flex-wrap gap-6 items-start">
-            <div className="flex flex-col gap-2 bg-muted/30 rounded-lg p-3">
-              <span className="text-xs font-semibold tracking-wide text-primary/90 uppercase">Duration</span>
-              <div className="flex flex-wrap gap-2">
-                {durations.map(d => {
-                  const Icon = Timer;
-                  const active = selectedDuration === d.id;
-                  return (
-                    <Button
-                      key={d.id}
-                      variant={active ? 'default' : 'outline'}
-                      size="sm"
-                      aria-pressed={active}
-                      onClick={() => setSelectedDuration(d.id)}
-                      className={`flex items-center gap-1 transition-all ${active ? 'shadow-sm font-semibold' : ''}`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {d.label}
-                      {active && d.id !== 'all' && <Check className="h-3 w-3 ml-0.5" />}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <Button
-                variant="outline"
+    <ResponsiveContainer>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-primary/10 to-accent/10">
+          <div className={`max-w-6xl mx-auto ${device.isMobile ? 'p-4' : 'p-6'}`}>
+            <div className={`flex items-center gap-4 ${device.isMobile ? 'mb-4' : 'mb-6'}`}>
+              <Button 
+                variant="ghost" 
                 size="sm"
-                onClick={() => setShowAdvancedFilters(s => !s)}
-                className="flex items-center gap-2"
+                onClick={() => onNavigate('dashboard')}
+                className="min-h-[44px] touch-manipulation"
               >
-                <Filter className="h-4 w-4" />
-                {showAdvancedFilters ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
-                {showAdvancedFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
               </Button>
             </div>
-          </div>
 
-          {showAdvancedFilters && (
-            <div className="flex flex-wrap gap-6 animate-in fade-in slide-in-from-top-2">
-              <div className="flex flex-col gap-2 bg-muted/30 rounded-lg p-3">
-                <span className="text-xs font-semibold tracking-wide text-primary/90 uppercase">Approach</span>
+            <div className={`space-y-2 ${device.isMobile ? 'mb-4' : 'mb-6'}`}>
+              <h1 className={`font-bold ${device.isMobile ? 'text-2xl truncate' : 'text-3xl'}`}>
+                Mindful Practices
+              </h1>
+              <p className={`text-muted-foreground ${device.isMobile ? 'text-sm truncate' : 'text-lg'}`}>
+                Guided meditations, breathing exercises, and gentle yoga practices for your wellbeing
+              </p>
+            </div>
+
+            {/* Search */}
+            {device.isMobile ? (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search practices..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-10 h-11 text-base"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 touch-manipulation"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="relative max-w-xl">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  placeholder="Search practices..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-12 h-12"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className={`max-w-6xl mx-auto ${device.isMobile ? 'py-4 px-4' : 'py-8 px-6'}`}>
+        
+        {/* Sticky Filter Toolbar */}
+        <div className={`${device.isMobile ? 'sticky top-0 z-10 bg-background -mx-4 px-4 py-3 border-b mb-4' : 'mb-6'}`}>
+          <div className="flex items-center justify-between gap-3">
+            {/* Mobile: Filter button + result count */}
+            {device.isMobile ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsFilterSheetOpen(true)}
+                  className="flex items-center gap-2 min-h-[44px]"
+                  aria-label={`Open filters, ${activeFilterCount} active`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span>Filters</span>
+                  {activeFilterCount > 0 && (
+                    <Badge variant="secondary" className="ml-1 px-1.5 min-w-[20px] h-5 flex items-center justify-center">
+                      {activeFilterCount}
+                    </Badge>
+                  )}
+                </Button>
+                
+                <div className="text-sm text-muted-foreground">
+                  {sortedPractices.length} {sortedPractices.length === 1 ? 'practice' : 'practices'}
+                </div>
+                
+                {/* View toggle */}
+                <div className="flex gap-1 bg-muted rounded-md p-1">
+                  <Button
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="h-8 w-8 p-0"
+                    aria-label="List view"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="h-8 w-8 p-0"
+                    aria-label="Grid view"
+                  >
+                    <Grid3x3 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </>
+            ) : (
+              /* Desktop: Inline filter chips */
+              <div className="flex flex-wrap items-center gap-3 w-full">
+                {/* Practice Type */}
+                <div className="flex flex-wrap gap-2">
+                  {categories.slice(0, 4).map(category => {
+                    const Icon = category.icon;
+                    const active = selectedCategories.length === 0 ? category.id === 'all' : selectedCategories.includes(category.id);
+                    return (
+                      <Button
+                        key={category.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        aria-pressed={active}
+                        onClick={() => toggleMulti(category.id, selectedCategories, setSelectedCategories)}
+                        className={`flex items-center gap-1 transition-all ${active ? 'shadow-sm' : ''}`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {category.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                {/* More filters button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="flex items-center gap-2"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  More
+                  {activeFilterCount > 4 && (
+                    <Badge variant="secondary" className="ml-1 px-1.5 min-w-[20px] h-5">
+                      {activeFilterCount - 4}
+                    </Badge>
+                  )}
+                </Button>
+                
+                <div className="ml-auto flex items-center gap-3">
+                  <div className="text-sm text-muted-foreground">
+                    {sortedPractices.length} {sortedPractices.length === 1 ? 'practice' : 'practices'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Mobile Bottom Sheet for Filters */}
+        <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+          <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0">
+            <SheetHeader className="px-4 py-4 border-b">
+              <div className="flex items-center justify-between">
+                <SheetTitle>Filters</SheetTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsFilterSheetOpen(false)}
+                  className="h-8 w-8 p-0"
+                  aria-label="Close filters"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </SheetHeader>
+            
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+              {/* Practice Type */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Practice Type</h3>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(category => {
+                    const Icon = category.icon;
+                    const active = selectedCategories.length === 0 ? category.id === 'all' : selectedCategories.includes(category.id);
+                    return (
+                      <Button
+                        key={category.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleMulti(category.id, selectedCategories, setSelectedCategories)}
+                        className="min-h-[44px] flex items-center gap-2"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {category.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Format */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Format</h3>
+                <div className="flex flex-wrap gap-2">
+                  {formats.map(f => {
+                    const Icon = f.icon;
+                    const active = selectedFormats.length === 0 ? f.id === 'all' : selectedFormats.includes(f.id);
+                    return (
+                      <Button
+                        key={f.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleMulti(f.id, selectedFormats, setSelectedFormats)}
+                        className="min-h-[44px] flex items-center gap-2"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {f.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Duration */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Duration</h3>
+                <div className="flex flex-wrap gap-2">
+                  {durations.map(d => {
+                    const active = selectedDuration === d.id;
+                    return (
+                      <Button
+                        key={d.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedDuration(d.id)}
+                        className="min-h-[44px] flex items-center gap-2"
+                      >
+                        <Timer className="h-4 w-4" />
+                        {d.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Advanced Filters */}
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="flex items-center justify-between w-full text-sm font-semibold"
+                >
+                  <span>Advanced Filters</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showAdvancedFilters && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                    {/* Approach */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-muted-foreground">Approach</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {approaches.map(a => {
+                          const Icon = a.icon;
+                          const active = selectedApproaches.length === 0 ? a.id === 'all' : selectedApproaches.includes(a.id);
+                          return (
+                            <Button
+                              key={a.id}
+                              variant={active ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => toggleMulti(a.id, selectedApproaches, setSelectedApproaches)}
+                              className="min-h-[44px] flex items-center gap-2"
+                            >
+                              <Icon className="h-4 w-4" />
+                              {a.label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* Difficulty */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-medium text-muted-foreground">Difficulty</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {difficulties.map(d => {
+                          const Icon = d.icon;
+                          const active = selectedDifficulties.length === 0 ? d.id === 'all' : selectedDifficulties.includes(d.id);
+                          return (
+                            <Button
+                              key={d.id}
+                              variant={active ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => toggleMulti(d.id, selectedDifficulties, setSelectedDifficulties)}
+                              className="min-h-[44px] flex items-center gap-2"
+                            >
+                              <Icon className="h-4 w-4" />
+                              {d.label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <SheetFooter className="px-4 py-4 border-t flex-row gap-3">
+              <Button
+                variant="outline"
+                onClick={clearAllFilters}
+                className="flex-1 min-h-[44px]"
+              >
+                Clear All
+              </Button>
+              <Button
+                onClick={() => setIsFilterSheetOpen(false)}
+                className="flex-1 min-h-[44px]"
+              >
+                Apply Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+        
+        {/* Desktop Advanced Filters */}
+        {!device.isMobile && showAdvancedFilters && (
+          <div className="mb-6 p-4 bg-muted/30 rounded-lg space-y-4 animate-in fade-in slide-in-from-top-2">
+            <div className="flex flex-wrap gap-6">
+              {/* Format */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Format</span>
+                <div className="flex flex-wrap gap-2">
+                  {formats.map(f => {
+                    const Icon = f.icon;
+                    const active = selectedFormats.length === 0 ? f.id === 'all' : selectedFormats.includes(f.id);
+                    return (
+                      <Button
+                        key={f.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleMulti(f.id, selectedFormats, setSelectedFormats)}
+                        className="flex items-center gap-1"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {f.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Duration */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Duration</span>
+                <div className="flex flex-wrap gap-2">
+                  {durations.map(d => {
+                    const active = selectedDuration === d.id;
+                    return (
+                      <Button
+                        key={d.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedDuration(d.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <Timer className="h-4 w-4" />
+                        {d.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Approach */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Approach</span>
                 <div className="flex flex-wrap gap-2">
                   {approaches.map(a => {
                     const Icon = a.icon;
@@ -676,20 +1011,20 @@ export function Practices({ onNavigate }: PracticesProps) {
                         key={a.id}
                         variant={active ? 'default' : 'outline'}
                         size="sm"
-                        aria-pressed={active}
                         onClick={() => toggleMulti(a.id, selectedApproaches, setSelectedApproaches)}
-                        className={`flex items-center gap-1 transition-all ${active ? 'shadow-sm font-semibold' : ''}`}
+                        className="flex items-center gap-1"
                       >
                         <Icon className="h-4 w-4" />
                         {a.label}
-                        {active && a.id !== 'all' && <Check className="h-3 w-3 ml-0.5" />}
                       </Button>
                     );
                   })}
                 </div>
               </div>
-              <div className="flex flex-col gap-2 bg-muted/30 rounded-lg p-3">
-                <span className="text-xs font-semibold tracking-wide text-primary/90 uppercase">Difficulty</span>
+              
+              {/* Difficulty */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Difficulty</span>
                 <div className="flex flex-wrap gap-2">
                   {difficulties.map(d => {
                     const Icon = d.icon;
@@ -699,31 +1034,243 @@ export function Practices({ onNavigate }: PracticesProps) {
                         key={d.id}
                         variant={active ? 'default' : 'outline'}
                         size="sm"
-                        aria-pressed={active}
                         onClick={() => toggleMulti(d.id, selectedDifficulties, setSelectedDifficulties)}
-                        className={`flex items-center gap-1 transition-all ${active ? 'shadow-sm font-semibold' : ''}`}
+                        className="flex items-center gap-1"
                       >
                         <Icon className="h-4 w-4" />
                         {d.label}
-                        {active && d.id !== 'all' && <Check className="h-3 w-3 ml-0.5" />}
                       </Button>
                     );
                   })}
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+        
+        {/* Active Filters Summary */}
+        {hasActiveFilters && (
+          <div className={`mb-4 ${device.isMobile ? 'space-y-2' : ''}`}>
+            {device.isMobile ? (
+              <>
+                <button
+                  onClick={() => setIsActiveFiltersExpanded(!isActiveFiltersExpanded)}
+                  className="flex items-center gap-2 text-sm font-medium min-h-[44px] w-full justify-between"
+                >
+                  <span>{activeFilterCount} active {activeFilterCount === 1 ? 'filter' : 'filters'}</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isActiveFiltersExpanded ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isActiveFiltersExpanded && (
+                  <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-2">
+                    {selectedCategories.map(catId => {
+                      const cat = categories.find(c => c.id === catId);
+                      return cat ? (
+                        <Badge key={catId} variant="secondary" className="gap-1">
+                          {cat.label}
+                          <button onClick={() => toggleMulti(catId, selectedCategories, setSelectedCategories)}>
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ) : null;
+                    })}
+                    {searchQuery && (
+                      <Badge variant="secondary" className="gap-1">
+                        Search: {searchQuery}
+                        <button onClick={() => setSearchQuery('')}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Clear all
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedCategories.map(catId => {
+                  const cat = categories.find(c => c.id === catId);
+                  return cat ? (
+                    <Badge key={catId} variant="secondary" className="gap-1">
+                      {cat.label}
+                      <button onClick={() => toggleMulti(catId, selectedCategories, setSelectedCategories)}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ) : null;
+                })}
+                {searchQuery && (
+                  <Badge variant="secondary" className="gap-1">
+                    Search: {searchQuery}
+                    <button onClick={() => setSearchQuery('')}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="h-6 px-2 text-xs"
+                >
+                  Clear all
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Practices Grid */}
+        {/* Practices List/Grid */}
         {loading && (
-          <div className="py-12 text-center text-muted-foreground">Loading practices...</div>
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <Card key={i} className={device.isMobile || viewMode === 'list' ? 'flex gap-3 p-3' : 'overflow-hidden'}>
+                {device.isMobile || viewMode === 'list' ? (
+                  <>
+                    <div className="w-32 h-20 bg-muted rounded animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                      <div className="h-3 bg-muted rounded w-full animate-pulse" />
+                      <div className="h-8 bg-muted rounded w-full animate-pulse" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-full h-48 bg-muted animate-pulse" />
+                    <div className="p-4 space-y-2">
+                      <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                      <div className="h-3 bg-muted rounded w-full animate-pulse" />
+                    </div>
+                  </>
+                )}
+              </Card>
+            ))}
+          </div>
         )}
+        
         {error && !loading && (
-          <div className="py-12 text-center text-destructive">{error}</div>
+          <Card className="p-6 text-center space-y-4">
+            <p className="text-destructive">{error}</p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </Card>
         )}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {!loading && !error && filteredPractices.map((practice) => (
+        
+        {!loading && !error && sortedPractices.length === 0 && (
+          <Card className="p-8 text-center space-y-4">
+            <h3 className="text-lg font-semibold">No practices found</h3>
+            <p className="text-muted-foreground">
+              {hasActiveFilters ? "Try adjusting your filters" : "No practices available"}
+            </p>
+            {hasActiveFilters && (
+              <div className="space-y-3">
+                <Button variant="outline" onClick={clearAllFilters}>
+                  Clear All Filters
+                </Button>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>Try:</p>
+                  <ul className="list-disc list-inside">
+                    <li>Selecting &lsquo;All&rsquo; in categories</li>
+                    <li>Expanding duration range</li>
+                    <li>Including more formats</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+        
+        {/* Mobile List View */}
+        {!loading && !error && (device.isMobile || viewMode === 'list') && sortedPractices.length > 0 && (
+          <div className="space-y-3">
+            {sortedPractices.map((practice) => (
+              <Card key={practice.id} className="flex gap-3 p-3 hover:shadow-md transition-shadow">
+                {/* Thumbnail */}
+                <div className="relative flex-shrink-0 w-32 h-20 rounded overflow-hidden">
+                  <ImageWithFallback
+                    src={practice.image}
+                    alt={practice.title}
+                    className="w-full h-full object-cover"
+                  />
+                  
+                  {/* Duration badge */}
+                  <Badge className="absolute top-1 left-1 bg-black/70 text-white text-xs px-1.5 py-0.5">
+                    {practice.duration}min
+                  </Badge>
+                  
+                  {/* Lock/Save badge */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-1 right-1 bg-white/80 hover:bg-white h-6 w-6 p-0"
+                  >
+                    <Bookmark className="h-3 w-3" />
+                  </Button>
+                </div>
+                
+                {/* Content */}
+                <div className="flex-1 min-w-0 flex flex-col">
+                  {/* Title */}
+                  <h3 className="font-semibold text-sm line-clamp-2 mb-1">
+                    {practice.title}
+                  </h3>
+                  
+                  {/* Description */}
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                    {practice.description}
+                  </p>
+                  
+                  {/* Meta row */}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                    <div className="flex items-center gap-1">
+                      {getTypeIcon(practice.type)}
+                      <span className="capitalize">{practice.type}</span>
+                    </div>
+                    <span>•</span>
+                    <span className={getDifficultyColor(practice.difficulty)}>{practice.difficulty}</span>
+                  </div>
+                  
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {practice.tags.slice(0, 2).map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs px-1.5 py-0">
+                        {tag}
+                      </Badge>
+                    ))}
+                    {practice.tags.length > 2 && (
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                        +{practice.tags.length - 2}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {/* CTA */}
+                  <Button 
+                    size="sm"
+                    className="w-full mt-auto min-h-[44px]"
+                    onClick={() => startPractice(practice)}
+                  >
+                    <Play className="h-4 w-4 mr-1" />
+                    Start Practice
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+        
+        {/* Desktop Grid View */}
+        {!loading && !error && !device.isMobile && viewMode === 'grid' && sortedPractices.length > 0 && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {sortedPractices.map((practice) => (
             <Card key={practice.id} className="overflow-hidden hover:shadow-lg transition-shadow">
               <div className="relative">
                 <ImageWithFallback
@@ -814,58 +1361,21 @@ export function Practices({ onNavigate }: PracticesProps) {
             </Card>
           ))}
         </div>
-
-        {/* Empty State */}
-        {!loading && !error && filteredPractices.length === 0 && (
-          <div className="text-center py-16 space-y-6 animate-in fade-in">
-            <div className="mx-auto w-40 h-40 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-              <Heart className="h-16 w-16 text-primary/60" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold">No practices match your filters</h3>
-              <p className="text-muted-foreground max-w-md mx-auto">Refine or clear filters to explore more mindfulness, breathing, yoga, and sleep practices curated for you.</p>
-            </div>
-            <div className="flex gap-3 justify-center">
-              <Button
-                onClick={() => {
-                  setSelectedCategories([]);
-                  setSelectedDuration('all');
-                  setSelectedFormats([]);
-                  setSelectedApproaches([]);
-                  setSelectedDifficulties([]);
-                }}
-              >
-                Clear All Filters
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowAdvancedFilters(s => !s)}
-              >
-                {showAdvancedFilters ? 'Hide Advanced' : 'Adjust Filters'}
-              </Button>
-            </div>
-            {/* Suggestions */}
-            {practices.length > 0 && (
-              <div className="max-w-3xl mx-auto text-left">
-                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><Star className="h-4 w-4 text-amber-500" /> Popular Practices</h4>
-                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {practices.slice(0,3).map(p => (
-                    <Button
-                      key={p.id}
-                      variant="outline"
-                      className="justify-start text-left flex-col items-start h-auto p-3 gap-1"
-                      onClick={() => startPractice(p)}
-                    >
-                      <span className="text-sm font-medium line-clamp-1">{p.title}</span>
-                      <span className="text-xs text-muted-foreground capitalize">{p.type} • {p.duration}m</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+        )}
+        
+        {/* Back to Top Button */}
+        {showBackToTop && (
+          <Button
+            size="icon"
+            className="fixed bottom-20 right-4 z-20 rounded-full shadow-lg min-h-[48px] min-w-[48px] animate-in fade-in slide-in-from-bottom-4"
+            onClick={scrollToTop}
+            aria-label="Scroll to top"
+          >
+            <ArrowUp className="h-5 w-5" />
+          </Button>
         )}
       </div>
     </div>
+    </ResponsiveContainer>
   );
 }

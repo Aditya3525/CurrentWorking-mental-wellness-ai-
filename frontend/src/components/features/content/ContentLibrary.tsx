@@ -17,15 +17,31 @@ import {
   Cloud,
   Layers,
   Share2,
-  Check
+  X,
+  ChevronDown,
+  SlidersHorizontal,
+  Grid3x3,
+  List
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
+import { useDevice } from '../../../hooks/use-device';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Input } from '../../ui/input';
+import {
+  ResponsiveContainer
+} from '../../ui/responsive-layout';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter
+} from '../../ui/sheet';
+
 import { MediaPlayerDialog } from './MediaPlayerDialog';
 import type { LibraryItem } from './types';
 
@@ -98,11 +114,16 @@ const parseDuration = (raw: unknown): { label: string | null; seconds: number | 
 };
 
 export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
+  const device = useDevice();
   const [searchQuery, setSearchQuery] = useState('');
   // Multi-select filters
   const [selectedApproach, setSelectedApproach] = useState<'all' | 'western' | 'eastern' | 'hybrid'>(user?.approach || 'all');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // empty => all
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]); // empty => all
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(device.isMobile ? 'list' : 'grid');
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isActiveFiltersExpanded, setIsActiveFiltersExpanded] = useState(true);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   const [animateKey, setAnimateKey] = useState(0);
 
   const [contentItems, setContentItems] = useState<LibraryItem[]>([]);
@@ -306,6 +327,32 @@ export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
     return matchesSearch && matchesCategory && matchesType && matchesApproach;
   });
 
+  // Sort filtered content (currently fixed to 'relevance' - future: add sort UI)
+  const sortedContent = [...filteredContent].sort((a, b) => {
+    const sortBy: 'relevance' | 'popular' | 'duration' | 'newest' = 'relevance' as 'relevance' | 'popular' | 'duration' | 'newest'; // Default sort mode
+    switch (sortBy) {
+      case 'popular':
+        return (b.rating || 0) - (a.rating || 0);
+      case 'duration':
+        return (a.durationSeconds || 0) - (b.durationSeconds || 0);
+      case 'newest':
+        return 0; // Would need createdAt field
+      default: // relevance
+        return 0;
+    }
+  });
+
+  // Count active filters
+  const activeFilterCount = selectedCategories.length + selectedTypes.length + (selectedApproach !== 'all' ? 1 : 0);
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSelectedCategories([]);
+    setSelectedTypes([]);
+    setSelectedApproach(user?.approach || 'all');
+    setSearchQuery('');
+  };
+
   // Toggle helpers
   const toggleMulti = (value: string, list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>) => {
     if (value === 'all') { setList([]); return; }
@@ -343,26 +390,30 @@ export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => onNavigate('dashboard')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </div>
+    <ResponsiveContainer>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-primary/10 to-accent/10">
+          <div className={`max-w-6xl mx-auto ${device.isMobile ? 'p-4' : 'p-6'}`}>
+            <div className={`flex items-center gap-4 ${device.isMobile ? 'mb-4' : 'mb-6'}`}>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => onNavigate('dashboard')}
+                className="min-h-[44px] touch-manipulation"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </div>
 
-          <div className="space-y-4">
-            <h1 className="text-3xl">Content Library</h1>
-            <p className="text-muted-foreground text-lg">
-              Curated videos, guided meditations, articles, and educational content for your wellbeing journey
-            </p>
+            <div className={`space-y-2 ${device.isMobile ? 'mb-4' : 'mb-6'}`}>
+              <h1 className={`font-bold ${device.isMobile ? 'text-2xl' : 'text-3xl'}`}>
+                Content Library
+              </h1>
+              <p className={`text-muted-foreground ${device.isMobile ? 'text-sm' : 'text-lg'}`}>
+                Curated videos, guided meditations, articles, and educational content for your wellbeing journey
+              </p>
 
             {/* Approach preference message */}
             {user?.approach && user.approach !== selectedApproach && selectedApproach !== 'all' && (
@@ -400,219 +451,681 @@ export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
             )}
 
             {/* Search */}
-            <div className="relative max-w-xl">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <div className="relative">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`} />
               <Input
                 placeholder="Search videos, articles, playlists..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-12 text-sm"
+                className={device.isMobile ? 'pl-10 pr-10 h-11' : 'pl-12 h-12 max-w-xl'}
               />
+              {searchQuery && device.isMobile && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6">
-        {/* Filters */}
-        <div className="space-y-6 mb-10">
-          <div className="flex items-center gap-2 border-b pb-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-semibold">Filters</span>
-          </div>
-          <div className="space-y-5 animate-in fade-in slide-in-from-top-2">
-            {/* Category Filter */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold tracking-wide text-primary/80 uppercase">Category</span>
-              <div className="flex flex-wrap gap-2">
-                {categories.map(cat => {
-                  const Icon = cat.icon;
-                  const active = selectedCategories.length === 0 ? cat.id === 'all' : selectedCategories.includes(cat.id);
-                  return (
-                    <Button
-                      key={cat.id}
-                      variant={active ? 'default' : 'outline'}
-                      size="sm"
-                      aria-pressed={active}
-                      onClick={() => toggleMulti(cat.id, selectedCategories, setSelectedCategories)}
-                      className={`flex items-center gap-1 transition-all ${active ? 'shadow-sm font-semibold' : ''}`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {cat.label}
-                      {active && cat.id !== 'all' && <Check className="h-3 w-3" />}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Type Filter */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold tracking-wide text-primary/80 uppercase">Content Type</span>
-              <div className="flex flex-wrap gap-2">
-                {types.map(t => {
-                  const Icon = t.icon;
-                  const active = selectedTypes.length === 0 ? t.id === 'all' : selectedTypes.includes(t.id);
-                  return (
-                    <Button
-                      key={t.id}
-                      variant={active ? 'default' : 'outline'}
-                      size="sm"
-                      aria-pressed={active}
-                      onClick={() => toggleMulti(t.id, selectedTypes, setSelectedTypes)}
-                      className={`flex items-center gap-1 transition-all ${active ? 'shadow-sm font-semibold' : ''}`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {t.label}
-                      {active && t.id !== 'all' && <Check className="h-3 w-3" />}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Approach Filter */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold tracking-wide text-primary/80 uppercase">Approach</span>
-              <div className="flex flex-wrap gap-2">
+      <div className={`max-w-6xl mx-auto ${device.isMobile ? 'px-4' : 'px-6'}`}>
+        {/* Sticky Filter Toolbar */}
+        <div className={`${device.isMobile ? 'sticky top-0 z-10 bg-background -mx-4 px-4 py-3 border-b mb-4' : 'mb-6'}`}>
+          <div className="flex items-center justify-between gap-3">
+            {device.isMobile ? (
+              <>
                 <Button
-                  variant={selectedApproach === 'all' ? 'default' : 'outline'}
+                  variant="outline"
                   size="sm"
-                  aria-pressed={selectedApproach === 'all'}
-                  onClick={() => setSelectedApproach('all')}
-                >All Approaches</Button>
-                <Button
-                  variant={selectedApproach === 'western' ? 'default' : 'outline'}
-                  size="sm"
-                  aria-pressed={selectedApproach === 'western'}
-                  onClick={() => setSelectedApproach('western')}
-                  className="flex items-center gap-1"
-                ><Brain className="h-3 w-3" /> Western</Button>
-                <Button
-                  variant={selectedApproach === 'eastern' ? 'default' : 'outline'}
-                  size="sm"
-                  aria-pressed={selectedApproach === 'eastern'}
-                  onClick={() => setSelectedApproach('eastern')}
-                  className="flex items-center gap-1"
-                ><Heart className="h-3 w-3" /> Eastern</Button>
-                <Button
-                  variant={selectedApproach === 'hybrid' ? 'default' : 'outline'}
-                  size="sm"
-                  aria-pressed={selectedApproach === 'hybrid'}
-                  onClick={() => setSelectedApproach('hybrid')}
-                  className="flex items-center gap-1"
-                ><Users className="h-3 w-3" /> Hybrid</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Content Grid */}
-        {loading && (
-          <div className="py-12 text-center text-muted-foreground">Loading library...</div>
-        )}
-        {error && !loading && (
-          <div className="py-12 text-center text-destructive">{error}</div>
-        )}
-        <div key={animateKey} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all animate-in fade-in">
-          {filteredContent.map(item => {
-            const primaryActionLabel = item.displayType === 'article' ? 'Read' : 'Play';
-            const primaryActionIcon = item.displayType === 'article' ? <BookOpen className="h-4 w-4" /> : <Play className="h-4 w-4" />;
-
-            return (
-              <Card
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setActiveItem(item)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setActiveItem(item);
-                  }
-                }}
-                className="overflow-hidden group hover:shadow-lg transition-all duration-300 hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-              <div className="relative">
-                <ImageWithFallback
-                  src={item.thumbnail || 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=60'}
-                  alt={item.title}
-                  className="w-full h-48 object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                {/* Quick Actions */}
-                <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" aria-label="Bookmark" onClick={(event) => event.stopPropagation()}><Bookmark className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" aria-label="Share" onClick={(event) => event.stopPropagation()}><Share2 className="h-4 w-4" /></Button>
-                  <Button
-                    size="icon"
-                    className="h-8 w-8 rounded-full"
-                    aria-label={primaryActionLabel}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setActiveItem(item);
-                    }}
-                  >
-                    {primaryActionIcon}
-                  </Button>
-                </div>
-                {/* Type badge */}
-                <Badge className={`absolute top-2 left-2 ${getTypeColor(item.displayType)} shadow`}>
-                  <div className="flex items-center gap-1">
-                    {getTypeIcon(item.displayType)}
-                    <span className="capitalize">{item.displayType}</span>
-                  </div>
-                </Badge>
-                {item.approach !== 'all' && (
-                  <Badge className="absolute top-12 left-2 bg-white/90 text-gray-700 text-xs shadow">
-                    {item.approach === 'western' && '🧠 Western'}
-                    {item.approach === 'eastern' && '🕉️ Eastern'}
-                    {item.approach === 'hybrid' && '🌸 Hybrid'}
-                  </Badge>
-                )}
-              </div>
-              <CardContent className="p-4 space-y-3">
-                <div className="space-y-2">
-                  <h3 className="font-semibold leading-tight line-clamp-2 group-hover:text-primary transition-colors">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{item.description}</p>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>{item.durationLabel || '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-0.5" aria-label={`Rating ${item.rating} of 5`}>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className={`h-3 w-3 ${i < (item.rating || 0) ? 'fill-current text-yellow-500' : 'text-muted-foreground'} transition-colors`} />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  {item.difficulty && (
-                    <Badge variant="outline" className={getDifficultyColor(item.difficulty)}>
-                      {item.difficulty}
+                  onClick={() => setIsFilterSheetOpen(true)}
+                  className="flex items-center gap-2 min-h-[44px]"
+                  aria-label={`Open filters, ${activeFilterCount} active`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span>Filters</span>
+                  {activeFilterCount > 0 && (
+                    <Badge variant="secondary" className="ml-1 px-1.5 min-w-[20px] h-5 flex items-center justify-center">
+                      {activeFilterCount}
                     </Badge>
                   )}
-                  <span className="text-xs text-muted-foreground">{item.author || 'Wellbeing Coach'}</span>
+                </Button>
+                
+                <div className="text-sm text-muted-foreground">
+                  {sortedContent.length} {sortedContent.length === 1 ? 'item' : 'items'}
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {item.tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
+                
+                {/* View toggle */}
+                <div className="flex gap-1 bg-muted rounded-md p-1">
+                  <Button
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="h-8 w-8 p-0"
+                    aria-label="List view"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="h-8 w-8 p-0"
+                    aria-label="Grid view"
+                  >
+                    <Grid3x3 className="h-4 w-4" />
+                  </Button>
                 </div>
-              </CardContent>
-              </Card>
-            );
-          })}
+              </>
+            ) : (
+              /* Desktop: Inline filter chips */
+              <div className="flex flex-wrap items-center gap-3 w-full">
+                {/* First 3 category chips */}
+                <div className="flex flex-wrap gap-2">
+                  {categories.slice(0, 3).map(cat => {
+                    const Icon = cat.icon;
+                    const active = selectedCategories.length === 0 ? cat.id === 'all' : selectedCategories.includes(cat.id);
+                    return (
+                      <Button
+                        key={cat.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleMulti(cat.id, selectedCategories, setSelectedCategories)}
+                        className="flex items-center gap-1"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {cat.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                {/* More filters button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsActiveFiltersExpanded(!isActiveFiltersExpanded)}
+                  className="flex items-center gap-2"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  More
+                  {activeFilterCount > 3 && (
+                    <Badge variant="secondary" className="ml-1 px-1.5 min-w-[20px] h-5">
+                      {activeFilterCount - 3}
+                    </Badge>
+                  )}
+                </Button>
+                
+                <div className="ml-auto flex items-center gap-3">
+                  <div className="text-sm text-muted-foreground">
+                    {sortedContent.length} {sortedContent.length === 1 ? 'item' : 'items'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+        
+        {/* Mobile Bottom Sheet for Filters */}
+        <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+          <SheetContent side="bottom" className="h-[85vh] flex flex-col p-0">
+            <SheetHeader className="px-4 py-4 border-b">
+              <div className="flex items-center justify-between">
+                <SheetTitle>Filters</SheetTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsFilterSheetOpen(false)}
+                  className="h-8 w-8 p-0"
+                  aria-label="Close filters"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </SheetHeader>
+            
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+              {/* Category */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Category</h3>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(cat => {
+                    const Icon = cat.icon;
+                    const active = selectedCategories.length === 0 ? cat.id === 'all' : selectedCategories.includes(cat.id);
+                    return (
+                      <Button
+                        key={cat.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleMulti(cat.id, selectedCategories, setSelectedCategories)}
+                        className="min-h-[44px] flex items-center gap-2"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {cat.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Content Type */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Content Type</h3>
+                <div className="flex flex-wrap gap-2">
+                  {types.map(t => {
+                    const Icon = t.icon;
+                    const active = selectedTypes.length === 0 ? t.id === 'all' : selectedTypes.includes(t.id);
+                    return (
+                      <Button
+                        key={t.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleMulti(t.id, selectedTypes, setSelectedTypes)}
+                        className="min-h-[44px] flex items-center gap-2"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {t.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Approach */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Approach</h3>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={selectedApproach === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedApproach('all')}
+                    className="min-h-[44px]"
+                  >
+                    All Approaches
+                  </Button>
+                  <Button
+                    variant={selectedApproach === 'western' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedApproach('western')}
+                    className="min-h-[44px] flex items-center gap-2"
+                  >
+                    <Brain className="h-4 w-4" />
+                    Western
+                  </Button>
+                  <Button
+                    variant={selectedApproach === 'eastern' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedApproach('eastern')}
+                    className="min-h-[44px] flex items-center gap-2"
+                  >
+                    <Heart className="h-4 w-4" />
+                    Eastern
+                  </Button>
+                  <Button
+                    variant={selectedApproach === 'hybrid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedApproach('hybrid')}
+                    className="min-h-[44px] flex items-center gap-2"
+                  >
+                    <Users className="h-4 w-4" />
+                    Hybrid
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <SheetFooter className="px-4 py-4 border-t flex-row gap-3">
+              <Button
+                variant="outline"
+                onClick={clearAllFilters}
+                className="flex-1 min-h-[44px]"
+              >
+                Clear All
+              </Button>
+              <Button
+                onClick={() => setIsFilterSheetOpen(false)}
+                className="flex-1 min-h-[44px]"
+              >
+                Apply Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+        
+        {/* Desktop Advanced Filters */}
+        {!device.isMobile && isActiveFiltersExpanded && (
+          <div className="mb-6 p-4 bg-muted/30 rounded-lg space-y-4 animate-in fade-in slide-in-from-top-2">
+            <div className="flex flex-wrap gap-6">
+              {/* Category */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Category</span>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(cat => {
+                    const Icon = cat.icon;
+                    const active = selectedCategories.length === 0 ? cat.id === 'all' : selectedCategories.includes(cat.id);
+                    return (
+                      <Button
+                        key={cat.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleMulti(cat.id, selectedCategories, setSelectedCategories)}
+                        className="flex items-center gap-1"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {cat.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Content Type */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Content Type</span>
+                <div className="flex flex-wrap gap-2">
+                  {types.map(t => {
+                    const Icon = t.icon;
+                    const active = selectedTypes.length === 0 ? t.id === 'all' : selectedTypes.includes(t.id);
+                    return (
+                      <Button
+                        key={t.id}
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleMulti(t.id, selectedTypes, setSelectedTypes)}
+                        className="flex items-center gap-1"
+                      >
+                        <Icon className="h-4 w-4" />
+                        {t.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Approach */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Approach</span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={selectedApproach === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedApproach('all')}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={selectedApproach === 'western' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedApproach('western')}
+                    className="flex items-center gap-1"
+                  >
+                    <Brain className="h-3 w-3" />
+                    Western
+                  </Button>
+                  <Button
+                    variant={selectedApproach === 'eastern' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedApproach('eastern')}
+                    className="flex items-center gap-1"
+                  >
+                    <Heart className="h-3 w-3" />
+                    Eastern
+                  </Button>
+                  <Button
+                    variant={selectedApproach === 'hybrid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedApproach('hybrid')}
+                    className="flex items-center gap-1"
+                  >
+                    <Users className="h-3 w-3" />
+                    Hybrid
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Active Filters Summary */}
+        {activeFilterCount > 0 && (
+          <div className={`mb-4 ${device.isMobile ? 'space-y-2' : ''}`}>
+            {device.isMobile ? (
+              <>
+                <button
+                  onClick={() => setIsBannerDismissed(!isBannerDismissed)}
+                  className="flex items-center gap-2 text-sm font-medium min-h-[44px] w-full justify-between"
+                >
+                  <span>{activeFilterCount} active {activeFilterCount === 1 ? 'filter' : 'filters'}</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${!isBannerDismissed ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {!isBannerDismissed && (
+                  <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-2">
+                    {selectedCategories.map(catId => {
+                      const cat = categories.find(c => c.id === catId);
+                      return cat ? (
+                        <Badge key={catId} variant="secondary" className="gap-1">
+                          {cat.label}
+                          <button onClick={() => toggleMulti(catId, selectedCategories, setSelectedCategories)}>
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ) : null;
+                    })}
+                    {searchQuery && (
+                      <Badge variant="secondary" className="gap-1">
+                        Search: {searchQuery}
+                        <button onClick={() => setSearchQuery('')}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Clear all
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedCategories.map(catId => {
+                  const cat = categories.find(c => c.id === catId);
+                  return cat ? (
+                    <Badge key={catId} variant="secondary" className="gap-1">
+                      {cat.label}
+                      <button onClick={() => toggleMulti(catId, selectedCategories, setSelectedCategories)}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ) : null;
+                })}
+                {searchQuery && (
+                  <Badge variant="secondary" className="gap-1">
+                    Search: {searchQuery}
+                    <button onClick={() => setSearchQuery('')}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="h-6 px-2 text-xs"
+                >
+                  Clear all
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Empty State */}
-        {filteredContent.length === 0 && (
-          <div className="text-center py-20 space-y-6 animate-in fade-in">
-            <div className="mx-auto w-40 h-40 rounded-full bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
-              <BookOpen className="h-16 w-16 text-primary/60" />
+        {/* Content List/Grid */}
+        {loading && (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <Card key={i} className={device.isMobile || viewMode === 'list' ? 'flex gap-3 p-3' : 'overflow-hidden'}>
+                {device.isMobile || viewMode === 'list' ? (
+                  <>
+                    <div className="w-32 h-20 bg-muted rounded animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                      <div className="h-3 bg-muted rounded w-full animate-pulse" />
+                      <div className="h-8 bg-muted rounded w-full animate-pulse" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-full h-48 bg-muted animate-pulse" />
+                    <div className="p-4 space-y-2">
+                      <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                      <div className="h-3 bg-muted rounded w-full animate-pulse" />
+                    </div>
+                  </>
+                )}
+              </Card>
+            ))}
+          </div>
+        )}
+        
+        {error && !loading && (
+          <Card className="p-6 text-center space-y-4">
+            <p className="text-destructive">{error}</p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </Card>
+        )}
+        
+        {!loading && !error && sortedContent.length === 0 && (
+          <Card className="p-8 text-center space-y-4">
+            <div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
+              <BookOpen className="h-10 w-10 text-primary/60" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold">No content found</h3>
-              <p className="text-muted-foreground max-w-md mx-auto">Adjust your search or clear filters to rediscover videos, articles, and playlists matched to your journey.</p>
-            </div>
-            <Button onClick={() => { setSearchQuery(''); setSelectedCategories([]); setSelectedTypes([]); setSelectedApproach('all'); }}>Clear Filters</Button>
+            <h3 className="text-lg font-semibold">No content found</h3>
+            <p className="text-muted-foreground">
+              {activeFilterCount > 0 ? "Try adjusting your filters" : "No content available"}
+            </p>
+            {activeFilterCount > 0 && (
+              <Button variant="outline" onClick={clearAllFilters}>
+                Clear All Filters
+              </Button>
+            )}
+          </Card>
+        )}
+        
+        {/* Mobile List View */}
+        {!loading && !error && (device.isMobile || viewMode === 'list') && sortedContent.length > 0 && (
+          <div className="space-y-3">
+            {sortedContent.map(item => {
+              const primaryActionLabel = item.displayType === 'article' ? 'Read' : 'Play';
+              const primaryActionIcon = item.displayType === 'article' ? <BookOpen className="h-4 w-4" /> : <Play className="h-4 w-4" />;
+              
+              return (
+                <Card
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setActiveItem(item)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setActiveItem(item);
+                    }
+                  }}
+                  className="flex gap-3 p-3 hover:shadow-md transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {/* Thumbnail */}
+                  <div className="relative flex-shrink-0 w-32 h-20 rounded overflow-hidden">
+                    <ImageWithFallback
+                      src={item.thumbnail || 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=400&q=60'}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Type badge */}
+                    <Badge className={`absolute top-1 left-1 ${getTypeColor(item.displayType)} text-xs px-1.5 py-0.5`}>
+                      <div className="flex items-center gap-1">
+                        {getTypeIcon(item.displayType)}
+                      </div>
+                    </Badge>
+                    
+                    {/* Bookmark button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 bg-white/80 hover:bg-white h-6 w-6 p-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Bookmark className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    {/* Title */}
+                    <h3 className="font-semibold text-sm line-clamp-2 mb-1">
+                      {item.title}
+                    </h3>
+                    
+                    {/* Description */}
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                      {item.description}
+                    </p>
+                    
+                    {/* Meta row */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <Clock className="h-3 w-3" />
+                      <span>{item.durationLabel || '—'}</span>
+                      {item.difficulty && (
+                        <>
+                          <span>•</span>
+                          <span className={getDifficultyColor(item.difficulty)}>{item.difficulty}</span>
+                        </>
+                      )}
+                      {item.rating && (
+                        <>
+                          <span>•</span>
+                          <div className="flex items-center gap-0.5">
+                            <Star className="h-3 w-3 fill-current text-yellow-500" />
+                            <span>{item.rating}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {item.tags.slice(0, 2).map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-xs px-1.5 py-0">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {item.tags.length > 2 && (
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                          +{item.tags.length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {/* CTA */}
+                    <Button 
+                      size="sm"
+                      className="w-full mt-auto min-h-[44px]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveItem(item);
+                      }}
+                    >
+                      {primaryActionIcon}
+                      <span className="ml-1">{primaryActionLabel}</span>
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+        
+        {/* Desktop Grid View */}
+        {!loading && !error && !device.isMobile && viewMode === 'grid' && sortedContent.length > 0 && (
+          <div key={animateKey} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all animate-in fade-in">
+            {sortedContent.map(item => {
+              const primaryActionLabel = item.displayType === 'article' ? 'Read' : 'Play';
+              const primaryActionIcon = item.displayType === 'article' ? <BookOpen className="h-4 w-4" /> : <Play className="h-4 w-4" />;
+
+              return (
+                <Card
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setActiveItem(item)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setActiveItem(item);
+                    }
+                  }}
+                  className="overflow-hidden group hover:shadow-lg transition-all duration-300 hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                <div className="relative">
+                  <ImageWithFallback
+                    src={item.thumbnail || 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=60'}
+                    alt={item.title}
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {/* Quick Actions */}
+                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" aria-label="Bookmark" onClick={(event) => event.stopPropagation()}><Bookmark className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full" aria-label="Share" onClick={(event) => event.stopPropagation()}><Share2 className="h-4 w-4" /></Button>
+                    <Button
+                      size="icon"
+                      className="h-8 w-8 rounded-full"
+                      aria-label={primaryActionLabel}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setActiveItem(item);
+                      }}
+                    >
+                      {primaryActionIcon}
+                    </Button>
+                  </div>
+                  {/* Type badge */}
+                  <Badge className={`absolute top-2 left-2 ${getTypeColor(item.displayType)} shadow`}>
+                    <div className="flex items-center gap-1">
+                      {getTypeIcon(item.displayType)}
+                      <span className="capitalize">{item.displayType}</span>
+                    </div>
+                  </Badge>
+                  {item.approach !== 'all' && (
+                    <Badge className="absolute top-12 left-2 bg-white/90 text-gray-700 text-xs shadow">
+                      {item.approach === 'western' && '🧠 Western'}
+                      {item.approach === 'eastern' && '🕉️ Eastern'}
+                      {item.approach === 'hybrid' && '🌸 Hybrid'}
+                    </Badge>
+                  )}
+                </div>
+                <CardContent className="p-4 space-y-3">
+                  <div className="space-y-2">
+                    <h3 className="font-semibold leading-tight line-clamp-2 group-hover:text-primary transition-colors">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{item.description}</p>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{item.durationLabel || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5" aria-label={`Rating ${item.rating} of 5`}>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star key={i} className={`h-3 w-3 ${i < (item.rating || 0) ? 'fill-current text-yellow-500' : 'text-muted-foreground'} transition-colors`} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {item.difficulty && (
+                      <Badge variant="outline" className={getDifficultyColor(item.difficulty)}>
+                        {item.difficulty}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">{item.author || 'Wellbeing Coach'}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {item.tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
+                  </div>
+                </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -678,5 +1191,6 @@ export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
         />
       </div>
     </div>
+    </ResponsiveContainer>
   );
 }

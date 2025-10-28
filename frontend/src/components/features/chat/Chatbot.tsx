@@ -19,7 +19,7 @@ import { chatApi, conversationsApi } from '../../../services/api';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Input } from '../../ui/input';
-import { Sheet, SheetContent, SheetTrigger } from '../../ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '../../ui/sheet';
 
 import { ConversationHistorySidebar } from './ConversationHistorySidebar';
 import { EmptyState } from './EmptyState';
@@ -805,7 +805,11 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
 
       {/* Mobile Sidebar */}
       <Sheet open={showMobileSidebar} onOpenChange={setShowMobileSidebar}>
-        <SheetContent side="left" className="w-80 p-0">
+        <SheetContent side="left" className="w-80 p-0" aria-describedby="conversation-list-description">
+          <SheetTitle className="sr-only">Conversation History</SheetTitle>
+          <SheetDescription id="conversation-list-description" className="sr-only">
+            Browse and select from your previous conversations
+          </SheetDescription>
           <ConversationHistorySidebar
             activeConversationId={currentConversationId}
             onSelectConversation={handleSelectConversation}

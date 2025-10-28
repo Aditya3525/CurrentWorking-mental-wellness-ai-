@@ -42,7 +42,11 @@ export function ContentRecommendations() {
   const fetchRecommendations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/recommendations/personalized', {
+      const hostname = window.location.hostname;
+      const apiUrl = hostname === 'localhost' || hostname === '127.0.0.1' 
+        ? 'http://localhost:5000/api' 
+        : `http://${hostname}:5000/api`;
+      const response = await fetch(`${apiUrl}/recommendations/personalized`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

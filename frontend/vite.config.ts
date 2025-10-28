@@ -54,11 +54,12 @@
       outDir: 'dist',
     },
     server: {
+      host: '0.0.0.0', // Allow external connections
       port: 3000,
       open: true,
       proxy: {
         '/api': {
-          target: 'http://localhost:5000',
+          target: process.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000',
           changeOrigin: true,
           secure: false,
         },

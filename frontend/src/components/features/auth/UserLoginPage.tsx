@@ -69,7 +69,11 @@ export const UserLoginPage: React.FC<UserLoginPageProps> = ({
       startOAuth();
       return;
     }
-    window.location.assign('http://localhost:5000/api/auth/google');
+    const hostname = window.location.hostname;
+    const apiUrl = hostname === 'localhost' || hostname === '127.0.0.1' 
+      ? 'http://localhost:5000' 
+      : `http://${hostname}:5000`;
+    window.location.assign(`${apiUrl}/api/auth/google`);
   };
 
   const combinedError = authError || loginError?.message || loginError?.error;

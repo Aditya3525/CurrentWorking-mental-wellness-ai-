@@ -17,6 +17,7 @@ import {
 import React, { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 
 import { useAccessibility } from '../../../contexts/AccessibilityContext';
+import { useDevice } from '../../../hooks/use-device';
 import { authApi, usersApi } from '../../../services/api';
 import { Alert, AlertDescription, AlertTitle } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
@@ -27,6 +28,14 @@ import { Label } from '../../ui/label';
 import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Separator } from '../../ui/separator';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetDescription
+} from '../../ui/sheet';
 import { Switch } from '../../ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 
@@ -52,11 +61,13 @@ interface ProfileProps {
 }
 
 export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
+  const device = useDevice();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeviceRemoveConfirm, setShowDeviceRemoveConfirm] = useState<string | null>(null);
   const [securityQuestionError, setSecurityQuestionError] = useState<string | null>(null);
   const [securityQuestionSuccess, setSecurityQuestionSuccess] = useState<string | null>(null);
   const [passwordResetError, setPasswordResetError] = useState<string | null>(null);
@@ -393,59 +404,136 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-6">
+      {/* Mobile/Tablet/Desktop Header - Responsive */}
+      <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-4 md:p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => onNavigate('dashboard')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </div>
+          {/* Mobile: Compact header with back button */}
+          {device.isMobile ? (
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => onNavigate('dashboard')}
+                className="mb-3 -ml-2 min-h-[44px]"
+                aria-label="Back to dashboard"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
 
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center">
-              <User className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-3xl">{[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name}</h1>
-              <p className="text-muted-foreground">{user?.email}</p>
-            </div>
-          </div>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <User className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl font-semibold truncate">
+                    {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name}
+                  </h1>
+                  <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Desktop: Full header with avatar */
+            <>
+              <div className="flex items-center gap-4 mb-6">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => onNavigate('dashboard')}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center">
+                  <User className="h-8 w-8 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-3xl">{[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name}</h1>
+                  <p className="text-muted-foreground">{user?.email}</p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-6">
-        <Tabs defaultValue="personal" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="personal">Personal</TabsTrigger>
-            <TabsTrigger value="privacy">Privacy</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="accessibility">Accessibility</TabsTrigger>
-            <TabsTrigger value="account">Account</TabsTrigger>
-          </TabsList>
+      <div className="max-w-4xl mx-auto p-4 md:p-6">
+        <Tabs defaultValue="personal" className="space-y-4 md:space-y-6">
+          {/* Mobile: Horizontal scrollable tabs / Desktop: Full grid */}
+          <div className={device.isMobile ? "overflow-x-auto -mx-4 px-4" : ""}>
+            <TabsList className={device.isMobile 
+              ? "inline-flex w-auto min-w-full justify-start gap-1" 
+              : "grid w-full grid-cols-5"
+            }>
+              <TabsTrigger 
+                value="personal" 
+                className={device.isMobile ? "flex-shrink-0 px-4 min-h-[44px]" : ""}
+              >
+                Personal
+              </TabsTrigger>
+              <TabsTrigger 
+                value="privacy"
+                className={device.isMobile ? "flex-shrink-0 px-4 min-h-[44px]" : ""}
+              >
+                Privacy
+              </TabsTrigger>
+              <TabsTrigger 
+                value="notifications"
+                className={device.isMobile ? "flex-shrink-0 px-4 min-h-[44px]" : ""}
+              >
+                Notifications
+              </TabsTrigger>
+              <TabsTrigger 
+                value="accessibility"
+                className={device.isMobile ? "flex-shrink-0 px-4 min-h-[44px]" : ""}
+              >
+                Accessibility
+              </TabsTrigger>
+              <TabsTrigger 
+                value="account"
+                className={device.isMobile ? "flex-shrink-0 px-4 min-h-[44px]" : ""}
+              >
+                Account
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Personal Information Tab */}
-          <TabsContent value="personal" className="space-y-6">
+          <TabsContent value="personal" className="space-y-4 md:space-y-6">
             <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle className="flex items-center gap-2">
+              <CardHeader className="pb-3 md:pb-6">
+                <div className={device.isMobile 
+                  ? "space-y-3" 
+                  : "flex justify-between items-center"
+                }>
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                     <User className="h-5 w-5 text-primary" />
                     Personal Information
                   </CardTitle>
-                  <Button
-                    variant={isEditing ? 'default' : 'outline'}
-                    size="sm"
-                    disabled={isSaving}
-                    onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
-                  >
-                    {isEditing ? (isSaving ? 'Saving...' : 'Save Changes') : 'Edit Profile'}
-                  </Button>
+                  {!device.isMobile && (
+                    <Button
+                      variant={isEditing ? 'default' : 'outline'}
+                      size="sm"
+                      disabled={isSaving}
+                      onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
+                    >
+                      {isEditing ? (isSaving ? 'Saving...' : 'Save Changes') : 'Edit Profile'}
+                    </Button>
+                  )}
+                  {device.isMobile && !isEditing && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full min-h-[44px]"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      Edit Profile
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -460,7 +548,9 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     <AlertDescription>Profile updated successfully.</AlertDescription>
                   </Alert>
                 )}
-                <div className="grid md:grid-cols-2 gap-4">
+                
+                {/* Mobile: Single column / Tablet+: Two columns */}
+                <div className={device.isMobile ? "space-y-4" : "grid md:grid-cols-2 gap-4"}>
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
                     <Input
@@ -468,6 +558,7 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       value={editedProfile.firstName}
                       onChange={(e) => setEditedProfile(prev => ({ ...prev, firstName: e.target.value }))}
                       disabled={!isEditing}
+                      className={device.isMobile ? "min-h-[44px]" : ""}
                     />
                   </div>
 
@@ -478,6 +569,7 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       value={editedProfile.lastName}
                       onChange={(e) => setEditedProfile(prev => ({ ...prev, lastName: e.target.value }))}
                       disabled={!isEditing}
+                      className={device.isMobile ? "min-h-[44px]" : ""}
                     />
                   </div>
 
@@ -489,6 +581,8 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       value={editedProfile.email}
                       onChange={(e) => setEditedProfile(prev => ({ ...prev, email: e.target.value }))}
                       disabled={!isEditing}
+                      className={device.isMobile ? "min-h-[44px]" : ""}
+                      inputMode="email"
                     />
                   </div>
 
@@ -503,6 +597,7 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                         if (birthdayError) setBirthdayError(null);
                       }}
                       disabled={!isEditing}
+                      className={device.isMobile ? "min-h-[44px]" : ""}
                     />
                     {birthdayError && <p className="text-sm text-red-600 mt-1">{birthdayError}</p>}
                   </div>
@@ -514,7 +609,7 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       value={editedProfile.region}
                       onChange={(e) => setEditedProfile(prev => ({ ...prev, region: e.target.value }))}
                       disabled={!isEditing}
-                      className="border-input flex h-9 w-full rounded-md border bg-input-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className={`border-input flex w-full rounded-md border bg-input-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${device.isMobile ? 'min-h-[44px]' : 'h-9'}`}
                     >
                       <option value="">Select country</option>
                       {['India','United States','United Kingdom','Canada','Australia','Germany','France','Spain','Brazil','Japan','Singapore','United Arab Emirates'].map(c => (
@@ -531,10 +626,11 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onChange={(e) => setEditedProfile(prev => ({ ...prev, emergencyContact: e.target.value }))}
                       disabled={!isEditing}
                       placeholder="e.g., Mom, Partner, Best Friend"
+                      className={device.isMobile ? "min-h-[44px]" : ""}
                     />
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
+                  <div className={device.isMobile ? "space-y-2" : "space-y-2 md:col-span-2"}>
                     <Label htmlFor="emergencyPhone">Emergency Contact Phone</Label>
                     <Input
                       id="emergencyPhone"
@@ -543,6 +639,8 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onChange={(e) => setEditedProfile(prev => ({ ...prev, emergencyPhone: e.target.value }))}
                       disabled={!isEditing}
                       placeholder="e.g., +1 (555) 123-4567"
+                      inputMode="tel"
+                      className={device.isMobile ? "min-h-[44px]" : ""}
                     />
                     <p className="text-xs text-muted-foreground">
                       We&apos;ll only suggest contacting this person if our AI detects you might be in crisis. You always have full control.
@@ -550,10 +648,15 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                   </div>
                 </div>
 
-                {isEditing && (
+                {/* Desktop: Inline buttons / Mobile: Hidden (uses sticky button) */}
+                {isEditing && !device.isMobile && (
                   <div className="flex gap-2 pt-4">
-                    <Button onClick={handleSaveProfile} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
-                    <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>Cancel</Button>
+                    <Button onClick={handleSaveProfile} disabled={isSaving}>
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>
+                      Cancel
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -561,20 +664,21 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
           </TabsContent>
 
           {/* Privacy & Data Tab */}
-          <TabsContent value="privacy" className="space-y-6">
+          <TabsContent value="privacy" className="space-y-4 md:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+              <CardHeader className="pb-3 md:pb-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   <Shield className="h-5 w-5 text-primary" />
                   Privacy & Data Controls
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Data Sharing for Personalization</Label>
-                      <p className="text-sm text-muted-foreground">
+              <CardContent className="space-y-4 md:space-y-6">
+                <div className="space-y-3 md:space-y-4">
+                  {/* Mobile: Increased row height for touch / Desktop: Standard */}
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Data Sharing for Personalization</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Allow us to use your assessment data to improve recommendations
                       </p>
                     </div>
@@ -583,15 +687,17 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setPrivacySettings(prev => ({ ...prev, dataSharing: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Data Sharing for Personalization"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Clinician Access</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Clinician Access</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Allow licensed clinicians to view your anonymized reports
                       </p>
                     </div>
@@ -600,15 +706,17 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setPrivacySettings(prev => ({ ...prev, clinicianAccess: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Clinician Access"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Anonymous Analytics</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Anonymous Analytics</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Help improve the app with anonymous usage statistics
                       </p>
                     </div>
@@ -617,15 +725,17 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setPrivacySettings(prev => ({ ...prev, anonymousAnalytics: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Anonymous Analytics"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Research Participation</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Research Participation</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Contribute to mental health research with anonymized data
                       </p>
                     </div>
@@ -634,6 +744,8 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setPrivacySettings(prev => ({ ...prev, researchParticipation: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Research Participation"
                     />
                   </div>
                 </div>
@@ -649,31 +761,39 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
 
             {/* Connected Devices */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+              <CardHeader className="pb-3 md:pb-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   <Lock className="h-5 w-5 text-primary" />
                   Connected Devices
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {connectedDevices.map((device, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
-                      <div className="flex items-center gap-3">
-                        {getDeviceIcon(device.type)}
-                        <div>
-                          <p className="font-medium">{device.name}</p>
+                  {connectedDevices.map((connectedDevice, index) => (
+                    <div 
+                      key={index} 
+                      className={`flex items-center justify-between p-3 rounded-lg border ${device.isMobile ? 'min-h-[60px]' : ''}`}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {getDeviceIcon(connectedDevice.type)}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{connectedDevice.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            Last active: {device.lastActive}
+                            Last active: {connectedDevice.lastActive}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {device.current && (
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {connectedDevice.current && (
                           <Badge variant="default">Current</Badge>
                         )}
-                        {!device.current && (
-                          <Button variant="outline" size="sm">
+                        {!connectedDevice.current && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setShowDeviceRemoveConfirm(connectedDevice.name)}
+                            className={device.isMobile ? "min-h-[40px]" : ""}
+                          >
                             Remove
                           </Button>
                         )}
@@ -686,20 +806,28 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
           </TabsContent>
 
           {/* Notifications Tab */}
-          <TabsContent value="notifications" className="space-y-6">
+          <TabsContent value="notifications" className="space-y-4 md:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+              <CardHeader className="pb-3 md:pb-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   <Bell className="h-5 w-5 text-primary" />
                   Notification Preferences
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Practice Reminders</Label>
-                      <p className="text-sm text-muted-foreground">
+              <CardContent className="space-y-4 md:space-y-6">
+                {/* Notification Categories */}
+                <div className="space-y-1 md:space-y-2">
+                  <h4 className="font-medium text-sm md:text-base">Categories</h4>
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    Choose which types of notifications you&apos;d like to receive
+                  </p>
+                </div>
+
+                <div className="space-y-3 md:space-y-4">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Practice Reminders</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Gentle reminders for your daily mindfulness practice
                       </p>
                     </div>
@@ -708,15 +836,17 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setNotificationSettings(prev => ({ ...prev, practiceReminders: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Practice Reminders"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Assessment Reminders</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Assessment Reminders</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Periodic reminders to complete wellbeing assessments
                       </p>
                     </div>
@@ -725,15 +855,17 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setNotificationSettings(prev => ({ ...prev, assessmentReminders: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Assessment Reminders"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Progress Updates</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Progress Updates</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Weekly summaries of your wellbeing progress
                       </p>
                     </div>
@@ -742,15 +874,17 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setNotificationSettings(prev => ({ ...prev, progressUpdates: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Progress Updates"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Wellbeing Tips</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Wellbeing Tips</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Helpful tips and educational content
                       </p>
                     </div>
@@ -759,15 +893,17 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setNotificationSettings(prev => ({ ...prev, wellbeingTips: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Wellbeing Tips"
                     />
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Emergency Alerts</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Emergency Alerts</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Important safety and crisis resource notifications
                       </p>
                     </div>
@@ -776,17 +912,25 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setNotificationSettings(prev => ({ ...prev, emergencyAlerts: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Emergency Alerts"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-4 pt-4 border-t">
-                  <h4 className="font-medium">Delivery Methods</h4>
+                {/* Delivery Methods */}
+                <div className="space-y-3 md:space-y-4 pt-4 border-t">
+                  <div className="space-y-1 md:space-y-2">
+                    <h4 className="font-medium text-sm md:text-base">Delivery Methods</h4>
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                      Choose how you want to receive notifications
+                    </p>
+                  </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Push Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Push Notifications</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Notifications on your device when the app is closed
                       </p>
                     </div>
@@ -795,13 +939,17 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setNotificationSettings(prev => ({ ...prev, pushNotifications: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Push Notifications"
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
+                  <Separator />
+
+                  <div className={`flex items-start justify-between gap-4 ${device.isMobile ? 'py-2 min-h-[60px]' : ''}`}>
+                    <div className="space-y-1 flex-1">
+                      <Label className="cursor-pointer">Email Notifications</Label>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Weekly summaries and important updates via email
                       </p>
                     </div>
@@ -810,6 +958,8 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                       onCheckedChange={(checked) => 
                         setNotificationSettings(prev => ({ ...prev, emailNotifications: checked }))
                       }
+                      className="flex-shrink-0 mt-1"
+                      aria-label="Email Notifications"
                     />
                   </div>
                 </div>
@@ -1328,18 +1478,82 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
         </Tabs>
 
         {/* Logout Button at Bottom */}
-        <div className="mt-10 flex justify-center">
+        <div className={`flex justify-center ${device.isMobile ? 'mt-8 mb-20' : 'mt-10'}`}>
           <Button 
             variant="ghost" 
             onClick={() => { if (onLogout && window.confirm('Log out of your session?')) onLogout(); }} 
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            className={`text-red-600 hover:text-red-700 hover:bg-red-50 ${device.isMobile ? 'w-full min-h-[48px]' : ''}`}
           >
             Logout
           </Button>
         </div>
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirm && (
+        {/* Mobile: Sticky Save Button (shown only when editing Personal tab) */}
+        {device.isMobile && isEditing && (
+          <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg p-4 pb-safe z-40">
+            <div className="flex gap-2 max-w-4xl mx-auto">
+              <Button 
+                onClick={handleSaveProfile} 
+                disabled={isSaving}
+                className="flex-1 min-h-[48px]"
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEditing(false)} 
+                disabled={isSaving}
+                className="flex-1 min-h-[48px]"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Device Removal Confirmation Sheet (Mobile) */}
+        {device.isMobile && showDeviceRemoveConfirm && (
+          <Sheet open={!!showDeviceRemoveConfirm} onOpenChange={() => setShowDeviceRemoveConfirm(null)}>
+            <SheetContent side="bottom" className="h-auto max-h-[85vh]">
+              <SheetHeader>
+                <SheetTitle>Remove Device</SheetTitle>
+                <SheetDescription>
+                  Are you sure you want to remove this device from your account?
+                </SheetDescription>
+              </SheetHeader>
+              <div className="py-6 space-y-4">
+                <div className="rounded-lg bg-muted p-4">
+                  <p className="font-medium">{showDeviceRemoveConfirm}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    This device will be signed out and will need to sign in again to access your account.
+                  </p>
+                </div>
+              </div>
+              <SheetFooter className="flex-col sm:flex-row gap-2">
+                <Button 
+                  variant="destructive" 
+                  className="w-full min-h-[48px]"
+                  onClick={() => {
+                    console.log('Device removed:', showDeviceRemoveConfirm);
+                    setShowDeviceRemoveConfirm(null);
+                  }}
+                >
+                  Remove Device
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full min-h-[48px]"
+                  onClick={() => setShowDeviceRemoveConfirm(null)}
+                >
+                  Cancel
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+        )}
+
+        {/* Delete Confirmation (Desktop Modal / Mobile Bottom Sheet) */}
+        {showDeleteConfirm && !device.isMobile && (
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
             <Card className="w-full max-w-md">
               <CardHeader>
@@ -1376,6 +1590,63 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Mobile: Delete Confirmation Bottom Sheet */}
+        {device.isMobile && showDeleteConfirm && (
+          <Sheet open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+            <SheetContent side="bottom" className="h-auto max-h-[90vh]">
+              <SheetHeader>
+                <SheetTitle className="text-red-600 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Confirm Account Deletion
+                </SheetTitle>
+                <SheetDescription>
+                  This action cannot be undone
+                </SheetDescription>
+              </SheetHeader>
+              <div className="py-6 space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Are you absolutely sure you want to delete your account? You will lose:
+                </p>
+                
+                <ul className="text-sm text-muted-foreground space-y-2 list-none">
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>All assessment results and progress data</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>Personalized recommendations and insights</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>Practice history and achievements</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>Account settings and preferences</span>
+                  </li>
+                </ul>
+              </div>
+              <SheetFooter className="flex-col-reverse sm:flex-row gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="w-full min-h-[48px]"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDeleteAccount}
+                  className="w-full min-h-[48px]"
+                >
+                  Yes, Delete Forever
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
         )}
       </div>
     </div>

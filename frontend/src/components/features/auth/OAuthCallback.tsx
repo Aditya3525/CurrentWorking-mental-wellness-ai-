@@ -48,8 +48,12 @@ export function OAuthCallback({ onAuthSuccess, onAuthError }: OAuthCallbackProps
           }
         }
 
-        // Validate the token with the backend
-        const response = await fetch('http://localhost:5000/api/auth/validate', {
+        // Validate the token with the backend - use smart URL detection
+        const hostname = window.location.hostname;
+        const apiUrl = hostname === 'localhost' || hostname === '127.0.0.1' 
+          ? 'http://localhost:5000' 
+          : `http://${hostname}:5000`;
+        const response = await fetch(`${apiUrl}/api/auth/validate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

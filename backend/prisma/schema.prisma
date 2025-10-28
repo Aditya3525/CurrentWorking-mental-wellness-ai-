@@ -81,6 +81,8 @@ model User {
   assessmentInsight AssessmentInsight?
   assessmentSessions AssessmentSession[]
   contentEngagements ContentEngagement[]
+  chatbotConversations ChatbotConversation[]
+  dashboardInsights    DashboardInsights?
   
   @@index([email])
   @@index([googleId])
@@ -461,4 +463,65 @@ model ContentEngagement {
   @@index([contentId])
   @@index([completed])
   @@map("content_engagements")
+}
+
+// NEW: Chatbot conversation tracking with AI-generated summaries
+model ChatbotConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  
+  // Conversation metadata
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  
+  // Conversation content (JSON array of messages)
+  messages  String   @default("[]") // JSON: [{role, content, timestamp}]
+  
+  // AI-generated summary and insights
+  summary              String?  // AI-generated conversation summary
+  summaryGeneratedAt   DateTime?
+  emotionalState       String?  // e.g., "anxious", "hopeful", "overwhelmed"
+  keyTopics            String   @default("[]") // JSON array: ["work stress", "sleep issues"]
+  urgencyLevel         String?  // "low", "medium", "high"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, startedAt])
+  @@index([userId, endedAt])
+  @@index([userId])
+  @@map("chatbot_conversations")
+}
+
+// NEW: Cached dashboard insights combining assessments + chatbot data
+model DashboardInsights {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  
+  // Combined insights data (JSON object)
+  insightsData String   // JSON: {assessments: {...}, chatbot: {...}, aiSummary: "..."}
+  aiSummary    String   // AI-generated combined summary
+  
+  // Source tracking
+  assessmentCount    Int       @default(0)
+  chatCount          Int       @default(0)
+  lastAssessmentDate DateTime?
+  lastChatDate       DateTime?
+  
+  // Cache management
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime // Daily expiration (midnight)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, expiresAt])
+  @@index([userId])
+  @@map("dashboard_insights")
 }

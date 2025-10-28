@@ -16,11 +16,17 @@ import {
   CalendarCheck,
   Globe,
   Moon,
-  Sun
+  Sun,
+  AlertTriangle,
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 
 import { useAccessibility } from '../../../contexts/AccessibilityContext';
+import { useDevice } from '../../../hooks/use-device';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../ui/accordion';
 import { Badge } from '../../ui/badge';
@@ -42,6 +48,7 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginError }: LandingPageProps) {
+  const device = useDevice();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -50,6 +57,13 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
   const [adminPassword, setAdminPassword] = useState('');
   const [activeModal, setActiveModal] = useState<null | 'start' | 'signup' | 'login' | 'admin'>(null);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isHeaderSticky, setIsHeaderSticky] = useState(false);
+  const [activeMetricIndex, setActiveMetricIndex] = useState(0);
+  const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0);
+  
+  const metricsContainerRef = useRef<HTMLDivElement>(null);
+  const testimonialsContainerRef = useRef<HTMLDivElement>(null);
 
   const isStartJourneyOpen = activeModal === 'start';
   const isSignupOpen = activeModal === 'signup';
@@ -58,8 +72,62 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
 
   const { settings: accessibilitySettings, setSetting: setAccessibilitySetting } = useAccessibility();
 
+  // Sticky header on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsHeaderSticky(window.scrollY > 100);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Metrics carousel intersection observer
+  useEffect(() => {
+    const container = metricsContainerRef.current;
+    if (!container || !device.isMobile) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = Array.from(container.children).indexOf(entry.target);
+            if (index !== -1) setActiveMetricIndex(index);
+          }
+        });
+      },
+      { root: container, threshold: 0.5 }
+    );
+
+    Array.from(container.children).forEach((child) => observer.observe(child));
+    return () => observer.disconnect();
+  }, [device.isMobile]);
+
+  // Testimonials carousel intersection observer
+  useEffect(() => {
+    const container = testimonialsContainerRef.current;
+    if (!container || !device.isMobile) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = Array.from(container.children).indexOf(entry.target);
+            if (index !== -1) setActiveTestimonialIndex(index);
+          }
+        });
+      },
+      { root: container, threshold: 0.5 }
+    );
+
+    Array.from(container.children).forEach((child) => observer.observe(child));
+    return () => observer.disconnect();
+  }, [device.isMobile]);
+
   const closeModal = () => setActiveModal(null);
-  const openModal = (modal: Exclude<typeof activeModal, null>) => setActiveModal(modal);
+  const openModal = (modal: Exclude<typeof activeModal, null>) => {
+    setActiveModal(modal);
+    setMobileMenuOpen(false); // Close mobile menu when opening a modal
+  };
 
   const impactStats = useMemo(
     () => [
@@ -165,8 +233,12 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
   };
 
   const handleGoogleAuth = () => {
-    // Redirect to Google OAuth endpoint
-    window.location.href = 'http://localhost:5000/api/auth/google';
+    // Redirect to Google OAuth endpoint - use smart URL detection
+    const hostname = window.location.hostname;
+    const apiUrl = hostname === 'localhost' || hostname === '127.0.0.1' 
+      ? 'http://localhost:5000' 
+      : `http://${hostname}:5000`;
+    window.location.href = `${apiUrl}/api/auth/google`;
   };
 
   const handleToggleDarkMode = () => {
@@ -178,43 +250,64 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary" className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+      {/* Responsive Sticky Header */}
+      <header 
+        className={`
+          sticky top-0 z-50 border-b bg-background/95 backdrop-blur transition-shadow supports-[backdrop-filter]:bg-background/75
+          ${isHeaderSticky ? 'shadow-md' : ''}
+        `}
+      >
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 md:py-4">
+          {/* Logo */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Badge variant="secondary" className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-primary sm:px-3">
               Wellbeing AI
             </Badge>
-            <span className="hidden text-sm text-muted-foreground sm:inline-flex">
-              Guided support for calmer, more resilient days
+            <span className="hidden text-xs text-muted-foreground sm:text-sm lg:inline-flex">
+              Guided support for calmer days
             </span>
           </div>
-          <nav className="flex w-full items-center justify-between gap-4 text-sm text-muted-foreground md:w-auto">
-            <div className="hidden items-center gap-6 md:flex">
-              <a href="#how-it-works" className="transition-colors hover:text-primary">
-                How it works
-              </a>
-              <a href="#features" className="transition-colors hover:text-primary">
-                Features
-              </a>
-              <a href="#faq" className="transition-colors hover:text-primary">
-                FAQ
-              </a>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleToggleDarkMode}
-                aria-label={accessibilitySettings.darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                aria-pressed={accessibilitySettings.darkMode}
-                className="h-9 w-9 rounded-full border-border/60 text-muted-foreground hover:text-foreground"
-              >
-                {accessibilitySettings.darkMode ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
-                )}
-              </Button>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden items-center gap-6 text-sm text-muted-foreground lg:flex">
+            <a href="#how-it-works" className="transition-colors hover:text-primary">
+              How it works
+            </a>
+            <a href="#features" className="transition-colors hover:text-primary">
+              Features
+            </a>
+            <a href="#faq" className="transition-colors hover:text-primary">
+              FAQ
+            </a>
+          </nav>
+
+          {/* CTA Buttons & Menu */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleToggleDarkMode}
+              aria-label={accessibilitySettings.darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-pressed={accessibilitySettings.darkMode}
+              className="h-9 w-9 rounded-full border-border/60 text-muted-foreground hover:text-foreground sm:h-10 sm:w-10"
+            >
+              {accessibilitySettings.darkMode ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </Button>
+
+            {/* Mobile: Compact Start Button */}
+            <Button 
+              className="h-9 px-3 text-sm font-medium sm:h-10 sm:px-4 lg:hidden" 
+              onClick={() => openModal('start')}
+            >
+              Start free
+            </Button>
+
+            {/* Desktop: Full Buttons */}
+            <div className="hidden items-center gap-3 lg:flex">
               <Button variant="ghost" className="text-sm font-medium" onClick={() => openModal('login')}>
                 Log in
               </Button>
@@ -222,8 +315,57 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
                 Start for free
               </Button>
             </div>
-          </nav>
+
+            {/* Mobile Menu Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 lg:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="border-t bg-background px-4 py-4 lg:hidden">
+            <nav className="flex flex-col gap-3">
+              <a 
+                href="#how-it-works" 
+                className="flex h-11 min-h-[44px] items-center rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                How it works
+              </a>
+              <a 
+                href="#features" 
+                className="flex h-11 min-h-[44px] items-center rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Features
+              </a>
+              <a 
+                href="#faq" 
+                className="flex h-11 min-h-[44px] items-center rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                FAQ
+              </a>
+              <Separator className="my-2" />
+              <Button 
+                variant="ghost" 
+                className="h-11 min-h-[44px] justify-start text-sm font-medium" 
+                onClick={() => openModal('login')}
+              >
+                Log in
+              </Button>
+            </nav>
+          </div>
+        )}
       </header>
 
       <main>
@@ -301,39 +443,173 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
           </div>
         </section>
 
-        <section className="border-y bg-muted/20 px-6 py-12">
-          <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {impactStats.map(({ icon: Icon, value, label, helper }) => (
-              <Card key={label} className="border-none bg-background shadow-sm ring-1 ring-border/60">
-                <CardHeader className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-primary/10 p-3 text-primary">
-                      <Icon className="h-5 w-5" />
+        {/* Metrics Section - Responsive Carousel on Mobile */}
+        <section className="border-y bg-muted/20 px-4 py-12 sm:px-6" id="metrics">
+          <div className="mx-auto max-w-7xl">
+            <h2 className="sr-only">Impact Metrics</h2>
+            
+            {/* Mobile: Swipeable Carousel */}
+            <div className="md:hidden">
+              <div 
+                ref={metricsContainerRef}
+                className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                role="region"
+                aria-label="Impact metrics carousel"
+              >
+                {impactStats.map(({ icon: Icon, value, label, helper }, index) => (
+                  <Card 
+                    key={label}
+                    className="min-w-[85vw] flex-shrink-0 snap-center border-none bg-background shadow-sm ring-1 ring-border/60"
+                    role="group"
+                    aria-roledescription="slide"
+                    aria-label={`Metric ${index + 1} of ${impactStats.length}: ${label}`}
+                  >
+                    <CardContent className="flex flex-col items-center p-6 text-center">
+                      <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Icon className="h-6 w-6" />
+                      </span>
+                      <p className="text-4xl font-bold text-foreground">{value}</p>
+                      <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-foreground">{label}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{helper}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              
+              {/* Pagination Dots */}
+              <div className="mt-4 flex justify-center gap-2" role="tablist" aria-label="Metrics pagination">
+                {impactStats.map((stat, index) => (
+                  <button
+                    key={stat.label}
+                    role="tab"
+                    aria-selected={activeMetricIndex === index}
+                    aria-label={`View metric ${index + 1} of ${impactStats.length}: ${stat.label}`}
+                    className={`h-2 w-2 rounded-full transition-all ${
+                      activeMetricIndex === index 
+                        ? 'w-6 bg-primary' 
+                        : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                    }`}
+                    onClick={() => {
+                      const container = metricsContainerRef.current;
+                      const child = container?.children[index] as HTMLElement;
+                      child?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest',
+                        inline: 'center'
+                      });
+                      setActiveMetricIndex(index);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Tablet: 2x2 Grid */}
+            <div className="hidden grid-cols-2 gap-6 md:grid lg:hidden">
+              {impactStats.map(({ icon: Icon, value, label, helper }) => (
+                <Card key={label} className="border-none bg-background shadow-sm ring-1 ring-border/60">
+                  <CardContent className="flex flex-col items-center p-6 text-center">
+                    <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Icon className="h-6 w-6" />
                     </span>
-                    <CardTitle className="text-3xl font-semibold">{value}</CardTitle>
-                  </div>
-                  <CardDescription className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                    {label}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">{helper}</CardContent>
-              </Card>
-            ))}
+                    <p className="text-4xl font-bold text-foreground">{value}</p>
+                    <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-foreground">{label}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{helper}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Desktop: 4-column Grid */}
+            <div className="hidden gap-6 lg:grid lg:grid-cols-4">
+              {impactStats.map(({ icon: Icon, value, label, helper }) => (
+                <Card key={label} className="border-none bg-background shadow-sm ring-1 ring-border/60">
+                  <CardHeader className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-full bg-primary/10 p-3 text-primary">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <CardTitle className="text-3xl font-semibold">{value}</CardTitle>
+                    </div>
+                    <CardDescription className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground">{helper}</CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section id="how-it-works" className="bg-muted/30 px-6 py-16 lg:py-24">
+        {/* How It Works Section - Mobile Vertical List */}
+        <section id="how-it-works" className="bg-muted/30 px-4 py-12 sm:px-6 md:py-16 lg:py-24">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-16 space-y-4 text-center">
-              <h2 className="text-3xl lg:text-4xl">How it works</h2>
-              <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
+            <div className="mb-12 space-y-3 text-center md:mb-16 md:space-y-4">
+              <h2 className="text-2xl font-semibold sm:text-3xl lg:text-4xl">How it works</h2>
+              <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg md:text-xl">
                 Three simple steps to understand and improve your mental wellbeing
               </p>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-3">
+            {/* Mobile: Vertical List with Connector Line */}
+            <ol className="relative space-y-8 md:hidden">
+              {/* Connector Line */}
+              <div 
+                className="absolute left-6 top-10 bottom-10 w-0.5 bg-border"
+                aria-hidden="true"
+              />
+
+              <li className="relative flex gap-4">
+                <div className="z-10 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full border-2 border-primary bg-background text-xl font-bold text-primary">
+                  1
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                    <Brain className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">Assess</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Take science-based assessments to understand your anxiety, stress levels, and personality strengths.
+                  </p>
+                </div>
+              </li>
+
+              <li className="relative flex gap-4">
+                <div className="z-10 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full border-2 border-primary bg-background text-xl font-bold text-primary">
+                  2
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">Understand</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Receive clear, personalized insights and recommendations based on your mental health profile.
+                  </p>
+                </div>
+              </li>
+
+              <li className="relative flex gap-4">
+                <div className="z-10 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full border-2 border-primary bg-background text-xl font-bold text-primary">
+                  3
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                    <Target className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">Act</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Follow your personalized plan combining therapy, meditation, and mindfulness practices with AI guidance.
+                  </p>
+                </div>
+              </li>
+            </ol>
+
+            {/* Tablet+: Card Grid */}
+            <div className="hidden gap-6 md:grid md:gap-8 lg:grid-cols-3">
               <Card className="relative overflow-hidden border-2 transition-colors hover:border-primary/20">
-                <CardContent className="space-y-4 p-8 text-center">
+                <CardContent className="space-y-4 p-6 text-center md:p-8">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                     <Brain className="h-8 w-8 text-primary" />
                   </div>
@@ -348,7 +624,7 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
               </Card>
 
               <Card className="relative overflow-hidden border-2 transition-colors hover:border-primary/20">
-                <CardContent className="space-y-4 p-8 text-center">
+                <CardContent className="space-y-4 p-6 text-center md:p-8">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                     <Sparkles className="h-8 w-8 text-primary" />
                   </div>
@@ -363,7 +639,7 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
               </Card>
 
               <Card className="relative overflow-hidden border-2 transition-colors hover:border-primary/20">
-                <CardContent className="space-y-4 p-8 text-center">
+                <CardContent className="space-y-4 p-6 text-center md:p-8">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                     <Target className="h-8 w-8 text-primary" />
                   </div>
@@ -380,16 +656,106 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
           </div>
         </section>
 
-        <section id="features" className="px-6 py-16 lg:py-24">
+        {/* Features Section - Mobile Horizontal Carousel */}
+        <section id="features" className="px-4 py-12 sm:px-6 md:py-16 lg:py-24">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-16 space-y-4 text-center">
-              <h2 className="text-3xl lg:text-4xl">Complete wellbeing support</h2>
-              <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
+            <div className="mb-8 space-y-3 text-center md:mb-12 md:space-y-4 lg:mb-16">
+              <h2 className="text-2xl font-semibold sm:text-3xl lg:text-4xl">Complete wellbeing support</h2>
+              <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg md:text-xl">
                 Everything you need for your mental health journey in one compassionate platform
               </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {/* Mobile: Horizontal Carousel */}
+            <div className="md:hidden">
+              <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <Card className="min-w-[90vw] flex-shrink-0 snap-center border-2 transition-colors hover:border-primary/20">
+                  <CardContent className="space-y-3 p-6">
+                    <MessageCircle className="h-10 w-10 text-primary" />
+                    <h3 className="text-lg font-semibold">AI Therapist Chat</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      24/7 conversational support with empathetic, clinically informed AI guidance.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="min-w-[90vw] flex-shrink-0 snap-center border-2 transition-colors hover:border-primary/20">
+                  <CardContent className="space-y-3 p-6">
+                    <TrendingUp className="h-10 w-10 text-primary" />
+                    <h3 className="text-lg font-semibold">Progress Tracking</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      Monitor your wellbeing journey with trendlines, streaks, and progress reflections.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="min-w-[90vw] flex-shrink-0 snap-center border-2 transition-colors hover:border-primary/20">
+                  <CardContent className="space-y-3 p-6">
+                    <Heart className="h-10 w-10 text-primary" />
+                    <h3 className="text-lg font-semibold">Mindful Practices</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      Guided meditation, yoga, and breathing sessions curated for your current energy.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="min-w-[90vw] flex-shrink-0 snap-center border-2 transition-colors hover:border-primary/20">
+                  <CardContent className="space-y-3 p-6">
+                    <Users className="h-10 w-10 text-primary" />
+                    <h3 className="text-lg font-semibold">Expert Content</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      A curated library of therapeutic videos and articles authored with clinicians.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Tablet: 2x2 Grid */}
+            <div className="hidden gap-6 md:grid md:grid-cols-2 lg:hidden">
+              <Card className="border-2 transition-colors hover:border-primary/20">
+                <CardContent className="space-y-4 p-6">
+                  <MessageCircle className="h-10 w-10 text-primary" />
+                  <h3 className="text-lg font-semibold">AI Therapist Chat</h3>
+                  <p className="text-sm text-muted-foreground">
+                    24/7 conversational support with empathetic, clinically informed AI guidance.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 transition-colors hover:border-primary/20">
+                <CardContent className="space-y-4 p-6">
+                  <TrendingUp className="h-10 w-10 text-primary" />
+                  <h3 className="text-lg font-semibold">Progress Tracking</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Monitor your wellbeing journey with trendlines, streaks, and progress reflections.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 transition-colors hover:border-primary/20">
+                <CardContent className="space-y-4 p-6">
+                  <Heart className="h-10 w-10 text-primary" />
+                  <h3 className="text-lg font-semibold">Mindful Practices</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Guided meditation, yoga, and breathing sessions curated for your current energy.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 transition-colors hover:border-primary/20">
+                <CardContent className="space-y-4 p-6">
+                  <Users className="h-10 w-10 text-primary" />
+                  <h3 className="text-lg font-semibold">Expert Content</h3>
+                  <p className="text-sm text-muted-foreground">
+                    A curated library of therapeutic videos and articles authored with clinicians.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Desktop: 4-column Grid */}
+            <div className="hidden gap-6 lg:grid lg:grid-cols-4">
               <Card className="border-2 transition-colors hover:border-primary/20">
                 <CardContent className="space-y-4 p-6">
                   <MessageCircle className="h-10 w-10 text-primary" />
@@ -458,14 +824,134 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
           </div>
         </section>
 
-        <section className="px-6 py-16 lg:py-24">
-          <div className="mx-auto max-w-5xl space-y-12 text-center">
-            <div className="space-y-3">
-              <h2 className="text-3xl lg:text-4xl">Trusted by thousands</h2>
-              <p className="text-lg text-muted-foreground">Real stories from members who rediscovered calm and confidence.</p>
+        <section className="px-4 py-12 sm:px-6 md:py-16 lg:py-24" id="testimonials">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-8 space-y-3 text-center md:mb-12">
+              <h2 className="text-2xl font-semibold sm:text-3xl lg:text-4xl">Trusted by thousands</h2>
+              <p className="text-base text-muted-foreground sm:text-lg">Real stories from members who rediscovered calm and confidence.</p>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-3">
+            {/* Mobile: Carousel with Controls */}
+            <div className="relative md:hidden">
+              <div 
+                ref={testimonialsContainerRef}
+                className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                role="region"
+                aria-label="Testimonials carousel"
+                aria-roledescription="carousel"
+              >
+                {[{
+                  quote: 'This app helped me understand my anxiety patterns and gave me practical tools to manage them. The AI chat feature feels like having a therapist available anytime.',
+                  name: 'Sarah M.'
+                },
+                {
+                  quote: 'The personalized meditation recommendations were spot-on. I\'ve never been more consistent with my mindfulness practice.',
+                  name: 'David L.'
+                },
+                {
+                  quote: 'Finally, a mental health app that doesn\'t feel clinical. The interface is beautiful and the guidance feels genuinely caring.',
+                  name: 'Maria R.'
+                }].map(({ quote, name }, index) => (
+                  <Card 
+                    key={name} 
+                    className="min-w-[92vw] flex-shrink-0 snap-center border border-primary/10 bg-background/90 shadow-sm"
+                    role="group"
+                    aria-roledescription="slide"
+                    aria-label={`Testimonial ${index + 1} of 3`}
+                  >
+                    <CardContent className="space-y-4 p-6 text-left">
+                      <div className="flex items-center gap-1 text-primary" aria-label="5 star rating">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className="h-4 w-4 fill-current" aria-hidden="true" />
+                        ))}
+                      </div>
+                      <p className="text-sm leading-relaxed text-muted-foreground italic">&ldquo;{quote}&rdquo;</p>
+                      <p className="text-sm font-medium text-foreground">— {name}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Navigation Controls */}
+              <nav className="mt-6 flex items-center justify-center gap-4" aria-label="Testimonial navigation">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11 flex-shrink-0"
+                  onClick={() => {
+                    const newIndex = Math.max(0, activeTestimonialIndex - 1);
+                    const container = testimonialsContainerRef.current;
+                    const child = container?.children[newIndex] as HTMLElement;
+                    child?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'nearest',
+                      inline: 'center'
+                    });
+                    setActiveTestimonialIndex(newIndex);
+                  }}
+                  aria-label="Previous testimonial"
+                  disabled={activeTestimonialIndex === 0}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+
+                {/* Pagination Dots */}
+                <div className="flex gap-2" role="tablist" aria-label="Testimonial pagination">
+                  {[0, 1, 2].map((index) => (
+                    <button
+                      key={index}
+                      role="tab"
+                      aria-selected={activeTestimonialIndex === index}
+                      aria-label={`View testimonial ${index + 1} of 3`}
+                      className={`h-2 w-2 rounded-full transition-all ${
+                        activeTestimonialIndex === index 
+                          ? 'w-6 bg-primary' 
+                          : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                      }`}
+                      onClick={() => {
+                        const container = testimonialsContainerRef.current;
+                        const child = container?.children[index] as HTMLElement;
+                        child?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'nearest',
+                          inline: 'center'
+                        });
+                        setActiveTestimonialIndex(index);
+                      }}
+                    />
+                  ))}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11 flex-shrink-0"
+                  onClick={() => {
+                    const newIndex = Math.min(2, activeTestimonialIndex + 1);
+                    const container = testimonialsContainerRef.current;
+                    const child = container?.children[newIndex] as HTMLElement;
+                    child?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'nearest',
+                      inline: 'center'
+                    });
+                    setActiveTestimonialIndex(newIndex);
+                  }}
+                  aria-label="Next testimonial"
+                  disabled={activeTestimonialIndex === 2}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </nav>
+
+              {/* Screen Reader Live Region */}
+              <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                Testimonial {activeTestimonialIndex + 1} of 3
+              </div>
+            </div>
+
+            {/* Tablet+: Original 3-column Grid */}
+            <div className="hidden gap-8 md:grid md:grid-cols-3">
               {[{
                 quote: 'This app helped me understand my anxiety patterns and gave me practical tools to manage them. The AI chat feature feels like having a therapist available anytime.',
                 name: 'Sarah M.'
@@ -548,10 +1034,10 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
         </section>
 
         <section id="faq" className="px-6 py-16 lg:py-24">
-          <div className="mx-auto max-w-4xl space-y-8">
-            <div className="text-center">
-              <h2 className="text-3xl lg:text-4xl">Frequently asked questions</h2>
-              <p className="mt-3 text-lg text-muted-foreground">
+          <div className="mx-auto max-w-4xl space-y-6 sm:space-y-8">
+            <div className="px-4 text-center sm:px-0">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl">Frequently asked questions</h2>
+              <p className="mt-3 text-base sm:text-lg text-muted-foreground">
                 Still wondering if Wellbeing AI is right for you? We&apos;ve got answers.
               </p>
             </div>
@@ -559,10 +1045,10 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
             <Accordion type="single" collapsible className="rounded-xl border border-border/60 bg-background">
               {faqs.map(({ question, answer }) => (
                 <AccordionItem key={question} value={question}>
-                  <AccordionTrigger className="px-4 text-base font-semibold text-foreground">
+                  <AccordionTrigger className="px-3 text-left text-sm font-semibold text-foreground sm:px-4 sm:text-base">
                     {question}
                   </AccordionTrigger>
-                  <AccordionContent className="px-4 text-muted-foreground">
+                  <AccordionContent className="px-3 text-sm text-muted-foreground sm:px-4 sm:text-base">
                     {answer}
                   </AccordionContent>
                 </AccordionItem>
@@ -573,20 +1059,20 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
 
         <section className="px-6 pb-16">
           <Card className="mx-auto max-w-5xl overflow-hidden border-none bg-gradient-to-br from-primary/15 via-primary/5 to-accent/10 shadow-lg">
-            <div className="grid gap-6 p-8 text-center sm:text-left md:grid-cols-[1.5fr_1fr] md:items-center">
-              <div className="space-y-4">
-                <h2 className="text-3xl font-semibold text-foreground">
+            <div className="grid gap-6 p-6 text-center sm:p-8 sm:text-left md:grid-cols-[1.5fr_1fr] md:items-center">
+              <div className="space-y-3 sm:space-y-4">
+                <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
                   Ready to feel more grounded?
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground sm:text-base">
                   Start your tailored journey in minutes with assessments, AI coaching, and practices selected just for you.
                 </p>
               </div>
               <div className="flex flex-col justify-center gap-3 md:items-end">
-                <Button size="lg" className="w-full md:w-auto" onClick={() => openModal('signup')}>
+                <Button size="lg" className="h-12 w-full md:w-auto" onClick={() => openModal('signup')}>
                   Create your free account
                 </Button>
-                <Button variant="outline" size="lg" className="w-full border-primary text-primary md:w-auto" onClick={() => openModal('login')}>
+                <Button variant="outline" size="lg" className="h-12 w-full border-primary text-primary md:w-auto" onClick={() => openModal('login')}>
                   I already have an account
                 </Button>
               </div>
@@ -595,74 +1081,355 @@ export function LandingPage({ onSignUp, onLogin, onAdminLogin, authError, loginE
         </section>
       </main>
 
-      <footer className="border-t bg-background px-6 py-12">
-        <div className="mx-auto max-w-7xl space-y-10">
-          <div className="grid gap-8 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Badge variant="secondary" className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                  Wellbeing AI
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Your personal companion for mental health and mindful living.
-              </p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Shield className="h-3.5 w-3.5 text-primary" />
-                <span>Privacy-first • HIPAA-ready • SOC 2 controls</span>
+      <footer className="border-t bg-muted/20 px-4 py-8 sm:px-6 md:px-8 md:py-12 lg:py-16">
+        <div className="mx-auto max-w-7xl space-y-6 md:space-y-12">
+          {/* Priority Actions Section (Mobile First) */}
+          <div className="space-y-4 lg:hidden">
+            {/* Crisis Support - Always Visible */}
+            <div className="rounded-lg border-2 border-red-600 bg-red-50 p-4 dark:bg-red-950/30">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-500" />
+                <div className="flex-1 space-y-2">
+                  <h3 className="text-sm font-semibold text-red-900 dark:text-red-100">Crisis Support Available 24/7</h3>
+                  <p className="text-xs text-red-800 dark:text-red-200">If you&apos;re in immediate danger, call emergency services.</p>
+                  <div className="flex flex-col gap-2 pt-1 sm:flex-row">
+                    <a 
+                      href="tel:988" 
+                      className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-md bg-red-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2"
+                      aria-label="Call 988 Suicide and Crisis Lifeline"
+                    >
+                      <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      Call 988
+                    </a>
+                    <a 
+                      href="/crisis" 
+                      className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-md border border-red-600 bg-white px-4 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-950/50"
+                    >
+                      More Resources
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Product</h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <a href="#features" className="hover:text-primary">Features</a>
-                <a href="#how-it-works" className="hover:text-primary">Assessments</a>
-                <button type="button" className="hover:text-primary" onClick={() => openModal('start')}>
-                  AI Chat
-                </button>
-                <a href="#faq" className="hover:text-primary">Practices</a>
+            {/* Contact Support */}
+            <div className="flex flex-col gap-2 rounded-lg bg-background/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Need Help?</span>
               </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Support</h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <a className="hover:text-primary" href="#faq">Help Center</a>
-                <p>Privacy Policy</p>
-                <p>Terms of Service</p>
-                <p>Crisis Resources</p>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-primary"
-                  onClick={() => openModal('admin')}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <a 
+                  href="mailto:support@wellbeingai.com" 
+                  className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                 >
-                  Admin Access
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Stay in the loop</h4>
-              <p className="text-sm text-muted-foreground">
-                Receive monthly wellbeing tips and product updates.
-              </p>
-              <form className="flex flex-col gap-2 sm:flex-row">
-                <Input type="email" placeholder="you@example.com" className="bg-background" aria-label="Email address" />
-                <Button type="submit" className="sm:min-w-[120px]">Subscribe</Button>
-              </form>
-              <div className="text-sm text-muted-foreground">
-                <p>support@wellbeingai.com</p>
-                <p>Emergency: 988</p>
+                  Email Support
+                </a>
+                <a 
+                  href="#faq" 
+                  className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  Help Center
+                </a>
               </div>
             </div>
           </div>
 
-          <Separator className="bg-border/80" />
+          {/* Main Footer Grid */}
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4 lg:gap-12">
+            {/* Brand Column */}
+            <div className="space-y-4 md:col-span-2 lg:col-span-1">
+              <div className="flex items-center gap-2">
+                <Heart className="h-5 w-5 text-primary" />
+                <span className="text-lg font-semibold text-foreground">Wellbeing AI</span>
+              </div>
+              <p className="text-sm leading-relaxed text-muted-foreground max-w-xs">
+                Evidence-based mental health support, anytime, anywhere.
+              </p>
+              
+              {/* Trust Badges */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-background/60 p-3">
+                <Shield className="h-4 w-4 text-primary" />
+                <a href="/privacy" className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                  Privacy-first
+                </a>
+                <span className="text-xs text-muted-foreground">•</span>
+                <a href="/compliance" className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                  HIPAA-ready
+                </a>
+                <span className="text-xs text-muted-foreground">•</span>
+                <a href="/security" className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                  SOC 2
+                </a>
+              </div>
+              
+              {/* Social Links */}
+              <div className="flex items-center gap-2 pt-2" role="group" aria-label="Social media links">
+                <a 
+                  href="https://twitter.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex h-11 w-11 min-w-[44px] items-center justify-center rounded-lg bg-background/80 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  aria-label="Follow us on Twitter"
+                >
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                </a>
+                <a 
+                  href="https://linkedin.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex h-11 w-11 min-w-[44px] items-center justify-center rounded-lg bg-background/80 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  aria-label="Follow us on LinkedIn"
+                >
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  </svg>
+                </a>
+                <a 
+                  href="https://instagram.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex h-11 w-11 min-w-[44px] items-center justify-center rounded-lg bg-background/80 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  aria-label="Follow us on Instagram"
+                >
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  </svg>
+                </a>
+              </div>
 
-          <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <p>© {new Date().getFullYear()} Wellbeing AI. All rights reserved.</p>
-            <p>Made with care for people first.</p>
+              {/* Desktop Crisis Support */}
+              <div className="hidden rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/30 lg:block">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-500" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-red-900 dark:text-red-100">Crisis Support 24/7</p>
+                    <a 
+                      href="tel:988" 
+                      className="inline-flex items-center text-sm font-bold text-red-700 underline-offset-2 hover:underline dark:text-red-400"
+                    >
+                      Call 988
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Product Column */}
+            <nav className="space-y-4" aria-labelledby="footer-product">
+              <h4 id="footer-product" className="text-sm font-semibold text-foreground">Product</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li>
+                  <a href="#features" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Features
+                  </a>
+                </li>
+                <li>
+                  <a href="#how-it-works" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    How it works
+                  </a>
+                </li>
+                <li>
+                  <button 
+                    type="button" 
+                    className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4" 
+                    onClick={() => openModal('start')}
+                  >
+                    AI Chat
+                  </button>
+                </li>
+                <li>
+                  <a href="#features" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Assessments
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Practices
+                  </a>
+                </li>
+                <li>
+                  <a href="/pricing" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Pricing
+                  </a>
+                </li>
+              </ul>
+            </nav>
+
+            {/* Company Column */}
+            <nav className="space-y-4" aria-labelledby="footer-company">
+              <h4 id="footer-company" className="text-sm font-semibold text-foreground">Company</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li>
+                  <a href="/about" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    About us
+                  </a>
+                </li>
+                <li>
+                  <a href="/careers" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Careers
+                  </a>
+                </li>
+                <li>
+                  <a href="/blog" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Blog
+                  </a>
+                </li>
+                <li>
+                  <a href="/press" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Press Kit
+                  </a>
+                </li>
+                <li>
+                  <a href="/partners" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Partners
+                  </a>
+                </li>
+              </ul>
+            </nav>
+
+            {/* Resources Column */}
+            <nav className="space-y-4" aria-labelledby="footer-resources">
+              <h4 id="footer-resources" className="text-sm font-semibold text-foreground">Resources</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li>
+                  <a href="#faq" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Help Center
+                  </a>
+                </li>
+                <li>
+                  <a href="/contact" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Contact Support
+                  </a>
+                </li>
+                <li>
+                  <a href="/privacy" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a href="/terms" className="inline-flex items-center transition-colors hover:text-primary hover:underline underline-offset-4">
+                    Terms of Service
+                  </a>
+                </li>
+                <li>
+                  <a href="/crisis" className="inline-flex items-center text-red-600 transition-colors hover:text-red-700 hover:underline underline-offset-4">
+                    Crisis Resources
+                  </a>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="inline-flex items-center text-xs opacity-50 transition-opacity hover:opacity-100"
+                    onClick={() => openModal('admin')}
+                  >
+                    Admin Access
+                  </button>
+                </li>
+              </ul>
+            </nav>
+
+            {/* Newsletter Column - Enhanced with validation & consent */}
+            <div className="space-y-4 md:col-span-2 lg:col-span-1">
+              <h4 className="text-sm font-semibold text-foreground">Stay Connected</h4>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Monthly wellbeing tips and mindfulness practices.
+              </p>
+              <form 
+                className="space-y-3" 
+                onSubmit={(e) => { 
+                  e.preventDefault();
+                  // Form validation and submission logic would go here
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="newsletter-email" className="text-xs text-muted-foreground">
+                    Email address
+                  </Label>
+                  <Input 
+                    id="newsletter-email"
+                    type="email" 
+                    placeholder="your@email.com" 
+                    className="h-11 bg-background text-sm" 
+                    aria-label="Email address for newsletter" 
+                    aria-describedby="newsletter-consent"
+                    inputMode="email"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="h-11 w-full text-sm font-medium"
+                >
+                  Subscribe
+                </Button>
+                <p id="newsletter-consent" className="text-xs leading-relaxed text-muted-foreground">
+                  By subscribing, you agree to our{' '}
+                  <a href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                    Privacy Policy
+                  </a>
+                  . Unsubscribe anytime.
+                </p>
+              </form>
+            </div>
+          </div>
+
+          {/* Back to Top Button */}
+          <div className="flex justify-center pt-4 lg:hidden">
+            <button
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="inline-flex h-11 min-w-[44px] items-center gap-2 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              aria-label="Scroll back to top of page"
+            >
+              <ArrowRight className="h-4 w-4 rotate-[-90deg]" />
+              Back to top
+            </button>
+          </div>
+
+          <Separator className="bg-border/60" />
+
+          {/* Bottom Bar - Legal & Copyright */}
+          <div className="flex flex-col gap-4 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
+            <p className="flex items-center gap-1">
+              © {new Date().getFullYear()} Wellbeing AI. All rights reserved.
+            </p>
+            
+            {/* Legal Links */}
+            <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 md:gap-x-6" aria-label="Legal and compliance links">
+              <a href="/privacy" className="transition-colors hover:text-foreground hover:underline underline-offset-4">
+                Privacy
+              </a>
+              <a href="/terms" className="transition-colors hover:text-foreground hover:underline underline-offset-4">
+                Terms
+              </a>
+              <a href="/cookies" className="transition-colors hover:text-foreground hover:underline underline-offset-4">
+                Cookies
+              </a>
+              <button
+                type="button"
+                className="transition-colors hover:text-foreground hover:underline underline-offset-4"
+                onClick={() => {
+                  // Cookie preferences modal would open here
+                  console.log('Manage cookie preferences');
+                }}
+              >
+                Manage Cookies
+              </button>
+              <a href="/accessibility" className="transition-colors hover:text-foreground hover:underline underline-offset-4">
+                Accessibility
+              </a>
+            </nav>
+            
+            <p className="flex items-center gap-1.5">
+              <Heart className="h-3 w-3 text-red-500" aria-hidden="true" />
+              <span>Made for people first</span>
+            </p>
           </div>
         </div>
       </footer>

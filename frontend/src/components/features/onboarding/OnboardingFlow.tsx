@@ -1,11 +1,19 @@
-import { ArrowRight, ArrowLeft, Shield, Heart, Users, CheckCircle, AlertTriangle, LogOut, Save, Check, X } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Shield, Heart, Users, CheckCircle, AlertTriangle, LogOut, Save, Check, X, MoreVertical, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { useToast } from '../../../contexts/ToastContext';
+import { useDevice } from '../../../hooks/use-device';
 import { setupSecurityQuestion } from '../../../services/auth';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Checkbox } from '../../ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../ui/dropdown-menu';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Progress } from '../../ui/progress';
@@ -60,6 +68,10 @@ type StoredProgress = {
 };
 
 export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps) {
+  // Device detection for responsive behavior
+  const device = useDevice();
+  const { isMobile, isTablet, isDesktop } = device;
+  
   const [currentStep, setCurrentStep] = useState(0);
   const [profileData, setProfileData] = useState<ProfileData>({
     // Pre-fill with Google data if available
@@ -349,6 +361,99 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
     setCurrentStep(Math.min(currentStep + 1, totalSteps - 1));
   };
 
+  // Responsive header component
+  const renderHeader = () => {
+    if (isMobile) {
+      // Mobile: Compressed header with Previous button, step indicator, overflow menu
+      return (
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePrevious}
+            disabled={currentStep === 0}
+            className="h-9 w-9 p-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          
+          <div className="text-sm font-medium">
+            Step {currentStep + 1}/{totalSteps}
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handleSaveAndExit}>
+                <Save className="h-4 w-4 mr-2" />
+                Save & continue later
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExitWithoutSaving}>
+                <X className="h-4 w-4 mr-2" />
+                Save & Exit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleStartFresh} className="text-destructive">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Start Fresh
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      );
+    } else if (isTablet) {
+      // Tablet: Show Save & Exit, hide secondary in overflow menu
+      return (
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handlePrevious}
+              disabled={currentStep === 0}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveAndExit}
+              className="flex items-center gap-2"
+            >
+              <Save className="h-4 w-4" />
+              Save & Exit
+            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleStartFresh} className="text-destructive">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Start Fresh
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      );
+    } else {
+      // Desktop: Keep original header (no header, actions at bottom)
+      return null;
+    }
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 0:
@@ -400,7 +505,8 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
             </div>
 
             <div className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
+              {/* Name fields - 1 column on mobile, 2 columns on tablet+ */}
+              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name *</Label>
                   <Input
@@ -417,7 +523,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                     }}
                     placeholder="Your first name"
                     required
-                    className={validationErrors.firstName ? 'border-red-500' : ''}
+                    className={`${validationErrors.firstName ? 'border-red-500' : ''} ${isMobile ? 'h-12 text-base' : ''}`}
                   />
                   {validationErrors.firstName && (
                     <p className="text-sm text-red-600">{validationErrors.firstName}</p>
@@ -440,7 +546,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                     }}
                     placeholder="Your last name"
                     required
-                    className={validationErrors.lastName ? 'border-red-500' : ''}
+                    className={`${validationErrors.lastName ? 'border-red-500' : ''} ${isMobile ? 'h-12 text-base' : ''}`}
                   />
                   {validationErrors.lastName && (
                     <p className="text-sm text-red-600">{validationErrors.lastName}</p>
@@ -462,7 +568,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                     }
                   }}
                   required
-                  className={(validationErrors.birthday || birthdayError) ? 'border-red-500' : ''}
+                  className={`${(validationErrors.birthday || birthdayError) ? 'border-red-500' : ''} ${isMobile ? 'h-12 text-base' : ''}`}
                 />
                 {birthdayError && (
                   <p className="text-sm text-red-600">{birthdayError}</p>
@@ -486,22 +592,23 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                     }
                   }}
                   required
+                  className={isMobile ? 'space-y-3' : ''}
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className={`flex items-center space-x-2 ${isMobile ? 'min-h-[48px]' : ''}`}>
                     <RadioGroupItem value="female" id="female" />
-                    <Label htmlFor="female">Female</Label>
+                    <Label htmlFor="female" className="cursor-pointer">Female</Label>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className={`flex items-center space-x-2 ${isMobile ? 'min-h-[48px]' : ''}`}>
                     <RadioGroupItem value="male" id="male" />
-                    <Label htmlFor="male">Male</Label>
+                    <Label htmlFor="male" className="cursor-pointer">Male</Label>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className={`flex items-center space-x-2 ${isMobile ? 'min-h-[48px]' : ''}`}>
                     <RadioGroupItem value="non-binary" id="non-binary" />
-                    <Label htmlFor="non-binary">Non-binary</Label>
+                    <Label htmlFor="non-binary" className="cursor-pointer">Non-binary</Label>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className={`flex items-center space-x-2 ${isMobile ? 'min-h-[48px]' : ''}`}>
                     <RadioGroupItem value="prefer-not-to-say" id="prefer-not-to-say" />
-                    <Label htmlFor="prefer-not-to-say">Prefer not to say</Label>
+                    <Label htmlFor="prefer-not-to-say" className="cursor-pointer">Prefer not to say</Label>
                   </div>
                 </RadioGroup>
                 {validationErrors.gender && (
@@ -509,7 +616,8 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                 )}
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              {/* Country field - Full width on mobile, half on tablet+ */}
+              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'sm:grid-cols-2'}`}>
                 <div className="space-y-2">
                   <Label htmlFor="region">Country / Region *</Label>
                   <select
@@ -524,9 +632,9 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                         setHasSkippedProfileDetails(false);
                       }
                     }}
-                    className={`border-input flex h-9 w-full rounded-md border bg-input-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${
-                      validationErrors.region ? 'border-red-500' : ''
-                    }`}
+                    className={`border-input flex w-full rounded-md border bg-input-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      isMobile ? 'h-12 text-base' : 'h-9'
+                    } ${validationErrors.region ? 'border-red-500' : ''}`}
                     required
                   >
                     <option value="">Select country</option>
@@ -597,7 +705,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                         clinicianSharing: !allSelected
                       }));
                     }}
-                    className="text-xs"
+                    className={isMobile ? 'h-10 text-sm' : 'text-xs'}
                   >
                     {profileData.dataConsent && profileData.clinicianSharing ? (
                       <>
@@ -613,32 +721,36 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                   </Button>
                 </div>
 
-                <div className="flex items-start space-x-3">
+                {/* Data Consent Checkbox */}
+                <div className={`flex items-start space-x-3 ${isMobile ? 'min-h-[56px] py-2' : ''}`}>
                   <Checkbox
                     id="dataConsent"
                     checked={profileData.dataConsent}
                     onCheckedChange={(checked) => 
                       setProfileData(prev => ({ ...prev, dataConsent: checked as boolean }))
                     }
+                    className={isMobile ? 'mt-1' : ''}
                   />
                   <div className="space-y-1">
-                    <Label htmlFor="dataConsent" className="text-sm leading-relaxed">
+                    <Label htmlFor="dataConsent" className={`leading-relaxed cursor-pointer ${isMobile ? 'text-base' : 'text-sm'}`}>
                       I understand that my responses will be used to personalize my wellbeing experience. 
                       My data is encrypted, secure, and I can delete it at any time.
                     </Label>
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-3">
+                {/* Clinician Sharing Checkbox */}
+                <div className={`flex items-start space-x-3 ${isMobile ? 'min-h-[56px] py-2' : ''}`}>
                   <Checkbox
                     id="clinicianSharing"
                     checked={profileData.clinicianSharing}
                     onCheckedChange={(checked) => 
                       setProfileData(prev => ({ ...prev, clinicianSharing: checked as boolean }))
                     }
+                    className={isMobile ? 'mt-1' : ''}
                   />
                   <div className="space-y-1">
-                    <Label htmlFor="clinicianSharing" className="text-sm leading-relaxed">
+                    <Label htmlFor="clinicianSharing" className={`leading-relaxed cursor-pointer ${isMobile ? 'text-base' : 'text-sm'}`}>
                       (Optional) Allow me to share anonymized insights with licensed clinicians for 
                       research and improved recommendations.
                     </Label>
@@ -676,6 +788,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                   value={profileData.emergencyContact || ''}
                   onChange={(e) => setProfileData(prev => ({ ...prev, emergencyContact: e.target.value }))}
                   placeholder="e.g., Mom, Partner, Best Friend"
+                  className={isMobile ? 'h-12 text-base' : ''}
                 />
               </div>
 
@@ -687,10 +800,11 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                   value={profileData.emergencyPhone || ''}
                   onChange={(e) => setProfileData(prev => ({ ...prev, emergencyPhone: e.target.value }))}
                   placeholder="e.g., +1 (555) 123-4567"
+                  className={isMobile ? 'h-12 text-base' : ''}
                 />
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+              <div className={`bg-muted/50 rounded-lg p-4 text-muted-foreground ${isMobile ? 'text-base' : 'text-sm'}`}>
                 <p>
                   We&apos;ll only suggest contacting this person if our AI detects you might be in crisis.
                   You always have full control over whether to reach out.
@@ -699,7 +813,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
 
               <Button 
                 variant="outline" 
-                className="w-full"
+                className={`w-full ${isMobile ? 'h-12 text-base' : ''}`}
                 onClick={() => {
                   // Clear optional fields then advance to next step
                   setProfileData(prev => ({ 
@@ -753,7 +867,9 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                 <Button
                   key={approach.id}
                   variant="outline"
-                  className={`w-full p-6 h-auto flex-col items-start text-left space-y-3 break-words whitespace-normal ${
+                  className={`w-full h-auto flex-col items-start text-left space-y-3 break-words whitespace-normal ${
+                    isMobile ? 'p-4 min-h-[120px]' : 'p-6'
+                  } ${
                     profileData.approach === approach.id 
                       ? 'border-primary bg-primary/5' 
                       : 'hover:bg-muted/50'
@@ -765,10 +881,10 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                   }}
                 >
                   <div className="flex items-start gap-3 w-full">
-                    <span className="text-2xl flex-shrink-0">{approach.icon}</span>
+                    <span className={`flex-shrink-0 ${isMobile ? 'text-3xl' : 'text-2xl'}`}>{approach.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-base">{approach.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1 break-words leading-relaxed">{approach.description}</p>
+                      <h3 className={`font-medium ${isMobile ? 'text-base' : 'text-base'}`}>{approach.title}</h3>
+                      <p className={`text-muted-foreground mt-1 break-words leading-relaxed ${isMobile ? 'text-sm' : 'text-sm'}`}>{approach.description}</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -817,7 +933,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-3'}`}>
               {[
                 { mood: 'Great', emoji: '😊', color: 'bg-green-100 border-green-200 hover:bg-green-200' },
                 { mood: 'Good', emoji: '🙂', color: 'bg-blue-100 border-blue-200 hover:bg-blue-200' },
@@ -829,7 +945,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                 <Button
                   key={mood}
                   variant="outline"
-                  className={`h-20 flex-col gap-2 ${
+                  className={`flex-col gap-2 ${isMobile ? 'h-24' : 'h-20'} ${
                     profileData.currentMood === mood 
                       ? 'border-primary bg-primary/10' 
                       : color
@@ -877,94 +993,160 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background p-6 flex items-center justify-center">
-      <div className="w-full max-w-2xl">
-        <div className="flex items-center justify-between mb-4">
-          {currentStep > 0 ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleStartFresh}
-              className="flex items-center gap-2"
-            >
-              <AlertTriangle className="h-4 w-4" />
-              Start Fresh
-            </Button>
-          ) : (
-            <div className="flex-1" />
-          )}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSaveAndExit}
-              className="flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" />
-              Save & Exit
-            </Button>
+  // Mobile sticky bottom action bar
+  const renderMobileActions = () => {
+    if (!isMobile) return null;
+
+    return (
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4 pb-safe">
+        {/* Secondary actions row */}
+        <div className="flex items-center justify-between mb-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSaveAndExit}
+            className="text-xs h-9"
+          >
+            <Save className="h-3.5 w-3.5 mr-1.5" />
+            Save & continue later
+          </Button>
+          
+          {currentStep > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleExitWithoutSaving}
-              className="flex items-center gap-2 text-muted-foreground"
-              title="Exit to dashboard and complete onboarding later"
+              onClick={handlePrevious}
+              className="text-xs h-9"
             >
-              <LogOut className="h-4 w-4" />
-              Skip to Dashboard
+              <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+              Previous
             </Button>
-          </div>
+          )}
         </div>
 
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between text-sm text-muted-foreground mb-2">
-            <span>Step {currentStep + 1} of {totalSteps}</span>
-            <span>{Math.round(progress)}% complete</span>
+        {/* Primary action - full width */}
+        <Button
+          onClick={handleNext}
+          disabled={!canProceed()}
+          className="w-full h-12 text-base font-medium"
+        >
+          {currentStep === totalSteps - 1 ? (
+            <>
+              <Check className="h-5 w-5 mr-2" />
+              Complete Setup
+            </>
+          ) : (
+            <>
+              Next Step
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  };
+
+  return (
+    <div className={`min-h-screen bg-background ${isMobile ? 'p-0' : 'p-6'} flex items-center justify-center`}>
+      <div className={`w-full ${isMobile ? 'max-w-full' : isTablet ? 'max-w-3xl' : 'max-w-2xl'}`}>
+        {/* Responsive Header */}
+        {renderHeader()}
+
+        {/* Desktop/Tablet Top Actions (hidden on mobile) */}
+        {!isMobile && (
+          <div className="flex items-center justify-between mb-4">
+            {currentStep > 0 ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleStartFresh}
+                className="flex items-center gap-2"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                Start Fresh
+              </Button>
+            ) : (
+              <div className="flex-1" />
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSaveAndExit}
+                className="flex items-center gap-2"
+              >
+                <Save className="h-4 w-4" />
+                Save & Exit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExitWithoutSaving}
+                className="flex items-center gap-2 text-muted-foreground"
+                title="Exit to dashboard and complete onboarding later"
+              >
+                <LogOut className="h-4 w-4" />
+                Skip to Dashboard
+              </Button>
+            </div>
           </div>
-          <Progress value={progress} className="h-2" />
-        </div>
+        )}
+
+        {/* Progress Bar (hidden on mobile - shown in header) */}
+        {!isMobile && (
+          <div className="mb-8">
+            <div className="flex justify-between text-sm text-muted-foreground mb-2">
+              <span>Step {currentStep + 1} of {totalSteps}</span>
+              <span>{Math.round(progress)}% complete</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+        )}
 
         {/* Main Content */}
         <Card>
-          <CardContent className="p-8">
+          <CardContent className={`${isMobile ? 'p-4 pb-32' : isTablet ? 'p-6' : 'p-8'}`}>
             {renderStep()}
           </CardContent>
         </Card>
 
-        {/* Navigation */}
-        <div className="flex flex-col gap-3 mt-6">
-          <Button
-            variant="outline"
-            onClick={handleSaveAndExit}
-            className="flex items-center gap-2 self-start"
-          >
-            <Save className="h-4 w-4" />
-            Save & continue later
-          </Button>
+        {/* Desktop/Tablet Navigation (hidden on mobile - using sticky bar) */}
+        {!isMobile && (
+          <div className="flex flex-col gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={handleSaveAndExit}
+              className="flex items-center gap-2 self-start"
+            >
+              <Save className="h-4 w-4" />
+              Save & continue later
+            </Button>
 
-          <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Previous
-          </Button>
+            <div className="flex justify-between">
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentStep === 0}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Previous
+              </Button>
 
-          <Button
-            onClick={handleNext}
-            disabled={!canProceed()}
-            className="flex items-center gap-2"
-          >
-            {currentStep === totalSteps - 1 ? 'Complete Setup' : 'Next Step'}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+              <Button
+                onClick={handleNext}
+                disabled={!canProceed()}
+                className="flex items-center gap-2"
+              >
+                {currentStep === totalSteps - 1 ? 'Complete Setup' : 'Next Step'}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Mobile Sticky Bottom Action Bar */}
+        {renderMobileActions()}
       </div>
     </div>
   );

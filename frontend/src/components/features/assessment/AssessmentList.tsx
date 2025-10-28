@@ -11,10 +11,15 @@ import {
   Users,
   Zap,
   RefreshCw,
-  BarChart3
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  Info
 } from 'lucide-react';
-import React from 'react';
+import React, { useState } from 'react';
 
+import { useDevice } from '../../../hooks/use-device';
 import {
   AssessmentHistoryEntry,
   AssessmentInsights,
@@ -25,6 +30,10 @@ import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { InlineLoading } from '../../ui/loading-spinner';
 import { Progress } from '../../ui/progress';
+import { 
+  ResponsiveContainer, 
+  CollapsibleSection
+} from '../../ui/responsive-layout';
 
 import { AssessmentTrendsVisualization } from './AssessmentTrendsVisualization';
 import { friendlyAssessmentLabel, trendLabelForType, deltaClassForType } from './assessmentUtils';
@@ -194,6 +203,10 @@ const formatChange = (change?: number | null): string | undefined => {
 };
 
 export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, onNavigate, onViewAssessmentResults, insights, history, isLoading, isStartingCombinedAssessment, errorMessage }: AssessmentListProps) {
+  const device = useDevice();
+  const [activeFilter, setActiveFilter] = useState<'all' | 'required' | 'recommended' | 'optional'>('all');
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(!device.isMobile);
+  
   const summaryByType = insights?.byType ?? {};
   const combinedWellnessScore = insights?.wellnessScore ? Math.round(insights.wellnessScore.value) : null;
   const combinedWellnessUpdatedAt = insights?.wellnessScore?.updatedAt;
@@ -285,6 +298,19 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
     };
   });
 
+  // Filter assessments based on active filter
+  const filteredAssessments = activeFilter === 'all' 
+    ? assessments 
+    : assessments.filter(a => a.category === activeFilter);
+
+  // Count assessments by category
+  const categoryCount = {
+    all: assessments.length,
+    required: assessments.filter(a => a.category === 'required').length,
+    recommended: assessments.filter(a => a.category === 'recommended').length,
+    optional: assessments.filter(a => a.category === 'optional').length
+  };
+
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'required':
@@ -368,42 +394,49 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
   });
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-accent/10 p-6">
+    <ResponsiveContainer spacing={device.isMobile ? 'small' : 'medium'} className="min-h-screen bg-background pb-safe">
+      {/* Header - Responsive */}
+      <div className={`bg-gradient-to-r from-primary/10 to-accent/10 ${device.isMobile ? 'p-4' : 'p-6'}`}>
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onNavigate('dashboard')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </div>
+          {!device.isMobile && (
+            <div className="flex items-center gap-4 mb-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onNavigate('dashboard')}
+                className="min-h-[44px]"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </div>
+          )}
 
           <div className="space-y-4">
-            <h1 className="text-3xl">Mental Health Assessments</h1>
-            <p className="text-muted-foreground text-lg">
+            <h1 className={device.isMobile ? 'text-2xl font-bold' : 'text-3xl font-bold'}>
+              Mental Health Assessments
+            </h1>
+            <p className={`text-muted-foreground ${device.isMobile ? 'text-sm' : 'text-lg'}`}>
               Science-based assessments to understand your mental wellbeing patterns
             </p>
 
-            {/* Progress Overview */}
-            <Card>
-              <CardContent className="p-4">
-                {/* Show combined wellness score if available */}
+            {/* TOP SUMMARY MODULE - Mobile optimized: Combined score + progress + primary CTA */}
+            <Card className="shadow-sm">
+              <CardContent className={device.isMobile ? 'p-4 space-y-4' : 'p-6 space-y-4'}>
+                {/* Combined Wellness Score */}
                 {insights?.wellnessScore && (
-                  <div className="mb-4 p-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg border border-primary/20">
-                    <div className="flex items-center justify-between">
+                  <div className={`p-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg border border-primary/20 ${
+                    device.isMobile ? 'space-y-2' : ''
+                  }`}>
+                    <div className={`flex items-center ${device.isMobile ? 'flex-col text-center' : 'justify-between'} gap-3`}>
                       <div className="space-y-1">
-                        <p className="font-semibold text-lg">Combined Wellness Score</p>
-                        <p className="text-sm text-muted-foreground">
-                          From your onboarding assessment
+                        <p className="font-semibold text-base md:text-lg">Combined Wellness Score</p>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          From your baseline assessment
                         </p>
                       </div>
-                      <div className="text-right">
-                        <div className="text-3xl font-bold text-primary">
+                      <div className={device.isMobile ? 'text-center' : 'text-right'}>
+                        <div className="text-3xl md:text-4xl font-bold text-primary">
                           {Math.round(insights.wellnessScore.value)}
                         </div>
                         <div className="text-xs text-muted-foreground">/ 100</div>
@@ -412,42 +445,57 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
                   </div>
                 )}
                 
-                <div className="flex items-center justify-between mb-3">
-                  <div className="space-y-1">
-                    <p className="font-medium">Individual Assessment Progress</p>
-                    <p className="text-sm text-muted-foreground">
-                      {stats.completed} of {stats.total} completed • {stats.requiredCompleted} of {stats.required} required done
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-semibold text-primary">
-                      {stats.percentage}%
+                {/* Individual Assessment Progress */}
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1 flex-1">
+                      <p className="font-medium text-sm md:text-base">Individual Assessment Progress</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">
+                        {stats.completed} of {stats.total} completed • {stats.requiredCompleted}/{stats.required} required
+                      </p>
                     </div>
-                    <div className="text-xs text-muted-foreground">Complete</div>
+                    {!device.isMobile && (
+                      <div className="text-right">
+                        <div className="text-2xl font-semibold text-primary">
+                          {stats.percentage}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">Complete</div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <Progress value={stats.percentage} className="h-2" />
-                {showLoadingState && (
-                  <div className="mt-3">
+                  <Progress value={stats.percentage} className="h-2" />
+                  {device.isMobile && (
+                    <div className="text-right">
+                      <span className="text-lg font-semibold text-primary">{stats.percentage}%</span>
+                      <span className="text-xs text-muted-foreground ml-1">complete</span>
+                    </div>
+                  )}
+                  {showLoadingState && (
                     <InlineLoading message="Syncing your assessment history..." size="sm" />
-                  </div>
-                )}
-                {errorMessage && (
-                  <p className="mt-3 text-sm text-destructive">
-                    {errorMessage}
-                  </p>
-                )}
-                <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Revisit the quick baseline you saw during onboarding to refresh personalized insights.
-                  </div>
+                  )}
+                  {errorMessage && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {errorMessage}
+                    </p>
+                  )}
+                </div>
+
+                {/* Primary CTA - Full width on mobile */}
+                <div className={device.isMobile ? 'space-y-2 pt-2' : 'flex items-center justify-between gap-4 pt-2'}>
+                  {!device.isMobile && (
+                    <p className="text-sm text-muted-foreground flex-1">
+                      Revisit the quick baseline to refresh personalized insights
+                    </p>
+                  )}
                   <Button
                     onClick={onStartCombinedAssessment}
                     disabled={isStartingCombinedAssessment}
-                    className="w-full md:w-auto"
+                    className="w-full md:w-auto min-h-[44px] touch-manipulation"
+                    size={device.isMobile ? 'default' : 'default'}
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
-                    {isStartingCombinedAssessment ? 'Preparing assessment…' : 'Start Basic Overall Assessment'}
+                    {isStartingCombinedAssessment ? 'Preparing…' : 
+                      device.isMobile ? 'Start Baseline Assessment' : 'Start Basic Overall Assessment'}
                   </Button>
                 </div>
               </CardContent>
@@ -456,88 +504,139 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-6">
-        {/* Filter/Category Tabs */}
-        <div className="flex gap-2 mb-6">
-          <Badge variant="secondary" className="px-3 py-1">
-            All Assessments
-          </Badge>
-          <Badge variant="outline" className="px-3 py-1">
-            Required ({stats.required})
-          </Badge>
-          <Badge variant="outline" className="px-3 py-1">
-            Recommended
-          </Badge>
-          <Badge variant="outline" className="px-3 py-1">
-            Optional
-          </Badge>
+      <div className="max-w-4xl mx-auto px-4 md:px-6">
+        {/* FILTER CONTROLS - Sticky on scroll (mobile), segmented control */}
+        <div className={`sticky ${device.isMobile ? 'top-0' : 'top-4'} z-40 bg-background/95 backdrop-blur-sm ${
+          device.isMobile ? 'py-3 -mx-4 px-4 border-b' : 'py-4'
+        }`}>
+          <div className={`flex gap-2 ${device.isMobile ? 'overflow-x-auto scrollbar-hide snap-x' : 'flex-wrap'}`}>
+            <Button
+              variant={activeFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveFilter('all')}
+              className={`${device.isMobile ? 'min-w-[80px] snap-start' : ''} min-h-[44px] touch-manipulation whitespace-nowrap`}
+              aria-current={activeFilter === 'all' ? 'page' : undefined}
+            >
+              All ({categoryCount.all})
+            </Button>
+            <Button
+              variant={activeFilter === 'required' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveFilter('required')}
+              className={`${device.isMobile ? 'min-w-[100px] snap-start' : ''} min-h-[44px] touch-manipulation whitespace-nowrap`}
+              aria-current={activeFilter === 'required' ? 'page' : undefined}
+            >
+              Required ({categoryCount.required})
+            </Button>
+            <Button
+              variant={activeFilter === 'recommended' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveFilter('recommended')}
+              className={`${device.isMobile ? 'min-w-[130px] snap-start' : ''} min-h-[44px] touch-manipulation whitespace-nowrap`}
+              aria-current={activeFilter === 'recommended' ? 'page' : undefined}
+            >
+              Recommended ({categoryCount.recommended})
+            </Button>
+            <Button
+              variant={activeFilter === 'optional' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveFilter('optional')}
+              className={`${device.isMobile ? 'min-w-[100px] snap-start' : ''} min-h-[44px] touch-manipulation whitespace-nowrap`}
+              aria-current={activeFilter === 'optional' ? 'page' : undefined}
+            >
+              Optional ({categoryCount.optional})
+            </Button>
+          </div>
+          {activeFilter !== 'all' && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Showing {filteredAssessments.length} {activeFilter} {filteredAssessments.length === 1 ? 'assessment' : 'assessments'}
+            </p>
+          )}
         </div>
 
-        {(history.length > 0 || insights) && (
-          <div className="mb-8">
+        {/* Trends Visualization - tablet and desktop only */}
+        {(history.length > 0 || insights) && !device.isMobile && (
+          <div className="mb-6">
             <AssessmentTrendsVisualization history={history} insights={insights} />
           </div>
         )}
 
-        {/* Assessment Cards */}
-        <div className="space-y-4">
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="p-6">
-              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-                    <Sparkles className="h-6 w-6" />
+        {/* ASSESSMENT LIST - Mobile optimized cards */}
+        <div className="space-y-3 md:space-y-4">
+          {/* Basic Overall Assessment Card - Featured */}
+          <Card className="border-primary/30 bg-primary/5 shadow-sm">
+            <CardContent className={device.isMobile ? 'p-4' : 'p-6'}>
+              <div className={`flex ${device.isMobile ? 'flex-col' : 'flex-row'} gap-4`}>
+                {/* Icon + Content */}
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="p-3 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/30 shrink-0">
+                    <Sparkles className="h-5 w-5 md:h-6 md:w-6" />
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-semibold">Basic Overall Assessment</h2>
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-lg md:text-xl font-semibold">Basic Overall Assessment</h2>
                       {combinedWellnessScore !== null && (
-                        <Badge variant="outline" className="border-primary text-primary bg-primary/10">
-                          Latest score {combinedWellnessScore}/100
+                        <Badge variant="outline" className="border-primary text-primary bg-primary/10 text-xs">
+                          Score {combinedWellnessScore}/100
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground max-w-xl">
-                      Re-run the seven-question onboarding snapshot to refresh your combined wellness score and unlock the most up-to-date recommendations.
+                    <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                      {device.isMobile 
+                        ? 'Quick 7-question snapshot to refresh your wellness score'
+                        : 'Re-run the seven-question onboarding snapshot to refresh your combined wellness score and unlock the most up-to-date recommendations.'}
                     </p>
-                    {combinedWellnessScore !== null && (
+                    {combinedWellnessScore !== null && !device.isMobile && (
                       <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                         <div className="flex items-center gap-1">
                           <BarChart3 className="h-4 w-4" />
-                          <span>Wellness score {combinedWellnessScore}</span>
+                          <span>Score {combinedWellnessScore}</span>
                         </div>
                         {combinedWellnessRelativeTime && (
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4" />
-                            <span>Last refreshed {combinedWellnessRelativeTime}</span>
+                            <span>Last {combinedWellnessRelativeTime}</span>
                           </div>
                         )}
                       </div>
                     )}
+                    {device.isMobile && combinedWellnessRelativeTime && (
+                      <p className="text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3 inline mr-1" />
+                        Last taken {combinedWellnessRelativeTime}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onViewAssessmentResults(null)}
-                    disabled={combinedWellnessScore === null}
-                    className="sm:min-w-[150px]"
-                  >
-                    View latest results
-                  </Button>
+                {/* CTAs - Stack vertically on mobile */}
+                <div className={`flex ${device.isMobile ? 'flex-col' : 'flex-col-reverse sm:flex-row'} gap-2 ${
+                  device.isMobile ? 'w-full' : 'sm:items-center'
+                }`}>
+                  {combinedWellnessScore !== null && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onViewAssessmentResults(null)}
+                      className={`${device.isMobile ? 'w-full' : 'sm:min-w-[130px]'} min-h-[44px] touch-manipulation`}
+                    >
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      View Results
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     onClick={onStartCombinedAssessment}
                     disabled={isStartingCombinedAssessment}
-                    className="sm:min-w-[170px]"
+                    className={`${device.isMobile ? 'w-full' : 'sm:min-w-[130px]'} min-h-[44px] touch-manipulation`}
                   >
-                    {isStartingCombinedAssessment ? 'Preparing…' : (
-                      <span className="flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4" />
-                        Retake baseline
-                      </span>
+                    {isStartingCombinedAssessment ? (
+                      'Preparing…'
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Retake
+                      </>
                     )}
                   </Button>
                 </div>
@@ -545,36 +644,47 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
             </CardContent>
           </Card>
 
-          {assessments.map((assessment) => (
+          {/* Individual Assessment Cards - Mobile optimized */}
+          {filteredAssessments.map((assessment) => (
             <Card
               key={assessment.id}
-              className={`transition-all hover:shadow-md ${
+              className={`transition-all shadow-sm ${
                 assessment.completed ? 'border-green-200 bg-green-50/30' : 'hover:border-primary/20'
               }`}
             >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-start gap-4">
-                      <div
-                        className={`p-3 rounded-lg ${
-                          assessment.completed ? 'bg-green-100' : 'bg-primary/10'
-                        }`}
-                      >
-                        <div className={assessment.completed ? 'text-green-600' : 'text-primary'}>
-                          {assessment.icon}
-                        </div>
+              <CardContent className={device.isMobile ? 'p-4' : 'p-6'}>
+                {/* Mobile: Vertical layout | Tablet+: Horizontal */}
+                <div className={`flex ${device.isMobile ? 'flex-col' : 'flex-row'} gap-4`}>
+                  {/* Icon + Title + Meta */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div
+                      className={`p-2.5 md:p-3 rounded-lg shrink-0 ${
+                        assessment.completed ? 'bg-green-100' : 'bg-primary/10'
+                      }`}
+                    >
+                      <div className={assessment.completed ? 'text-green-600' : 'text-primary'}>
+                        {assessment.icon}
                       </div>
+                    </div>
 
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-xl font-semibold">{assessment.title}</h3>
+                    <div className="flex-1 space-y-2 min-w-0">
+                      {/* Title + Badges */}
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2 flex-wrap">
+                          <h3 className={`font-semibold ${device.isMobile ? 'text-base' : 'text-lg'} leading-tight`}>
+                            {assessment.title}
+                          </h3>
                           {assessment.completed && (
-                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-green-600 shrink-0 mt-0.5" aria-label="Completed" />
                           )}
+                        </div>
+                        
+                        {/* Status badges */}
+                        <div className="flex items-center gap-2 flex-wrap">
                           {assessment.trend && (
-                            <span
-                              className={`text-xs font-medium px-2 py-1 rounded-full ${trendChipClasses[assessment.trend]}`}
+                            <Badge
+                              className={`text-xs font-medium ${trendChipClasses[assessment.trend]}`}
+                              aria-label={`Status: ${assessment.trendLabel ?? assessment.trend}`}
                             >
                               {assessment.trendLabel ?? (assessment.trend === 'baseline'
                                 ? 'Baseline'
@@ -588,69 +698,109 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
                                     ({formatChange(assessment.change)})
                                   </span>
                                 )}
-                            </span>
+                            </Badge>
+                          )}
+                          {assessment.completed && assessment.score !== undefined && (
+                            <Badge variant="outline" className="text-xs border-primary text-primary bg-primary/5">
+                              Score: {assessment.score}%
+                            </Badge>
                           )}
                         </div>
+                      </div>
 
-                        <p className="text-muted-foreground leading-relaxed">
-                          {assessment.description}
-                        </p>
+                      {/* Description - truncate on mobile */}
+                      <p className={`text-muted-foreground leading-relaxed ${device.isMobile ? 'text-sm line-clamp-2' : 'text-sm'}`}>
+                        {assessment.description}
+                      </p>
 
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>{assessment.duration}</span>
-                          </div>
-                          <div className="text-muted-foreground">
-                            {assessment.questions} questions
-                          </div>
-                          <Badge variant="secondary" className={getCategoryColor(assessment.category)}>
-                            {assessment.category}
-                          </Badge>
-                          <Badge variant="outline" className={getDifficultyColor(assessment.difficulty)}>
+                      {/* Meta row: duration, questions, category */}
+                      <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm flex-wrap">
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" aria-hidden="true" />
+                          <span>{assessment.duration}</span>
+                        </div>
+                        <div className="text-muted-foreground">
+                          {assessment.questions} questions
+                        </div>
+                        <Badge 
+                          variant="secondary" 
+                          className={`${getCategoryColor(assessment.category)} text-xs`}
+                          aria-label={`Category: ${assessment.category}`}
+                        >
+                          {assessment.category}
+                        </Badge>
+                        {!device.isMobile && (
+                          <Badge 
+                            variant="outline" 
+                            className={`${getDifficultyColor(assessment.difficulty)} text-xs`}
+                            aria-label={`Difficulty: ${assessment.difficulty}`}
+                          >
                             {assessment.difficulty}
                           </Badge>
-                        </div>
-
-                        {assessment.completed && assessment.lastTaken && (
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <p className="text-sm text-muted-foreground">Last taken: {assessment.lastTaken}</p>
-                            {assessment.score !== undefined && (
-                              <div className="text-sm">
-                                <span className="text-muted-foreground">Score: </span>
-                                <span className="font-semibold text-primary">{assessment.score}%</span>
-                              </div>
-                            )}
-                          </div>
                         )}
+                      </div>
 
-                        {assessment.completed && assessment.recommendations && assessment.recommendations.length > 0 && (
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p className="font-medium text-foreground">Next steps</p>
-                            <ul className="list-disc list-inside space-y-1">
+                      {/* Last taken info */}
+                      {assessment.completed && assessment.lastTaken && (
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          <Clock className="h-3 w-3 md:h-3.5 md:w-3.5 inline mr-1" aria-hidden="true" />
+                          Last taken {assessment.lastTaken}
+                        </p>
+                      )}
+
+                      {/* Recommendations - collapsible on mobile */}
+                      {assessment.completed && assessment.recommendations && assessment.recommendations.length > 0 && !device.isMobile && (
+                        <CollapsibleSection
+                          title="Insights"
+                          defaultOpen={false}
+                          icon={<Info className="h-4 w-4" />}
+                        >
+                          <div className="text-sm">
+                            <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground pl-2">
                               {assessment.recommendations.slice(0, 2).map((rec) => (
                                 <li key={rec}>{rec}</li>
                               ))}
                             </ul>
                           </div>
-                        )}
-                      </div>
+                        </CollapsibleSection>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 ml-4">
+                  {/* CTAs - Full width on mobile, side-by-side on tablet+ */}
+                  <div className={`flex ${device.isMobile ? 'flex-col w-full' : 'flex-col'} gap-2 ${
+                    device.isMobile ? '' : 'min-w-[140px]'
+                  }`}>
                     {assessment.completed ? (
                       <>
-                        <Button onClick={() => onViewAssessmentResults(assessment.typeKey ?? assessment.id ?? null)} variant="outline" size="sm">
-                          View Results
-                        </Button>
-                        <Button onClick={() => onStartAssessment(assessment.id)} size="sm">
+                        <Button 
+                          onClick={() => onStartAssessment(assessment.id)} 
+                          size="sm"
+                          className={`${device.isMobile ? 'w-full' : ''} min-h-[44px] touch-manipulation`}
+                          aria-label={`Retake ${assessment.title}`}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
                           Retake
+                        </Button>
+                        <Button 
+                          onClick={() => onViewAssessmentResults(assessment.typeKey ?? assessment.id ?? null)} 
+                          variant="outline" 
+                          size="sm"
+                          className={`${device.isMobile ? 'w-full' : ''} min-h-[44px] touch-manipulation`}
+                          aria-label={`View results for ${assessment.title}`}
+                        >
+                          <ChevronRight className="h-4 w-4 mr-2" />
+                          View Results
                         </Button>
                       </>
                     ) : (
-                      <Button onClick={() => onStartAssessment(assessment.id)} className="flex items-center gap-2">
-                        <Play className="h-4 w-4" />
+                      <Button 
+                        onClick={() => onStartAssessment(assessment.id)} 
+                        className={`${device.isMobile ? 'w-full' : ''} min-h-[44px] touch-manipulation`}
+                        size={device.isMobile ? 'default' : 'sm'}
+                        aria-label={`Start ${assessment.title}`}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
                         Start Assessment
                       </Button>
                     )}
@@ -661,102 +811,148 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
           ))}
         </div>
 
-        {/* Bottom Info */}
-        <Card className="mt-8">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <Shield className="h-6 w-6 text-primary mt-1" />
-              <div className="space-y-2">
-                <h3 className="font-semibold">Privacy &amp; Safety</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  All assessments are confidential and encrypted. Your responses help us provide personalized recommendations. You can pause and resume anytime. If you experience distress during any assessment, please stop and reach out for support.
-                </p>
-                <Button variant="link" className="p-0 h-auto text-sm" onClick={() => onNavigate('help')}>
-                  Crisis Resources &amp; Support →
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+        {/* RECENT ASSESSMENT HISTORY - Collapsible on mobile */}
         {history.length > 0 && (
-          <Card className="mt-8">
-            <CardContent className="p-6 space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">Recent Assessment History</h3>
-                <p className="text-sm text-muted-foreground">
-                  Track how your scores are evolving across wellbeing areas.
+          <CollapsibleSection
+            title="Recent Assessment History"
+            defaultOpen={!device.isMobile}
+            summary={`${history.length} ${history.length === 1 ? 'entry' : 'entries'} • Latest: ${combinedHistoryWithChange[0] ? getRelativeTime(combinedHistoryWithChange[0].completedAt) : 'N/A'}`}
+            icon={<BarChart3 className="h-4 w-4" />}
+          >
+            <Card className="border-none shadow-none">
+              <CardContent className={device.isMobile ? 'p-0 space-y-4' : 'p-4 space-y-4'}>
+                <p className="text-xs md:text-sm text-muted-foreground">
+                  Track how your scores are evolving across wellbeing areas
                 </p>
-              </div>
-              <div className="space-y-4">
-                {combinedHistoryWithChange.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Basic Overall Assessment</h4>
-                    {combinedHistoryWithChange.slice(0, 5).map((snapshot) => (
-                      <div key={snapshot.id} className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-muted-foreground">Combined wellbeing snapshot</p>
-                            <p className="text-xs text-muted-foreground">Completed {getRelativeTime(snapshot.completedAt)}</p>
+                
+                <div className="space-y-3 md:space-y-4">
+                  {/* Combined History */}
+                  {combinedHistoryWithChange.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                        Basic Overall Assessment
+                      </h4>
+                      {combinedHistoryWithChange.slice(0, device.isMobile ? 3 : 5).map((snapshot) => (
+                        <div key={snapshot.id} className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3 md:p-4">
+                          <div className={`flex items-start ${device.isMobile ? 'flex-col gap-2' : 'justify-between gap-4'}`}>
+                            <div className="space-y-1">
+                              <p className="text-xs md:text-sm font-medium text-muted-foreground">
+                                Combined wellbeing snapshot
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Completed {getRelativeTime(snapshot.completedAt)}
+                              </p>
+                            </div>
+                            <div className={`space-y-1 ${device.isMobile ? 'w-full text-left' : 'text-right'}`}>
+                              <p className="text-xl md:text-2xl font-semibold text-primary">
+                                {snapshot.combinedScore}%
+                              </p>
+                              {snapshot.change !== null && (
+                                <p className="text-xs md:text-sm text-muted-foreground">
+                                  Change {formatChange(snapshot.change)} points
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-right space-y-1">
-                            <p className="text-2xl font-semibold text-primary">{snapshot.combinedScore}%</p>
-                            {snapshot.change !== null && (
-                              <p className="text-sm text-muted-foreground">Change {formatChange(snapshot.change)} points</p>
+                          <div className={`grid ${device.isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-2 pt-1`}>
+                            {snapshot.assessments.map((entry) => (
+                              <div
+                                key={`${snapshot.id}-${entry.assessmentType}`}
+                                className="flex items-center justify-between rounded-md bg-white/80 px-3 py-2 text-xs"
+                              >
+                                <span className="font-medium text-muted-foreground truncate">
+                                  {friendlyAssessmentLabel(entry.assessmentType)}
+                                </span>
+                                <span className="font-semibold text-primary ml-2">
+                                  {Math.round(entry.score)}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {device.isMobile && combinedHistoryWithChange.length > 3 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+                          className="w-full min-h-[44px] touch-manipulation"
+                        >
+                          {isHistoryExpanded ? 'Show less' : `Show ${combinedHistoryWithChange.length - 3} more`}
+                          {isHistoryExpanded ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Individual History */}
+                  {individualHistory.length > 0 && (
+                    <div className="space-y-3">
+                      {individualHistory.slice(0, device.isMobile ? 5 : 10).map((entry) => (
+                        <div
+                          key={`${entry.id}-${entry.completedAt}`}
+                          className={`flex ${device.isMobile ? 'flex-col' : 'items-start justify-between'} gap-3 rounded-lg border p-3 md:p-4`}
+                        >
+                          <div className="space-y-1 flex-1">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              {friendlyAssessmentLabel(entry.assessmentType)}
+                            </p>
+                            <p className="text-sm md:text-base font-semibold">{entry.interpretation}</p>
+                            <p className="text-xs md:text-sm text-muted-foreground">
+                              Completed {getRelativeTime(entry.completedAt)}
+                            </p>
+                          </div>
+                          <div className={`space-y-1 ${device.isMobile ? 'w-full text-left' : 'text-right'}`}>
+                            <p className="text-xl md:text-2xl font-semibold text-primary">
+                              {Math.round(entry.score)}%
+                            </p>
+                            {entry.changeFromPrevious !== null && (
+                              <p className="text-xs md:text-sm text-muted-foreground">
+                                Change {formatChange(entry.changeFromPrevious)} points
+                              </p>
                             )}
                           </div>
                         </div>
-                        <div className="grid gap-2 pt-1 sm:grid-cols-2">
-                          {snapshot.assessments.map((entry) => (
-                            <div
-                              key={`${snapshot.id}-${entry.assessmentType}`}
-                              className="flex items-center justify-between rounded-md bg-white/80 px-3 py-2 text-xs"
-                            >
-                              <span className="font-medium text-muted-foreground">{friendlyAssessmentLabel(entry.assessmentType)}</span>
-                              <span className="font-semibold text-primary">{Math.round(entry.score)}%</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
 
-                {individualHistory.length > 0 && (
-                  <div className="space-y-3">
-                    {individualHistory.slice(0, 10).map((entry) => (
-                      <div
-                        key={`${entry.id}-${entry.completedAt}`}
-                        className="flex items-start justify-between gap-4 rounded-lg border p-4"
-                      >
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                            {friendlyAssessmentLabel(entry.assessmentType)}
-                          </p>
-                          <p className="text-base font-semibold">{entry.interpretation}</p>
-                          <p className="text-sm text-muted-foreground">Completed {getRelativeTime(entry.completedAt)}</p>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <p className="text-2xl font-semibold text-primary">{Math.round(entry.score)}%</p>
-                          {entry.changeFromPrevious !== null && (
-                            <p className="text-sm text-muted-foreground">
-                              Change {formatChange(entry.changeFromPrevious)} points
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  {combinedHistoryWithChange.length === 0 && individualHistory.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No recent history available yet
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </CollapsibleSection>
+        )}
 
-                {combinedHistoryWithChange.length === 0 && individualHistory.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No recent history available yet.</p>
-                )}
-              </div>
+        {/* PRIVACY & SAFETY - Collapsed by default on mobile */}
+        <CollapsibleSection
+          title="Privacy & Safety"
+          defaultOpen={!device.isMobile}
+          summary="Your data is confidential and encrypted"
+          icon={<Shield className="h-4 w-4" />}
+        >
+          <Card className="border-none shadow-none">
+            <CardContent className={device.isMobile ? 'p-0 space-y-3' : 'p-4 space-y-3'}>
+              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                All assessments are confidential and encrypted. Your responses help us provide personalized 
+                recommendations. You can pause and resume anytime. If you experience distress during any 
+                assessment, please stop and reach out for support.
+              </p>
+              <Button 
+                variant="link" 
+                className="p-0 h-auto text-xs md:text-sm min-h-[44px] touch-manipulation" 
+                onClick={() => onNavigate('help')}
+              >
+                Crisis Resources &amp; Support <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
             </CardContent>
           </Card>
-        )}
+        </CollapsibleSection>
       </div>
-    </div>
+    </ResponsiveContainer>
   );
 }
