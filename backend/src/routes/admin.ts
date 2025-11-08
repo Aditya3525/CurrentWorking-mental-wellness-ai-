@@ -349,6 +349,99 @@ router.post('/logout', (req, res) => {
   });
 });
 
+// Check if current JWT user is an admin (for auto-login from user dashboard)
+router.get('/check-user-admin', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ isAdmin: false });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
+    
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
+    if (!user) {
+      return res.status(401).json({ isAdmin: false });
+    }
+
+    const isAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase());
+    res.json({ 
+      isAdmin,
+      email: user.email,
+      id: user.id
+    });
+  } catch (error) {
+    console.error('Admin check error:', error);
+    res.status(500).json({ isAdmin: false });
+  }
+});
+
+// Auto-login admin from JWT user session
+router.post('/auto-login', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No authorization token' });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
+    
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Check if email is in admin list
+    if (!ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+      return res.status(403).json({ error: 'Not an admin user' });
+    }
+
+    // Generate admin JWT token
+    const adminToken = jwt.sign(
+      { 
+        id: user.id, 
+        email: user.email, 
+        isAdmin: true
+      },
+      process.env.JWT_SECRET || 'fallback-secret',
+      { expiresIn: '24h' }
+    );
+
+    // Store in session
+    const beforeId = (req as any).sessionID;
+    req.session.regenerate((regenErr) => {
+      if (regenErr) {
+        console.error('Admin auto-login session regenerate error:', regenErr);
+        return res.status(500).json({ error: 'Session error' });
+      }
+      (req.session as any).adminToken = adminToken;
+      (req.session as any).adminId = user.id;
+      const afterId = (req as any).sessionID;
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('Admin auto-login session save error:', saveErr);
+          return res.status(500).json({ error: 'Session error' });
+        }
+        console.log('Admin auto-login success', { email: user.email, sessionBefore: beforeId, sessionAfter: afterId });
+        // Return admin data
+        const { password: _, ...adminData } = user as any;
+        res.json({ ...adminData, role: 'Admin' });
+      });
+    });
+  } catch (error) {
+    console.error('Admin auto-login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Check admin session
 router.get('/session', async (req, res) => {
   try {

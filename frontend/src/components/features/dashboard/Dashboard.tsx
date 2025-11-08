@@ -1,7 +1,8 @@
 import { Award, BookOpen, Brain, Calendar, ChevronRight, Heart, MessageCircle, Moon, MoreVertical, Play, Sparkles, Sun, Target, TrendingUp } from 'lucide-react';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { useAccessibility } from '../../../contexts/AccessibilityContext';
+import { useAdminAuth } from '../../../contexts/AdminAuthContext';
 import { useDevice } from '../../../hooks/use-device';
 import { 
   useDashboardData, 
@@ -55,7 +56,9 @@ interface DashboardProps {
 
 export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = false, onTourDismiss, onTourComplete }: DashboardProps) {
   const [todayMood, setTodayMood] = useState<string>('');
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
   const { settings: accessibilitySettings, setSetting: setAccessibilitySetting } = useAccessibility();
+  const { checkIsUserAdmin } = useAdminAuth();
   const { visibility, updateVisibility, isVisible } = useWidgetVisibility();
   const device = useDevice();
 
@@ -64,6 +67,15 @@ export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = fal
   const { data: weeklyData } = useWeeklyProgress();
   const saveMood = useSaveMood();
   const isOnline = useOnlineStatus();
+  
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const isAdmin = await checkIsUserAdmin();
+      setIsUserAdmin(isAdmin);
+    };
+    checkAdmin();
+  }, [checkIsUserAdmin]);
   
   // Pull-to-refresh for mobile
   const { isRefreshing, pullProgress, shouldTrigger } = usePullToRefresh(async () => {
@@ -282,6 +294,11 @@ export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = fal
                       {getProfileCompletion() < 100 && (
                         <DropdownMenuItem onClick={() => onNavigate('profile')}>
                           Complete profile ({getProfileCompletion()}%)
+                        </DropdownMenuItem>
+                      )}
+                      {isUserAdmin && (
+                        <DropdownMenuItem onClick={() => onNavigate('admin')}>
+                          Admin Dashboard
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem asChild>

@@ -180,6 +180,9 @@ function AppInner() {
   const updateUser = useAuthStore((state) => state.updateUser);
   const logoutFromStore = useAuthStore((state) => state.logout);
   
+  // Admin auth from context
+  const { admin: adminUser, adminAutoLogin } = useAdminAuth();
+  
   const [loadingUser, setLoadingUser] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<{ error: string; suggestion?: string; message?: string } | null>(null);
@@ -305,7 +308,24 @@ function AppInner() {
   //   return undefined;
   // }, [currentPage, postAssessmentRedirect]);
 
-  const navigateTo = useCallback((page: Page) => {
+  const navigateTo = useCallback(async (page: Page) => {
+    // Special handling for admin navigation
+    if (page === 'admin' && user && !adminUser) {
+      console.log('Attempting admin auto-login for user:', user.email);
+      try {
+        const success = await adminAutoLogin();
+        if (success) {
+          console.log('Admin auto-login successful, proceeding to admin dashboard');
+        } else {
+          console.log('Admin auto-login failed, redirecting to admin login');
+          page = 'admin-login';
+        }
+      } catch (error) {
+        console.error('Admin auto-login error:', error);
+        page = 'admin-login';
+      }
+    }
+
     if (page === 'insights') {
       if (pendingInsightsFocusRef.current !== undefined) {
         setInsightsFocusType(pendingInsightsFocusRef.current ?? null);
@@ -324,7 +344,7 @@ function AppInner() {
     if (targetPath && normalizePath(window.location.pathname) !== targetPath) {
       window.history.pushState({ page }, '', targetPath);
     }
-  }, []);
+  }, [user, adminUser, adminAutoLogin]);
 
   const startGoogleOAuth = useCallback(() => {
     const hostname = window.location.hostname;
@@ -899,10 +919,12 @@ function AppInner() {
       return;
     }
 
-    if (currentPage === 'admin' && !admin) {
+    // Admin navigation is now handled in navigateTo with auto-login
+    // This check only runs if auto-login already failed
+    if (currentPage === 'admin' && !admin && !adminUser) {
       navigateTo('admin-login');
     }
-  }, [user, loadingUser, currentPage, admin, navigateTo]);
+  }, [user, loadingUser, currentPage, admin, adminUser, navigateTo]);
 
   const renderCurrentPage = () => {
     switch (currentPage) {
@@ -946,7 +968,7 @@ function AppInner() {
             user={user}
             onExit={() => {
               // When user exits onboarding, give them choice to take assessment or go to dashboard
-              if (user?.hasCompletedOnboarding) {
+              if (user?.isOnboarded) {
                 // If they've already completed onboarding before, go straight to dashboard
                 navigateTo('dashboard');
               } else {

@@ -10,6 +10,8 @@ interface Admin {
 interface AdminAuthContextType {
   admin: Admin | null;
   adminLogin: (credentials: { email: string; password: string }) => Promise<void>;
+  adminAutoLogin: () => Promise<boolean>;
+  checkIsUserAdmin: () => Promise<boolean>;
   adminLogout: () => Promise<void>;
   isLoading: boolean;
 }
@@ -93,6 +95,66 @@ export const AdminAuthProvider: React.FC<AdminAuthProviderProps> = ({ children }
     }
   };
 
+  const checkIsUserAdmin = async (): Promise<boolean> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return false;
+      }
+
+      const response = await fetch('/api/admin/check-user-admin', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      return data.isAdmin === true;
+    } catch (error) {
+      console.error('Admin check failed:', error);
+      return false;
+    }
+  };
+
+  const adminAutoLogin = async (): Promise<boolean> => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return false;
+      }
+
+      setIsLoading(true);
+
+      const response = await fetch('/api/admin/auto-login', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        console.error('Auto-login failed with status:', response.status);
+        return false;
+      }
+
+      const adminData = await response.json();
+      console.log('Admin auto-login successful:', adminData.email);
+      setAdmin(adminData);
+      return true;
+    } catch (error) {
+      console.error('Admin auto-login failed:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const adminLogout = async () => {
     try {
       await fetch('/api/admin/logout', {
@@ -109,6 +171,8 @@ export const AdminAuthProvider: React.FC<AdminAuthProviderProps> = ({ children }
   const value = {
     admin,
     adminLogin,
+    adminAutoLogin,
+    checkIsUserAdmin,
     adminLogout,
     isLoading
   };
