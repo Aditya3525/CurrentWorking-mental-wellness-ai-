@@ -180,24 +180,22 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
   const loadAssessment = useCallback(async (id: string) => {
     try {
       setIsLoading(true);
-      const response = await adminApi.getAssessment(id) as {
-        data: {
-          success?: boolean;
-          data?: {
-            name: string;
-            type: string;
-            category: string;
-            description: string | null;
-            timeEstimate: string | null;
-            isActive: boolean;
-            scoringConfig: ScoringConfig | null;
-            questions: Question[];
-          };
-        };
-      };
+      const response = await adminApi.getAssessment(id);
 
-      if (response.data?.success && response.data.data) {
-        const data = response.data.data;
+      // Backend returns: { success: true, data: { ...assessment... } }
+      // So response.success is the success flag, and response.data is the assessment
+      if (response.success && response.data) {
+        const data = response.data as {
+          name: string;
+          type: string;
+          category: string;
+          description: string | null;
+          timeEstimate: string | null;
+          isActive: boolean;
+          scoringConfig: ScoringConfig | null;
+          questions: Question[];
+        };
+        
         setName(data.name);
         setType(data.type);
         setCategory(data.category);
@@ -213,14 +211,20 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
 
         setQuestions(data.questions || []);
         recalculateScoreRange(data.questions || []);
+      } else {
+        // Handle API error response
+        addNotification({
+          type: 'error',
+          title: 'Error',
+          description: response.error || 'Failed to load assessment'
+        });
       }
     } catch (error: unknown) {
       console.error('Failed to load assessment:', error);
-      const err = error as { response?: { data?: { error?: string } } };
       addNotification({
         type: 'error',
         title: 'Error',
-        description: err.response?.data?.error || 'Failed to load assessment'
+        description: error instanceof Error ? error.message : 'Failed to load assessment'
       });
     } finally {
       setIsLoading(false);
