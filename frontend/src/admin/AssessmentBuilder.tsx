@@ -108,7 +108,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
   const [category, setCategory] = useState('anxiety');
   const [description, setDescription] = useState('');
   const [timeEstimate, setTimeEstimate] = useState('');
-  const [isActive, setIsActive] = useState(false);
+  const [isActive, setIsActive] = useState(true);
 
   // Scoring State
   const [minScore, setMinScore] = useState(0);

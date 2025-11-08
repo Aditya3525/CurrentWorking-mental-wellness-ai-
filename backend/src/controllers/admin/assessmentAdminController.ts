@@ -234,7 +234,7 @@ export const createAssessment = async (req: Request, res: Response) => {
       timeEstimate,
       scoringConfig,
       questions,
-      isActive = false
+      isActive = true
     } = req.body;
 
     // Check for duplicate type
