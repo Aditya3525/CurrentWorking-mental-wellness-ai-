@@ -28,6 +28,16 @@ type QuestionSeed = {
   }[];
 };
 
+type ScoringConfig = {
+  minScore: number;
+  maxScore: number;
+  interpretationBands: Array<{
+    max: number;
+    label: string;
+    color: string;
+  }>;
+};
+
 type AssessmentSeed = {
   id: string;
   name: string;
@@ -38,6 +48,7 @@ type AssessmentSeed = {
   isActive?: boolean;
   isBasicOverallOnly?: boolean;
   visibleInMainList?: boolean;
+  scoringConfig?: ScoringConfig;
   questions: QuestionSeed[];
 };
 
@@ -483,6 +494,94 @@ function buildCompositeQuestions(sectionSets: BaseQuestion[][]): QuestionSeed[] 
   return composite;
 }
 
+// Scoring configurations for assessments
+const GAD7_SCORING = {
+  minScore: 0,
+  maxScore: 21,
+  interpretationBands: [
+    { max: 4, label: 'Minimal Anxiety', color: '#10b981' },
+    { max: 9, label: 'Mild Anxiety', color: '#fbbf24' },
+    { max: 14, label: 'Moderate Anxiety', color: '#f97316' },
+    { max: 21, label: 'Severe Anxiety', color: '#ef4444' }
+  ]
+};
+
+const PHQ9_SCORING = {
+  minScore: 0,
+  maxScore: 27,
+  interpretationBands: [
+    { max: 4, label: 'Minimal Depression', color: '#10b981' },
+    { max: 9, label: 'Mild Depression', color: '#fbbf24' },
+    { max: 14, label: 'Moderate Depression', color: '#f97316' },
+    { max: 19, label: 'Moderately Severe Depression', color: '#dc2626' },
+    { max: 27, label: 'Severe Depression', color: '#ef4444' }
+  ]
+};
+
+const PSS10_SCORING = {
+  minScore: 0,
+  maxScore: 40,
+  interpretationBands: [
+    { max: 13, label: 'Low Stress', color: '#10b981' },
+    { max: 26, label: 'Moderate Stress', color: '#fbbf24' },
+    { max: 40, label: 'High Stress', color: '#ef4444' }
+  ]
+};
+
+const PCL5_SCORING = {
+  minScore: 0,
+  maxScore: 80,
+  interpretationBands: [
+    { max: 30, label: 'Minimal PTSD Symptoms', color: '#10b981' },
+    { max: 44, label: 'Mild PTSD Symptoms', color: '#fbbf24' },
+    { max: 59, label: 'Moderate PTSD Symptoms', color: '#f97316' },
+    { max: 80, label: 'Severe PTSD Symptoms', color: '#ef4444' }
+  ]
+};
+
+const MINI_IPIP_SCORING = {
+  minScore: 20,
+  maxScore: 100,
+  interpretationBands: [
+    { max: 40, label: 'Low Trait Expression', color: '#3b82f6' },
+    { max: 60, label: 'Moderate Trait Expression', color: '#10b981' },
+    { max: 80, label: 'High Trait Expression', color: '#fbbf24' },
+    { max: 100, label: 'Very High Trait Expression', color: '#f97316' }
+  ]
+};
+
+const PTQ_SCORING = {
+  minScore: 0,
+  maxScore: 60,
+  interpretationBands: [
+    { max: 20, label: 'Low Rumination', color: '#10b981' },
+    { max: 40, label: 'Moderate Rumination', color: '#fbbf24' },
+    { max: 60, label: 'High Rumination', color: '#ef4444' }
+  ]
+};
+
+const TEIQUE_SF_SCORING = {
+  minScore: 30,
+  maxScore: 210,
+  interpretationBands: [
+    { max: 90, label: 'Low EQ', color: '#3b82f6' },
+    { max: 120, label: 'Below Average EQ', color: '#fbbf24' },
+    { max: 150, label: 'Average EQ', color: '#10b981' },
+    { max: 180, label: 'Above Average EQ', color: '#22c55e' },
+    { max: 210, label: 'High EQ', color: '#059669' }
+  ]
+};
+
+const BASIC_SCORING = {
+  minScore: 0,
+  maxScore: 10,
+  interpretationBands: [
+    { max: 3, label: 'Low', color: '#10b981' },
+    { max: 6, label: 'Moderate', color: '#fbbf24' },
+    { max: 10, label: 'High', color: '#ef4444' }
+  ]
+};
+
 const ASSESSMENT_SEEDS: AssessmentSeed[] = [
   // Legacy IDs for backward compatibility with frontend
   {
@@ -492,6 +591,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Anxiety',
     description: 'Generalized Anxiety Disorder 7-item assessment.',
     timeEstimate: '5 minutes',
+    scoringConfig: GAD7_SCORING,
     questions: buildQuestions(GAD7_BASE, 1, 'anxiety_assessment')
   },
   {
@@ -501,6 +601,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Depression',
     description: 'Patient Health Questionnaire-9 full depression inventory.',
     timeEstimate: '5 minutes',
+    scoringConfig: PHQ9_SCORING,
     questions: buildQuestions(PHQ9_BASE, 1, 'depression_phq9')
   },
   {
@@ -510,6 +611,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Stress',
     description: 'Perceived Stress Scale - 10 item standard form.',
     timeEstimate: '6 minutes',
+    scoringConfig: PSS10_SCORING,
     questions: buildQuestions(PSS10_BASE, 1, 'stress_pss10')
   },
   {
@@ -519,6 +621,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Emotional Intelligence',
     description: '30-item Trait Emotional Intelligence Questionnaire short form.',
     timeEstimate: '8 minutes',
+    scoringConfig: TEIQUE_SF_SCORING,
     questions: buildQuestions(TEIQUE_BASE, 1, 'emotional_intelligence_teique')
   },
   {
@@ -528,6 +631,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Overthinking',
     description: '15-item Perseverative Thinking Questionnaire for repetitive negative thinking.',
     timeEstimate: '6 minutes',
+    scoringConfig: PTQ_SCORING,
     questions: buildQuestions(PTQ_BASE, 1, 'overthinking_ptq')
   },
   {
@@ -537,6 +641,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Trauma',
     description: 'PTSD Checklist for DSM-5.',
     timeEstimate: '8 minutes',
+    scoringConfig: PCL5_SCORING,
     questions: buildQuestions(PCL5_BASE, 1, 'trauma_pcl5')
   },
   {
@@ -544,8 +649,9 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     name: 'Mini-IPIP (Personality Assessment)',
     type: 'Advanced',
     category: 'Personality',
-    description: '20-item Mini-IPIP personality inventory.',
-    timeEstimate: '7 minutes',
+    description: '20-item Mini International Personality Item Pool (Big Five traits).',
+    timeEstimate: '6 minutes',
+    scoringConfig: MINI_IPIP_SCORING,
     questions: buildQuestions(MINI_IPIP_BASE, 1, 'personality_mini_ipip')
   },
   // Modern short-form assessments
@@ -558,6 +664,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     timeEstimate: '2 minutes',
     isBasicOverallOnly: true,
     visibleInMainList: false,
+    scoringConfig: BASIC_SCORING,
     questions: buildQuestions(PHQ2_BASE, 1, 'phq2')
   },
   {
@@ -569,6 +676,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     timeEstimate: '2 minutes',
     isBasicOverallOnly: true,
     visibleInMainList: false,
+    scoringConfig: BASIC_SCORING,
     questions: buildQuestions(GAD2_BASE, 1, 'gad2')
   },
   {
@@ -580,6 +688,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     timeEstimate: '3 minutes',
     isBasicOverallOnly: true,
     visibleInMainList: false,
+    scoringConfig: BASIC_SCORING,
     questions: buildQuestions(PSS4_BASE, 1, 'pss4')
   },
   {
@@ -591,6 +700,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     timeEstimate: '3 minutes',
     isBasicOverallOnly: true,
     visibleInMainList: false,
+    scoringConfig: BASIC_SCORING,
     questions: buildQuestions(RRS4_BASE, 1, 'rrs4')
   },
   {
@@ -602,6 +712,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     timeEstimate: '3 minutes',
     isBasicOverallOnly: true,
     visibleInMainList: false,
+    scoringConfig: BASIC_SCORING,
     questions: buildQuestions(PCPTSD5_BASE, 1, 'pc_ptsd_5')
   },
   {
@@ -613,6 +724,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     timeEstimate: '4 minutes',
     isBasicOverallOnly: true,
     visibleInMainList: false,
+    scoringConfig: BASIC_SCORING,
     questions: buildQuestions(EQ5_BASE, 1, 'eq5')
   },
   {
@@ -624,6 +736,7 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     timeEstimate: '4 minutes',
     isBasicOverallOnly: true,
     visibleInMainList: false,
+    scoringConfig: BASIC_SCORING,
     questions: buildQuestions(BIG_FIVE_BASE, 1, 'big_five_short')
   }
 ];
@@ -637,6 +750,15 @@ const BASIC_OVERALL_SEED: AssessmentSeed = {
   timeEstimate: '10 minutes',
   isBasicOverallOnly: true,
   visibleInMainList: false,
+  scoringConfig: {
+    minScore: 0,
+    maxScore: 50,
+    interpretationBands: [
+      { max: 15, label: 'Low Overall Distress', color: '#10b981' },
+      { max: 30, label: 'Moderate Overall Distress', color: '#fbbf24' },
+      { max: 50, label: 'High Overall Distress', color: '#ef4444' }
+    ]
+  },
   questions: buildCompositeQuestions([
     PHQ2_BASE,
     GAD2_BASE,
@@ -667,6 +789,7 @@ async function seedAssessmentLibrary() {
         isActive: seed.isActive ?? true,
         isBasicOverallOnly: seed.isBasicOverallOnly ?? false,
         visibleInMainList: seed.visibleInMainList ?? true,
+        scoringConfig: seed.scoringConfig ? JSON.stringify(seed.scoringConfig) : null,
         questions: {
           create: seed.questions.map((question) => ({
             id: question.id,
