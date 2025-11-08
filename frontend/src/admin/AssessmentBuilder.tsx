@@ -462,10 +462,10 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-[95vw] h-[88vh] max-h-[88vh] overflow-hidden flex flex-col p-4 sm:p-5">
-        <DialogHeader className="flex-shrink-0 pb-2">
-          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base font-semibold">
-            <ClipboardList className="h-4 w-4 sm:h-5 sm:w-5" />
+      <DialogContent className="max-w-3xl w-[95vw] h-[88vh] max-h-[88vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 px-5 pt-5 pb-3 border-b bg-background">
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+            <ClipboardList className="h-5 w-5" />
             {assessment?.id ? 'Edit Assessment' : 'Create Assessment'}
           </DialogTitle>
         </DialogHeader>
@@ -477,22 +477,24 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
         ) : (
           <>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <TabsList className="grid w-full grid-cols-3 flex-shrink-0 h-10 mb-2 bg-muted sticky top-0 z-10">
-                <TabsTrigger value="basic" className="text-sm font-medium data-[state=active]:bg-background">
-                  Basic Info
-                </TabsTrigger>
-                <TabsTrigger value="scoring" className="text-sm font-medium data-[state=active]:bg-background">
-                  Scoring
-                </TabsTrigger>
-                <TabsTrigger value="questions" className="text-sm font-medium data-[state=active]:bg-background">
-                  Questions {questions.length > 0 && `(${questions.length})`}
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex-shrink-0 px-5 py-3 border-b bg-muted/30">
+                <TabsList className="grid w-full grid-cols-3 h-11 bg-background shadow-sm border">
+                  <TabsTrigger value="basic" className="text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    Basic Info
+                  </TabsTrigger>
+                  <TabsTrigger value="scoring" className="text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    Scoring
+                  </TabsTrigger>
+                  <TabsTrigger value="questions" className="text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    Questions {questions.length > 0 && `(${questions.length})`}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-              <div className="flex-1 overflow-hidden min-h-0 relative">
+              <div className="flex-1 overflow-hidden min-h-0 bg-background">
                 <ScrollArea className="h-full w-full">
-                  <div className="pr-3 sm:pr-4">
-                  <TabsContent value="basic" className="space-y-3 mt-0 pb-2 data-[state=active]:block data-[state=inactive]:hidden">
+                  <div className="p-5">
+                  <TabsContent value="basic" className="space-y-3 mt-0 data-[state=active]:block data-[state=inactive]:hidden">
                   <div className="space-y-1.5">
                     <Label htmlFor="name" className="text-sm font-medium">Assessment Name *</Label>
                     <Input
@@ -568,7 +570,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="scoring" className="space-y-3 mt-0 pb-2 data-[state=active]:block data-[state=inactive]:hidden">
+                <TabsContent value="scoring" className="space-y-3 mt-0 data-[state=active]:block data-[state=inactive]:hidden">
                   <Card className="border-muted">
                     <CardHeader className="p-3 sm:p-4 pb-2">
                       <CardTitle className="text-xs sm:text-sm font-medium">Score Range</CardTitle>
@@ -678,7 +680,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="questions" className="space-y-3 mt-0 pb-2 data-[state=active]:block data-[state=inactive]:hidden">
+                <TabsContent value="questions" className="space-y-3 mt-0 data-[state=active]:block data-[state=inactive]:hidden">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <p className="text-xs text-muted-foreground">
                       {questions.length} question{questions.length !== 1 ? 's' : ''}
@@ -757,12 +759,12 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
               </div>
             </Tabs>
 
-            <DialogFooter className="flex-shrink-0 mt-3 pt-3 border-t gap-2">
-              <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-initial h-9 text-sm">
+            <DialogFooter className="flex-shrink-0 px-5 py-4 border-t bg-background gap-2">
+              <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-initial h-10 text-sm">
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-initial h-9 text-sm">
+              <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-initial h-10 text-sm">
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -880,18 +882,18 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl w-[92vw] max-h-[80vh] overflow-hidden flex flex-col p-3 sm:p-4">
-        <DialogHeader className="flex-shrink-0 pb-1">
-          <DialogTitle className="text-sm sm:text-base">
+      <DialogContent className="max-w-2xl w-[92vw] max-h-[80vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 px-5 pt-5 pb-3 border-b bg-background">
+          <DialogTitle className="text-base font-semibold">
             {question.id ? 'Edit Question' : 'Add Question'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0">
+        <div className="flex-1 overflow-hidden min-h-0 bg-background">
           <ScrollArea className="h-full">
-            <div className="space-y-3 pr-2 sm:pr-3">
+            <div className="space-y-3 p-5">
             <div className="space-y-1.5">
-              <Label htmlFor="questionText" className="text-xs sm:text-sm">Question Text *</Label>
+              <Label htmlFor="questionText" className="text-sm font-medium">Question Text *</Label>
               <Textarea
                 id="questionText"
                 value={text}
@@ -903,9 +905,9 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="responseType" className="text-xs sm:text-sm">Response Type</Label>
+              <Label htmlFor="responseType" className="text-sm font-medium">Response Type</Label>
               <Select value={responseType} onValueChange={setResponseType}>
-                <SelectTrigger id="responseType" className="h-8 text-sm">
+                <SelectTrigger id="responseType" className="h-9 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -924,13 +926,13 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
                 checked={reverseScored}
                 onCheckedChange={setReverseScored}
               />
-              <Label htmlFor="reverseScored" className="text-xs sm:text-sm">Reverse Scored (higher = better)</Label>
+              <Label htmlFor="reverseScored" className="text-sm font-medium">Reverse Scored (higher = better)</Label>
             </div>
 
             <div className="space-y-1.5">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                <Label className="text-xs sm:text-sm">Response Options</Label>
-                <Button onClick={addOption} size="sm" variant="outline" className="h-7 text-xs">
+                <Label className="text-sm font-medium">Response Options</Label>
+                <Button onClick={addOption} size="sm" variant="outline" className="h-8 text-xs">
                   <Plus className="h-3 w-3 mr-1" />
                   Add
                   Add
@@ -974,14 +976,14 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
         </ScrollArea>
         </div>
 
-        <DialogFooter className="flex-shrink-0 mt-2 pt-2 border-t gap-2">
-          <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-initial h-8 text-xs sm:text-sm">
+        <DialogFooter className="flex-shrink-0 px-5 py-4 border-t bg-background gap-2">
+          <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-initial h-10 text-sm">
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={!text.trim() || options.filter((opt) => opt.text.trim()).length === 0}
-            className="flex-1 sm:flex-initial h-8 text-xs sm:text-sm"
+            className="flex-1 sm:flex-initial h-10 text-sm"
           >
             Save
           </Button>
