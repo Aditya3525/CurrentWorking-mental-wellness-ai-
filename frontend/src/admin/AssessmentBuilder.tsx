@@ -264,6 +264,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
     if (!type.trim()) return 'Assessment type is required';
     if (!category) return 'Category is required';
     if (!description.trim()) return 'Description is required';
+    if (description.trim().length < 10) return 'Description must be at least 10 characters';
     return null;
   };
 
@@ -346,7 +347,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
         text: q.text.trim(),
         order: index + 1,
         responseType: q.responseType,
-        domain: q.domain || null,
+        domain: q.domain?.trim() || undefined,
         reverseScored: q.reverseScored || false,
         options: q.options.map((opt, optIndex) => ({
           value: opt.value,
@@ -382,10 +383,11 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
     } catch (error: unknown) {
       console.error('Failed to save assessment:', error);
       const err = error as { response?: { data?: { error?: string } } };
+      const errorMessage = err.response?.data?.error || 'Failed to save assessment. Please check all required fields.';
       addNotification({
         type: 'error',
         title: 'Error',
-        description: err.response?.data?.error || 'Failed to save assessment'
+        description: errorMessage
       });
     } finally {
       setIsSaving(false);
@@ -463,7 +465,8 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl w-[95vw] h-[88vh] max-h-[88vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-5 pt-5 pb-3 border-b bg-background">
+        {/* Header Section */}
+        <DialogHeader className="flex-shrink-0 px-5 pt-5 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-base font-semibold">
             <ClipboardList className="h-5 w-5" />
             {assessment?.id ? 'Edit Assessment' : 'Create Assessment'}
@@ -471,14 +474,15 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
           <>
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <div className="flex-shrink-0 px-5 py-3 border-b bg-muted/30">
-                <TabsList className="grid w-full grid-cols-3 h-11 bg-background shadow-sm border">
+            {/* Tabs Navigation Section */}
+            <div className="flex-shrink-0 px-5 py-3 border-b bg-muted/30">
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 h-11 bg-muted shadow-sm border">
                   <TabsTrigger value="basic" className="text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                     Basic Info
                   </TabsTrigger>
@@ -489,11 +493,14 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                     Questions {questions.length > 0 && `(${questions.length})`}
                   </TabsTrigger>
                 </TabsList>
-              </div>
+              </Tabs>
+            </div>
 
-              <div className="flex-1 overflow-hidden min-h-0 bg-background">
-                <ScrollArea className="h-full w-full">
-                  <div className="p-5">
+            {/* Content Section */}
+            <div className="flex-1 overflow-hidden min-h-0 bg-background">
+              <ScrollArea className="h-full w-full">
+                <div className="p-5">
+                  <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
                   <TabsContent value="basic" className="space-y-3 mt-0 data-[state=active]:block data-[state=inactive]:hidden">
                   <div className="space-y-1.5">
                     <Label htmlFor="name" className="text-sm font-medium">Assessment Name *</Label>
@@ -754,11 +761,12 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                     </div>
                   )}
                 </TabsContent>
+                </Tabs>
                 </div>
               </ScrollArea>
-              </div>
-            </Tabs>
+            </div>
 
+            {/* Footer Section */}
             <DialogFooter className="flex-shrink-0 px-5 py-4 border-t bg-background gap-2">
               <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-initial h-10 text-sm">
                 <X className="h-4 w-4 mr-2" />
@@ -883,15 +891,17 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl w-[92vw] max-h-[80vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-5 pt-5 pb-3 border-b bg-background">
+        {/* Header Section */}
+        <DialogHeader className="flex-shrink-0 px-5 pt-5 pb-3 border-b">
           <DialogTitle className="text-base font-semibold">
             {question.id ? 'Edit Question' : 'Add Question'}
           </DialogTitle>
         </DialogHeader>
 
+        {/* Content Section */}
         <div className="flex-1 overflow-hidden min-h-0 bg-background">
-          <ScrollArea className="h-full">
-            <div className="space-y-3 p-5">
+          <ScrollArea className="h-full w-full">
+            <div className="p-5 space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="questionText" className="text-sm font-medium">Question Text *</Label>
               <Textarea
@@ -942,13 +952,13 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
               <div className="space-y-2">
                 {options.map((option, index) => (
                   <div key={index} className="flex gap-2 items-center">
-                    <div className="w-14 sm:w-16">
+                    <div className="w-16">
                       <Input
                         type="number"
                         value={option.value}
                         onChange={(e) => updateOption(index, 'value', Number(e.target.value))}
                         placeholder="Val"
-                        className="text-xs sm:text-sm h-8"
+                        className="text-sm h-9"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -956,7 +966,7 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
                         value={option.text}
                         onChange={(e) => updateOption(index, 'text', e.target.value)}
                         placeholder="Option text"
-                        className="text-xs sm:text-sm h-8"
+                        className="text-sm h-9"
                       />
                     </div>
                     <Button
@@ -964,9 +974,9 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
                       size="sm"
                       onClick={() => removeOption(index)}
                       disabled={options.length === 1}
-                      className="flex-shrink-0 h-8"
+                      className="flex-shrink-0 h-9"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
@@ -976,16 +986,17 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
         </ScrollArea>
         </div>
 
+        {/* Footer Section */}
         <DialogFooter className="flex-shrink-0 px-5 py-4 border-t bg-background gap-2">
-          <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-initial h-10 text-sm">
+          <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-initial h-9 text-sm">
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={!text.trim() || options.filter((opt) => opt.text.trim()).length === 0}
-            className="flex-1 sm:flex-initial h-10 text-sm"
+            className="flex-1 sm:flex-initial h-9 text-sm"
           >
-            Save
+            Save Question
           </Button>
         </DialogFooter>
       </DialogContent>
