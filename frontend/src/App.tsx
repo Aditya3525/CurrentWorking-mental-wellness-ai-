@@ -314,8 +314,11 @@ function AppInner() {
       console.log('Attempting admin auto-login for user:', user.email);
       try {
         const success = await adminAutoLogin();
+        console.log('Admin auto-login result:', success);
         if (success) {
           console.log('Admin auto-login successful, proceeding to admin dashboard');
+          // Wait a bit for the session to be established
+          await new Promise(resolve => setTimeout(resolve, 500));
         } else {
           console.log('Admin auto-login failed, redirecting to admin login');
           page = 'admin-login';
@@ -879,12 +882,12 @@ function AppInner() {
 
         if (existingUser) {
           setUser(existingUser);
-          const targetPage = resolveInitialPage(existingUser, requestedPage, Boolean(admin));
+          const targetPage = resolveInitialPage(existingUser, requestedPage, Boolean(admin || adminUser));
           const replace = targetPage !== requestedPage;
           applyPage(targetPage, replace);
         } else {
           setUser(null);
-          const targetPage = resolveInitialPage(null, requestedPage, Boolean(admin));
+          const targetPage = resolveInitialPage(null, requestedPage, Boolean(admin || adminUser));
           const replace = targetPage !== requestedPage;
           applyPage(targetPage, replace);
         }
@@ -898,7 +901,7 @@ function AppInner() {
 
     loadUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [admin]); // setUser is stable (from Zustand) and doesn't need to be in dependencies
+  }, [admin, adminUser]); // setUser is stable (from Zustand) and doesn't need to be in dependencies
 
   useEffect(() => {
     if (loadingUser) {
@@ -1085,8 +1088,8 @@ function AppInner() {
       case 'help':
         return <HelpSafety onNavigate={navigateTo} />;
       case 'admin':
-        // Only show if admin session exists
-        return admin ? <AdminDashboard /> : <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} loginError={loginError} />;
+        // Show admin dashboard if admin session exists (either old 'admin' or new 'adminUser')
+        return (admin || adminUser) ? <AdminDashboard /> : <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} loginError={loginError} />;
       default:
   return <LandingPage onSignUp={signUp} onLogin={login} onAdminLogin={handleAdminLogin} authError={authError} loginError={loginError} />;
     }
