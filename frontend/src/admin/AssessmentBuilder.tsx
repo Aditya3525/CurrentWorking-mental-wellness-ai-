@@ -462,64 +462,67 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5" />
+      <DialogContent className="max-w-3xl w-[92vw] h-[85vh] max-h-[85vh] overflow-hidden flex flex-col p-3 sm:p-4">
+        <DialogHeader className="flex-shrink-0 pb-1">
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <ClipboardList className="h-4 w-4" />
             {assessment?.id ? 'Edit Assessment' : 'Create Assessment'}
           </DialogTitle>
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
           <>
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 overflow-hidden flex flex-col">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                <TabsTrigger value="scoring">Scoring</TabsTrigger>
-                <TabsTrigger value="questions">
-                  Questions ({questions.length})
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 overflow-hidden flex flex-col min-h-0">
+              <TabsList className="grid w-full grid-cols-3 flex-shrink-0 h-8 sm:h-9">
+                <TabsTrigger value="basic" className="text-xs sm:text-sm py-1">Basic</TabsTrigger>
+                <TabsTrigger value="scoring" className="text-xs sm:text-sm py-1">Scoring</TabsTrigger>
+                <TabsTrigger value="questions" className="text-xs sm:text-sm py-1">
+                  Q ({questions.length})
                 </TabsTrigger>
               </TabsList>
 
-              <ScrollArea className="flex-1 mt-4">
-                <TabsContent value="basic" className="space-y-4 pr-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Assessment Name *</Label>
+              <div className="flex-1 overflow-hidden mt-2 min-h-0">
+                <ScrollArea className="h-full">
+                  <TabsContent value="basic" className="space-y-3 pr-2 sm:pr-3 mt-0 pb-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name" className="text-xs sm:text-sm">Assessment Name *</Label>
                     <Input
                       id="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g., General Anxiety Disorder (GAD-7)"
+                      className="h-8 sm:h-9 text-sm"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Type (Unique ID) *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="type" className="text-xs sm:text-sm">Type (Unique ID) *</Label>
                     <Input
                       id="type"
                       value={type}
                       onChange={(e) => setType(e.target.value)}
                       placeholder="e.g., gad7"
                       disabled={!!assessment?.id}
+                      className="h-8 sm:h-9 text-sm"
                     />
                     {assessment?.id && (
-                      <p className="text-xs text-muted-foreground">Type cannot be changed after creation</p>
+                      <p className="text-xs text-muted-foreground">Type cannot be changed</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="category" className="text-xs sm:text-sm">Category *</Label>
                     <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger id="category">
+                      <SelectTrigger id="category" className="h-8 sm:h-9 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {CATEGORIES.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
+                          <SelectItem key={cat} value={cat} className="text-sm">
                             {cat.charAt(0).toUpperCase() + cat.slice(1)}
                           </SelectItem>
                         ))}
@@ -527,115 +530,120 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="description" className="text-xs sm:text-sm">Description *</Label>
                     <Textarea
                       id="description"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Brief description of what this assessment measures"
-                      rows={3}
+                      rows={2}
+                      className="text-sm resize-none"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="timeEstimate">Time Estimate</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="timeEstimate" className="text-xs sm:text-sm">Time Estimate</Label>
                     <Input
                       id="timeEstimate"
                       value={timeEstimate}
                       onChange={(e) => setTimeEstimate(e.target.value)}
                       placeholder="e.g., 5 minutes"
+                      className="h-8 sm:h-9 text-sm"
                     />
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 pt-1">
                     <Switch
                       id="isActive"
                       checked={isActive}
                       onCheckedChange={setIsActive}
                     />
-                    <Label htmlFor="isActive">Active (visible to users)</Label>
+                    <Label htmlFor="isActive" className="text-xs sm:text-sm">Active (visible to users)</Label>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="scoring" className="space-y-4 pr-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Score Range</CardTitle>
+                <TabsContent value="scoring" className="space-y-3 pr-2 sm:pr-3 mt-0 pb-2">
+                  <Card className="border-muted">
+                    <CardHeader className="p-3 sm:p-4 pb-2">
+                      <CardTitle className="text-xs sm:text-sm font-medium">Score Range</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="minScore">Min Score</Label>
+                    <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="minScore" className="text-xs">Min Score</Label>
                           <Input
                             id="minScore"
                             type="number"
                             value={minScore}
                             onChange={(e) => setMinScore(Number(e.target.value))}
+                            className="h-8 text-sm"
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="maxScore">Max Score</Label>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="maxScore" className="text-xs">Max Score</Label>
                           <Input
                             id="maxScore"
                             type="number"
                             value={maxScore}
                             onChange={(e) => setMaxScore(Number(e.target.value))}
+                            className="h-8 text-sm"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Auto-calculated from questions
+                            Auto-calculated
                           </p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <CardTitle className="text-base">Interpretation Bands</CardTitle>
-                      <Button onClick={addBand} size="sm" variant="outline">
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Band
+                  <Card className="border-muted">
+                    <CardHeader className="p-3 sm:p-4 pb-2 flex flex-row items-center justify-between space-y-0">
+                      <CardTitle className="text-xs sm:text-sm font-medium">Interpretation Bands</CardTitle>
+                      <Button onClick={addBand} size="sm" variant="outline" className="h-7 text-xs">
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add
                       </Button>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
                       {interpretationBands.map((band, index) => (
-                        <div key={index} className="flex gap-2 items-center">
-                          <div className="flex-1 space-y-2">
+                        <div key={index} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                          <div className="flex-1 space-y-1">
                             <Label className="text-xs">Max Score</Label>
                             <Input
                               type="number"
                               value={band.max}
                               onChange={(e) => updateBand(index, 'max', Number(e.target.value))}
-                              className="w-full"
+                              className="w-full h-8 text-sm"
                             />
                           </div>
-                          <div className="flex-[2] space-y-2">
+                          <div className="flex-[2] space-y-1">
                             <Label className="text-xs">Label</Label>
                             <Input
                               value={band.label}
                               onChange={(e) => updateBand(index, 'label', e.target.value)}
                               placeholder="e.g., Minimal"
+                              className="h-8 text-sm"
                             />
                           </div>
-                          <div className="flex-1 space-y-2">
+                          <div className="flex-1 space-y-1">
                             <Label className="text-xs">Color</Label>
                             <Select
                               value={band.color}
                               onValueChange={(value) => updateBand(index, 'color', value)}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="h-8 text-sm">
                                 <div
-                                  className="w-4 h-4 rounded"
+                                  className="w-3 h-3 rounded"
                                   style={{ backgroundColor: band.color }}
                                 />
                               </SelectTrigger>
                               <SelectContent>
                                 {COLORS.map((color) => (
-                                  <SelectItem key={color.value} value={color.value}>
+                                  <SelectItem key={color.value} value={color.value} className="text-sm">
                                     <div className="flex items-center gap-2">
                                       <div
-                                        className="w-4 h-4 rounded"
+                                        className="w-3 h-3 rounded"
                                         style={{ backgroundColor: color.value }}
                                       />
                                       {color.label}
@@ -650,39 +658,40 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                             size="sm"
                             onClick={() => removeBand(index)}
                             disabled={interpretationBands.length === 1}
+                            className="mt-0 sm:mt-5 h-8"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       ))}
                       {interpretationBands.length === 0 && (
-                        <div className="text-sm text-muted-foreground text-center py-4">
-                          No interpretation bands. Click &quot;Add Band&quot; to create one.
+                        <div className="text-xs text-muted-foreground text-center py-3">
+                          No bands. Click &quot;Add&quot; to create one.
                         </div>
                       )}
                     </CardContent>
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="questions" className="space-y-4 pr-4">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-muted-foreground">
+                <TabsContent value="questions" className="space-y-2 pr-2 sm:pr-3 mt-0 pb-2">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
                       {questions.length} question{questions.length !== 1 ? 's' : ''}
                     </p>
-                    <Button onClick={() => openQuestionModal()} size="sm">
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add Question
+                    <Button onClick={() => openQuestionModal()} size="sm" className="h-7 text-xs">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add
                     </Button>
                   </div>
 
                   {questions.length === 0 ? (
-                    <Card>
-                      <CardContent className="flex flex-col items-center justify-center py-12">
-                        <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">No questions yet</h3>
-                        <p className="text-muted-foreground mb-4">Add your first question to get started</p>
-                        <Button onClick={() => openQuestionModal()}>
-                          <Plus className="h-4 w-4 mr-2" />
+                    <Card className="border-muted">
+                      <CardContent className="flex flex-col items-center justify-center py-8">
+                        <AlertCircle className="h-8 w-8 text-muted-foreground mb-2" />
+                        <h3 className="text-sm font-semibold mb-1">No questions yet</h3>
+                        <p className="text-xs text-muted-foreground mb-3">Add your first question to get started</p>
+                        <Button onClick={() => openQuestionModal()} size="sm" className="h-7 text-xs">
+                          <Plus className="h-3 w-3 mr-1" />
                           Add Question
                         </Button>
                       </CardContent>
@@ -690,32 +699,33 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   ) : (
                     <div className="space-y-2">
                       {questions.map((question, index) => (
-                        <Card key={question.id || index}>
-                          <CardContent className="p-4">
-                            <div className="flex gap-3">
-                              <div className="flex items-start pt-1">
-                                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                        <Card key={question.id || index} className="border-muted">
+                          <CardContent className="p-2 sm:p-3">
+                            <div className="flex gap-2">
+                              <div className="flex items-start pt-1 hidden sm:block">
+                                <GripVertical className="h-4 w-4 text-muted-foreground" />
                               </div>
-                              <div className="flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <Badge variant="outline">Q{index + 1}</Badge>
-                                      <Badge variant="secondary">{question.responseType}</Badge>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-1 mb-1">
+                                      <Badge variant="outline" className="h-5 text-xs px-1.5">Q{index + 1}</Badge>
+                                      <Badge variant="secondary" className="h-5 text-xs px-1.5">{question.responseType}</Badge>
                                       {question.reverseScored && (
-                                        <Badge variant="outline">Reverse</Badge>
+                                        <Badge variant="outline" className="h-5 text-xs px-1.5">Reverse</Badge>
                                       )}
                                     </div>
-                                    <p className="text-sm font-medium">{question.text}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
+                                    <p className="text-xs sm:text-sm font-medium break-words">{question.text}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
                                       {question.options.length} options
                                     </p>
                                   </div>
-                                  <div className="flex gap-1">
+                                  <div className="flex gap-1 flex-shrink-0 w-full sm:w-auto">
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => openQuestionModal(question)}
+                                      className="flex-1 sm:flex-initial h-7 text-xs"
                                     >
                                       Edit
                                     </Button>
@@ -723,8 +733,9 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => deleteQuestion(question.id)}
+                                      className="flex-1 sm:flex-initial h-7"
                                     >
-                                      <Trash2 className="h-4 w-4" />
+                                      <Trash2 className="h-3 w-3" />
                                     </Button>
                                   </div>
                                 </div>
@@ -737,23 +748,24 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   )}
                 </TabsContent>
               </ScrollArea>
+              </div>
             </Tabs>
 
-            <DialogFooter className="mt-4">
-              <Button variant="outline" onClick={onClose} disabled={isSaving}>
-                <X className="h-4 w-4 mr-2" />
+            <DialogFooter className="flex-shrink-0 mt-2 pt-2 border-t gap-2">
+              <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-initial h-8 text-xs sm:text-sm">
+                <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
+              <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-initial h-8 text-xs sm:text-sm">
                 {isSaving ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Assessment
+                    <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    Save
                   </>
                 )}
               </Button>
@@ -862,35 +874,37 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-w-2xl w-[92vw] max-h-[80vh] overflow-hidden flex flex-col p-3 sm:p-4">
+        <DialogHeader className="flex-shrink-0 pb-1">
+          <DialogTitle className="text-sm sm:text-base">
             {question.id ? 'Edit Question' : 'Add Question'}
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-4 pr-4">
-            <div className="space-y-2">
-              <Label htmlFor="questionText">Question Text *</Label>
+        <div className="flex-1 overflow-hidden min-h-0">
+          <ScrollArea className="h-full">
+            <div className="space-y-3 pr-2 sm:pr-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="questionText" className="text-xs sm:text-sm">Question Text *</Label>
               <Textarea
                 id="questionText"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Enter your question"
                 rows={2}
+                className="text-sm resize-none"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="responseType">Response Type</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="responseType" className="text-xs sm:text-sm">Response Type</Label>
               <Select value={responseType} onValueChange={setResponseType}>
-                <SelectTrigger id="responseType">
+                <SelectTrigger id="responseType" className="h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {RESPONSE_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
+                    <SelectItem key={type.value} value={type.value} className="text-sm">
                       {type.label}
                     </SelectItem>
                   ))}
@@ -898,40 +912,43 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
               </Select>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 pt-1">
               <Switch
                 id="reverseScored"
                 checked={reverseScored}
                 onCheckedChange={setReverseScored}
               />
-              <Label htmlFor="reverseScored">Reverse Scored (higher = better)</Label>
+              <Label htmlFor="reverseScored" className="text-xs sm:text-sm">Reverse Scored (higher = better)</Label>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Response Options</Label>
-                <Button onClick={addOption} size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Option
+            <div className="space-y-1.5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <Label className="text-xs sm:text-sm">Response Options</Label>
+                <Button onClick={addOption} size="sm" variant="outline" className="h-7 text-xs">
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                  Add
                 </Button>
               </div>
 
               <div className="space-y-2">
                 {options.map((option, index) => (
                   <div key={index} className="flex gap-2 items-center">
-                    <div className="w-20">
+                    <div className="w-14 sm:w-16">
                       <Input
                         type="number"
                         value={option.value}
                         onChange={(e) => updateOption(index, 'value', Number(e.target.value))}
-                        placeholder="Value"
+                        placeholder="Val"
+                        className="text-xs sm:text-sm h-8"
                       />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <Input
                         value={option.text}
                         onChange={(e) => updateOption(index, 'text', e.target.value)}
                         placeholder="Option text"
+                        className="text-xs sm:text-sm h-8"
                       />
                     </div>
                     <Button
@@ -939,8 +956,9 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
                       size="sm"
                       onClick={() => removeOption(index)}
                       disabled={options.length === 1}
+                      className="flex-shrink-0 h-8"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 ))}
@@ -948,16 +966,18 @@ const QuestionBuilderModal: React.FC<QuestionBuilderModalProps> = ({
             </div>
           </div>
         </ScrollArea>
+        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex-shrink-0 mt-2 pt-2 border-t gap-2">
+          <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-initial h-8 text-xs sm:text-sm">
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={!text.trim() || options.filter((opt) => opt.text.trim()).length === 0}
+            className="flex-1 sm:flex-initial h-8 text-xs sm:text-sm"
           >
-            Save Question
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
