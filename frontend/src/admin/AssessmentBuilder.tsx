@@ -477,21 +477,22 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
         ) : (
           <>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <TabsList className="grid w-full grid-cols-3 flex-shrink-0 h-9 sm:h-10 mb-1">
-                <TabsTrigger value="basic" className="text-xs sm:text-sm font-medium">
+              <TabsList className="grid w-full grid-cols-3 flex-shrink-0 h-10 mb-2 bg-muted sticky top-0 z-10">
+                <TabsTrigger value="basic" className="text-sm font-medium data-[state=active]:bg-background">
                   Basic Info
                 </TabsTrigger>
-                <TabsTrigger value="scoring" className="text-xs sm:text-sm font-medium">
+                <TabsTrigger value="scoring" className="text-sm font-medium data-[state=active]:bg-background">
                   Scoring
                 </TabsTrigger>
-                <TabsTrigger value="questions" className="text-xs sm:text-sm font-medium">
+                <TabsTrigger value="questions" className="text-sm font-medium data-[state=active]:bg-background">
                   Questions {questions.length > 0 && `(${questions.length})`}
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex-1 overflow-hidden min-h-0">
-                <ScrollArea className="h-full">
-                  <TabsContent value="basic" className="space-y-3 pr-3 sm:pr-4 mt-0 pb-2">
+              <div className="flex-1 overflow-hidden min-h-0 relative">
+                <ScrollArea className="h-full w-full">
+                  <div className="pr-3 sm:pr-4">
+                  <TabsContent value="basic" className="space-y-3 mt-0 pb-2 data-[state=active]:block data-[state=inactive]:hidden">
                   <div className="space-y-1.5">
                     <Label htmlFor="name" className="text-sm font-medium">Assessment Name *</Label>
                     <Input
@@ -567,7 +568,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="scoring" className="space-y-3 pr-3 sm:pr-4 mt-0 pb-2">
+                <TabsContent value="scoring" className="space-y-3 mt-0 pb-2 data-[state=active]:block data-[state=inactive]:hidden">
                   <Card className="border-muted">
                     <CardHeader className="p-3 sm:p-4 pb-2">
                       <CardTitle className="text-xs sm:text-sm font-medium">Score Range</CardTitle>
@@ -677,7 +678,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="questions" className="space-y-3 pr-3 sm:pr-4 mt-0 pb-2">
+                <TabsContent value="questions" className="space-y-3 mt-0 pb-2 data-[state=active]:block data-[state=inactive]:hidden">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <p className="text-xs text-muted-foreground">
                       {questions.length} question{questions.length !== 1 ? 's' : ''}
@@ -751,6 +752,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                     </div>
                   )}
                 </TabsContent>
+                </div>
               </ScrollArea>
               </div>
             </Tabs>
