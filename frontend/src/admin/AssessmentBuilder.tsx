@@ -462,10 +462,10 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-[92vw] h-[85vh] max-h-[85vh] overflow-hidden flex flex-col p-3 sm:p-4">
-        <DialogHeader className="flex-shrink-0 pb-1">
-          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
-            <ClipboardList className="h-4 w-4" />
+      <DialogContent className="max-w-3xl w-[95vw] h-[88vh] max-h-[88vh] overflow-hidden flex flex-col p-4 sm:p-5">
+        <DialogHeader className="flex-shrink-0 pb-2">
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base font-semibold">
+            <ClipboardList className="h-4 w-4 sm:h-5 sm:w-5" />
             {assessment?.id ? 'Edit Assessment' : 'Create Assessment'}
           </DialogTitle>
         </DialogHeader>
@@ -477,37 +477,41 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
         ) : (
           <>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <TabsList className="grid w-full grid-cols-3 flex-shrink-0 h-8 sm:h-9">
-                <TabsTrigger value="basic" className="text-xs sm:text-sm py-1">Basic</TabsTrigger>
-                <TabsTrigger value="scoring" className="text-xs sm:text-sm py-1">Scoring</TabsTrigger>
-                <TabsTrigger value="questions" className="text-xs sm:text-sm py-1">
-                  Q ({questions.length})
+              <TabsList className="grid w-full grid-cols-3 flex-shrink-0 h-9 sm:h-10 mb-1">
+                <TabsTrigger value="basic" className="text-xs sm:text-sm font-medium">
+                  Basic Info
+                </TabsTrigger>
+                <TabsTrigger value="scoring" className="text-xs sm:text-sm font-medium">
+                  Scoring
+                </TabsTrigger>
+                <TabsTrigger value="questions" className="text-xs sm:text-sm font-medium">
+                  Questions {questions.length > 0 && `(${questions.length})`}
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex-1 overflow-hidden mt-2 min-h-0">
+              <div className="flex-1 overflow-hidden min-h-0">
                 <ScrollArea className="h-full">
-                  <TabsContent value="basic" className="space-y-3 pr-2 sm:pr-3 mt-0 pb-2">
+                  <TabsContent value="basic" className="space-y-3 pr-3 sm:pr-4 mt-0 pb-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="name" className="text-xs sm:text-sm">Assessment Name *</Label>
+                    <Label htmlFor="name" className="text-sm font-medium">Assessment Name *</Label>
                     <Input
                       id="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g., General Anxiety Disorder (GAD-7)"
-                      className="h-8 sm:h-9 text-sm"
+                      className="h-9 text-sm"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="type" className="text-xs sm:text-sm">Type (Unique ID) *</Label>
+                    <Label htmlFor="type" className="text-sm font-medium">Type (Unique ID) *</Label>
                     <Input
                       id="type"
                       value={type}
                       onChange={(e) => setType(e.target.value)}
                       placeholder="e.g., gad7"
                       disabled={!!assessment?.id}
-                      className="h-8 sm:h-9 text-sm"
+                      className="h-9 text-sm"
                     />
                     {assessment?.id && (
                       <p className="text-xs text-muted-foreground">Type cannot be changed</p>
@@ -515,9 +519,9 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="category" className="text-xs sm:text-sm">Category *</Label>
+                    <Label htmlFor="category" className="text-sm font-medium">Category *</Label>
                     <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger id="category" className="h-8 sm:h-9 text-sm">
+                      <SelectTrigger id="category" className="h-9 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -531,7 +535,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="description" className="text-xs sm:text-sm">Description *</Label>
+                    <Label htmlFor="description" className="text-sm font-medium">Description *</Label>
                     <Textarea
                       id="description"
                       value={description}
@@ -543,13 +547,13 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="timeEstimate" className="text-xs sm:text-sm">Time Estimate</Label>
+                    <Label htmlFor="timeEstimate" className="text-sm font-medium">Time Estimate</Label>
                     <Input
                       id="timeEstimate"
                       value={timeEstimate}
                       onChange={(e) => setTimeEstimate(e.target.value)}
                       placeholder="e.g., 5 minutes"
-                      className="h-8 sm:h-9 text-sm"
+                      className="h-9 text-sm"
                     />
                   </div>
 
@@ -559,11 +563,11 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                       checked={isActive}
                       onCheckedChange={setIsActive}
                     />
-                    <Label htmlFor="isActive" className="text-xs sm:text-sm">Active (visible to users)</Label>
+                    <Label htmlFor="isActive" className="text-sm font-medium">Active (visible to users)</Label>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="scoring" className="space-y-3 pr-2 sm:pr-3 mt-0 pb-2">
+                <TabsContent value="scoring" className="space-y-3 pr-3 sm:pr-4 mt-0 pb-2">
                   <Card className="border-muted">
                     <CardHeader className="p-3 sm:p-4 pb-2">
                       <CardTitle className="text-xs sm:text-sm font-medium">Score Range</CardTitle>
@@ -673,7 +677,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="questions" className="space-y-2 pr-2 sm:pr-3 mt-0 pb-2">
+                <TabsContent value="questions" className="space-y-3 pr-3 sm:pr-4 mt-0 pb-2">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <p className="text-xs text-muted-foreground">
                       {questions.length} question{questions.length !== 1 ? 's' : ''}
@@ -751,21 +755,21 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
               </div>
             </Tabs>
 
-            <DialogFooter className="flex-shrink-0 mt-2 pt-2 border-t gap-2">
-              <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-initial h-8 text-xs sm:text-sm">
-                <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <DialogFooter className="flex-shrink-0 mt-3 pt-3 border-t gap-2">
+              <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-initial h-9 text-sm">
+                <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-initial h-8 text-xs sm:text-sm">
+              <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-initial h-9 text-sm">
                 {isSaving ? (
                   <>
-                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : (
                   <>
-                    <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                    Save
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Assessment
                   </>
                 )}
               </Button>
