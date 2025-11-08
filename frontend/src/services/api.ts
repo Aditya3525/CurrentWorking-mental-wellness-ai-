@@ -152,6 +152,16 @@ export interface AssessmentSessionSummary {
   }>;
 }
 
+export interface AvailableAssessment {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  timeEstimate: string;
+  type: string;
+  questions: number;
+}
+
 export interface ProgressEntry {
   id: string;
   userId: string;
@@ -465,12 +475,14 @@ class ApiClient {
     try {
       const url = `${this.baseURL}${endpoint}`;
       const config: RequestInit = {
-        headers: {
-          'Content-Type': 'application/json',
-          ...TokenManager.getAuthHeaders(),
-          ...options.headers,
-        },
+        credentials: options.credentials ?? 'include',
         ...options,
+      };
+
+      config.headers = {
+        'Content-Type': 'application/json',
+        ...TokenManager.getAuthHeaders(),
+        ...(options.headers ?? {}),
       };
 
       const response = await fetch(url, config);
@@ -647,6 +659,10 @@ export const usersApi = {
 export const assessmentsApi = {
   async getAssessments(): Promise<ApiResponse<unknown[]>> {
     return apiClient.get('/assessments');
+  },
+
+  async getAvailableAssessments(): Promise<ApiResponse<AvailableAssessment[]>> {
+    return apiClient.get('/assessments/available');
   },
 
   async getAssessmentTemplates(types?: string[]): Promise<ApiResponse<{ templates: AssessmentTemplate[] }>> {
@@ -963,6 +979,48 @@ export const crisisApi = {
   // Check current crisis level
   async checkLevel(): Promise<ApiResponse<CrisisDetectionResult>> {
     return apiClient.get('/crisis/check');
+  }
+};
+
+// Admin API
+export const adminApi = {
+  // Assessments
+  async listAssessments(params?: { category?: string; isActive?: boolean; search?: string }) {
+    const query = new URLSearchParams();
+    if (params?.category) query.append('category', params.category);
+    if (params?.isActive !== undefined) query.append('isActive', String(params.isActive));
+    if (params?.search) query.append('search', params.search);
+    
+    const queryString = query.toString();
+    return apiClient.get(`/admin/assessments${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  async getAssessment(id: string) {
+    return apiClient.get(`/admin/assessments/${id}`);
+  },
+  
+  async createAssessment(data: any) {
+    return apiClient.post('/admin/assessments', data);
+  },
+  
+  async updateAssessment(id: string, data: any) {
+    return apiClient.put(`/admin/assessments/${id}`, data);
+  },
+  
+  async deleteAssessment(id: string) {
+    return apiClient.delete(`/admin/assessments/${id}`);
+  },
+  
+  async duplicateAssessment(id: string) {
+    return apiClient.post(`/admin/assessments/${id}/duplicate`);
+  },
+  
+  async previewAssessment(id: string, responses: Record<string, string>) {
+    return apiClient.post(`/admin/assessments/${id}/preview`, { responses });
+  },
+  
+  async getAssessmentCategories() {
+    return apiClient.get('/admin/assessments/categories');
   }
 };
 

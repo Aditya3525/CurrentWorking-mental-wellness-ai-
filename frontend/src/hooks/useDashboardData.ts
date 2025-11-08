@@ -97,14 +97,30 @@ export interface PracticeDetail {
 }
 
 export interface InsightsResponse {
-  insights: Insight[];
+  insights?: Insight[];
   aiSummary: string;
-  overallTrend: string;
+  overallTrend?: string;
   wellnessScore?: {
     value: number;
     method: string;
     updatedAt: string;
   };
+  // Enhanced insights (combined assessments + chatbot)
+  assessments?: {
+    count: number;
+    averageScore: number;
+    trend: string;
+    recentScores: number[];
+  };
+  chatbot?: {
+    conversationCount: number;
+    averageEmotionalState: string;
+    commonTopics: string[];
+    lastConversationDate: string | null;
+  };
+  generatedAt?: string;
+  source?: 'combined' | 'assessments-only';
+  cached?: boolean;
 }
 
 export interface RecommendationResponse {
@@ -187,6 +203,23 @@ async function saveMoodEntry(token: string, mood: string, notes?: string): Promi
   if (!response.ok) {
     throw new Error('Failed to save mood entry');
   }
+}
+
+async function refreshInsights(token: string): Promise<InsightsResponse> {
+  const response = await fetch(`${API_BASE_URL}/dashboard/insights/refresh`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to refresh insights');
+  }
+
+  const data = await response.json();
+  return data.data || data; // Handle both response formats
 }
 
 // Custom hooks
@@ -286,6 +319,29 @@ export function useSaveMood() {
     onSuccess: () => {
       // Invalidate and refetch dashboard data
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useRefreshInsights() {
+  const queryClient = useQueryClient();
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Get token from localStorage (stored by TokenManager in api.ts)
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      setToken(storedToken);
+    }
+  }, []);
+
+  return useMutation({
+    mutationFn: () => refreshInsights(token!),
+    onSuccess: (data) => {
+      // Update the insights cache with fresh data
+      queryClient.setQueryData(['dashboard', 'insights'], data);
+      // Also invalidate summary to reflect updated insights
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'summary'] });
     },
   });
 }

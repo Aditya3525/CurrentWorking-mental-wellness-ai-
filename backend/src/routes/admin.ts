@@ -13,6 +13,21 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Joi from 'joi';
 import { PrismaClient } from '@prisma/client';
+import {
+  listAssessments,
+  getAssessment,
+  createAssessment,
+  updateAssessment,
+  deleteAssessment,
+  duplicateAssessment,
+  previewAssessment,
+  getCategories
+} from '../controllers/admin/assessmentAdminController';
+import { validate } from '../middleware/validate';
+import {
+  createAssessmentSchema,
+  updateAssessmentSchema
+} from '../api/validators/adminAssessment.validator';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -1039,5 +1054,43 @@ router.delete('/content/:id', requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Failed to delete content' });
   }
 });
+
+// ==========================================
+// ASSESSMENT MANAGEMENT ROUTES (ADMIN ONLY)
+// ==========================================
+
+// Get all assessments with filtering
+router.get('/assessments', requireAdmin, listAssessments);
+
+// Get assessment categories
+router.get('/assessments/categories', requireAdmin, getCategories);
+
+// Get single assessment by ID
+router.get('/assessments/:id', requireAdmin, getAssessment);
+
+// Create new assessment
+router.post(
+  '/assessments',
+  requireAdmin,
+  validate(createAssessmentSchema),
+  createAssessment
+);
+
+// Update assessment
+router.put(
+  '/assessments/:id',
+  requireAdmin,
+  validate(updateAssessmentSchema),
+  updateAssessment
+);
+
+// Delete (soft delete) assessment
+router.delete('/assessments/:id', requireAdmin, deleteAssessment);
+
+// Duplicate assessment
+router.post('/assessments/:id/duplicate', requireAdmin, duplicateAssessment);
+
+// Preview assessment scoring
+router.post('/assessments/:id/preview', requireAdmin, previewAssessment);
 
 export default router;

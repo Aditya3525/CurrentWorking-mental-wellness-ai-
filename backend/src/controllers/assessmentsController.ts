@@ -419,6 +419,56 @@ export const listAssessments = async (_req: Request, res: Response) => {
   res.json({ success: true, data: ASSESSMENT_CATALOG });
 };
 
+/**
+ * Get available assessments from database (excludes basic overall assessments)
+ * Returns only active assessments that are visible in the main assessment list
+ */
+export const getAvailableAssessments = async (_req: Request, res: Response) => {
+  try {
+    const assessments = await prisma.assessmentDefinition.findMany({
+      where: {
+        isActive: true,
+        visibleInMainList: true,
+        isBasicOverallOnly: false
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        category: true,
+        description: true,
+        timeEstimate: true,
+        _count: {
+          select: { questions: true }
+        }
+      },
+      orderBy: [
+        { category: 'asc' },
+        { name: 'asc' }
+      ]
+    });
+
+    const formattedAssessments = assessments.map((assessment) => ({
+      id: assessment.id,
+      title: assessment.name,
+      category: assessment.category,
+      description: assessment.description,
+      timeEstimate: assessment.timeEstimate || 'Not specified',
+      type: assessment.type,
+      questions: assessment._count.questions
+    }));
+
+    res.json({ success: true, data: formattedAssessments });
+  } catch (error) {
+    console.error('Error fetching available assessments:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch available assessments' 
+    });
+  }
+};
+
+
 export const getAssessmentTemplates = async (req: Request, res: Response) => {
   try {
     const typesParam = Array.isArray(req.query.types)

@@ -29,6 +29,24 @@ export function useAssessmentTemplates() {
 }
 
 /**
+ * Fetch available assessments (excludes basic overall assessments)
+ * Returns assessments that should be displayed in the main assessment list
+ */
+export function useAvailableAssessments() {
+  return useQuery({
+    queryKey: ['availableAssessments'],
+    queryFn: async () => {
+      const response = await assessmentsApi.getAvailableAssessments();
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch available assessments');
+      }
+      return response.data;
+    },
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes as these rarely change
+  });
+}
+
+/**
  * Fetch assessment history for current user
  */
 export function useAssessmentHistory() {

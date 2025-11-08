@@ -325,9 +325,20 @@ model AssessmentDefinition {
   description  String?
   timeEstimate String? @map("time_estimate")
   isActive     Boolean @default(true) @map("is_active")
+  isBasicOverallOnly Boolean @default(false) @map("is_basic_overall_only") // Flag for basic overall assessment questions
+  visibleInMainList  Boolean @default(true) @map("visible_in_main_list") // Show in Mental Wellness Assessment section
+  scoringConfig String? @map("scoring_config") // JSON: scoring logic, interpretation bands, domains
+  createdBy    String? @map("created_by") // Admin user ID who created
+  createdAt    DateTime? @default(now()) @map("created_at")
+  updatedAt    DateTime? @updatedAt @map("updated_at")
 
   questions AssessmentQuestion[]
 
+  @@index([category])
+  @@index([type])
+  @@index([isActive])
+  @@index([isBasicOverallOnly])
+  @@index([visibleInMainList])
   @@map("assessments")
 }
 
@@ -337,10 +348,15 @@ model AssessmentQuestion {
   text         String @map("question_text")
   order        Int    @map("question_order")
   responseType String @map("response_type")
+  domain       String? @map("domain") // Optional: for domain-based scoring (e.g., "intrusion", "avoidance")
+  reverseScored Boolean @default(false) @map("reverse_scored") // For questions where high=good
+  metadata     String? @map("metadata") // JSON: additional question config
 
   assessment AssessmentDefinition @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   options    ResponseOption[]
 
+  @@index([assessmentId])
+  @@index([order])
   @@map("questions")
 }
 

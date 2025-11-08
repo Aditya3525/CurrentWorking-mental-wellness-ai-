@@ -36,6 +36,8 @@ type AssessmentSeed = {
   description: string;
   timeEstimate?: string;
   isActive?: boolean;
+  isBasicOverallOnly?: boolean;
+  visibleInMainList?: boolean;
   questions: QuestionSeed[];
 };
 
@@ -554,6 +556,8 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Depression',
     description: 'Patient Health Questionnaire-2 (two-item depression screener).',
     timeEstimate: '2 minutes',
+    isBasicOverallOnly: true,
+    visibleInMainList: false,
     questions: buildQuestions(PHQ2_BASE, 1, 'phq2')
   },
   {
@@ -563,6 +567,8 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Anxiety',
     description: 'Generalized Anxiety Disorder 2-item quick screen.',
     timeEstimate: '2 minutes',
+    isBasicOverallOnly: true,
+    visibleInMainList: false,
     questions: buildQuestions(GAD2_BASE, 1, 'gad2')
   },
   {
@@ -572,6 +578,8 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Stress',
     description: 'Perceived Stress Scale - 4 item short form.',
     timeEstimate: '3 minutes',
+    isBasicOverallOnly: true,
+    visibleInMainList: false,
     questions: buildQuestions(PSS4_BASE, 1, 'pss4')
   },
   {
@@ -581,6 +589,8 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Overthinking',
     description: 'Ruminative Response Scale short form.',
     timeEstimate: '3 minutes',
+    isBasicOverallOnly: true,
+    visibleInMainList: false,
     questions: buildQuestions(RRS4_BASE, 1, 'rrs4')
   },
   {
@@ -590,6 +600,8 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Trauma',
     description: 'Primary Care PTSD Screen for DSM-5.',
     timeEstimate: '3 minutes',
+    isBasicOverallOnly: true,
+    visibleInMainList: false,
     questions: buildQuestions(PCPTSD5_BASE, 1, 'pc_ptsd_5')
   },
   {
@@ -599,6 +611,8 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Emotional Intelligence',
     description: 'Short emotional intelligence self-reflection.',
     timeEstimate: '4 minutes',
+    isBasicOverallOnly: true,
+    visibleInMainList: false,
     questions: buildQuestions(EQ5_BASE, 1, 'eq5')
   },
   {
@@ -608,6 +622,8 @@ const ASSESSMENT_SEEDS: AssessmentSeed[] = [
     category: 'Personality',
     description: 'Mini five-factor personality snapshot.',
     timeEstimate: '4 minutes',
+    isBasicOverallOnly: true,
+    visibleInMainList: false,
     questions: buildQuestions(BIG_FIVE_BASE, 1, 'big_five_short')
   },
   // Full-length assessments with different IDs
@@ -683,6 +699,8 @@ const BASIC_OVERALL_SEED: AssessmentSeed = {
   category: 'Composite',
   description: 'Combined quick assessment covering depression, anxiety, stress, trauma, rumination, personality, and emotional intelligence.',
   timeEstimate: '10 minutes',
+  isBasicOverallOnly: true,
+  visibleInMainList: false,
   questions: buildCompositeQuestions([
     PHQ2_BASE,
     GAD2_BASE,
@@ -711,6 +729,8 @@ async function seedAssessmentLibrary() {
         description: seed.description,
         timeEstimate: seed.timeEstimate,
         isActive: seed.isActive ?? true,
+        isBasicOverallOnly: seed.isBasicOverallOnly ?? false,
+        visibleInMainList: seed.visibleInMainList ?? true,
         questions: {
           create: seed.questions.map((question) => ({
             id: question.id,

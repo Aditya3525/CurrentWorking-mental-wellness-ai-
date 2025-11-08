@@ -3,9 +3,11 @@ import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth';
 import { buildAssessmentInsights } from '../services/assessmentInsightsService';
 import { recommendationService } from '../services/recommendationService';
+import { EnhancedInsightsService } from '../services/enhancedInsightsService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const enhancedInsightsService = new EnhancedInsightsService();
 
 // All routes require authentication
 router.use(authenticate as any);
@@ -215,6 +217,11 @@ router.get('/summary', async (req: Request, res: Response) => {
  * GET /api/dashboard/insights
  * Get AI-generated insights based on user's assessment history
  */
+/**
+ * GET /api/dashboard/insights
+ * Get combined insights from assessments and chatbot conversations
+ * Uses smart caching with daily expiration
+ */
 router.get('/insights', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
@@ -222,43 +229,104 @@ router.get('/insights', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const assessments = await prisma.assessmentResult.findMany({
-      where: { userId },
-      orderBy: { completedAt: 'desc' },
-      take: 20
-    });
+    // Get combined insights (assessments + chatbot)
+    const combinedInsights = await enhancedInsightsService.getDashboardInsights(userId);
 
-    if (assessments.length === 0) {
+    if (!combinedInsights) {
+      // Fallback to assessment-only insights if combined insights fail
+      const assessments = await prisma.assessmentResult.findMany({
+        where: { userId },
+        orderBy: { completedAt: 'desc' },
+        take: 20
+      });
+
+      if (assessments.length === 0) {
+        return res.json({
+          insights: [],
+          message: 'Complete your first assessment or chat with our AI to receive personalized insights.'
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, name: true }
+      });
+
+      const assessmentInsights = await buildAssessmentInsights(
+        assessments,
+        { userName: user?.firstName || user?.name }
+      );
+
+      const insights = generateInsightsFromAssessments(
+        assessmentInsights.insights.byType,
+        assessmentInsights.insights.aiSummary
+      );
+
       return res.json({
-        insights: [],
-        message: 'Complete your first assessment to receive personalized insights.'
+        insights,
+        aiSummary: assessmentInsights.insights.aiSummary,
+        overallTrend: assessmentInsights.insights.overallTrend,
+        wellnessScore: assessmentInsights.insights.wellnessScore,
+        source: 'assessments-only',
+        cached: false
       });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { firstName: true, name: true }
-    });
-
-    const assessmentInsights = await buildAssessmentInsights(
-      assessments,
-      { userName: user?.firstName || user?.name }
-    );
-
-    const insights = generateInsightsFromAssessments(
-      assessmentInsights.insights.byType,
-      assessmentInsights.insights.aiSummary
-    );
-
+    // Return combined insights
     res.json({
-      insights,
-      aiSummary: assessmentInsights.insights.aiSummary,
-      overallTrend: assessmentInsights.insights.overallTrend,
-      wellnessScore: assessmentInsights.insights.wellnessScore
+      assessments: combinedInsights.assessments,
+      chatbot: combinedInsights.chatbot,
+      aiSummary: combinedInsights.aiSummary,
+      generatedAt: combinedInsights.generatedAt,
+      source: 'combined',
+      cached: true
     });
   } catch (error) {
     console.error('Error fetching insights:', error);
     res.status(500).json({ error: 'Failed to load insights' });
+  }
+});
+
+/**
+ * POST /api/dashboard/insights/refresh
+ * Force refresh of combined insights (bypasses cache)
+ * Useful for manual refresh button in UI
+ */
+router.post('/insights/refresh', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Force regeneration by passing forceRefresh=true
+    const combinedInsights = await enhancedInsightsService.getDashboardInsights(userId, true);
+
+    if (!combinedInsights) {
+      return res.status(500).json({ 
+        error: 'Failed to generate insights',
+        message: 'Unable to refresh insights at this time. Please try again later.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Insights refreshed successfully',
+      data: {
+        assessments: combinedInsights.assessments,
+        chatbot: combinedInsights.chatbot,
+        aiSummary: combinedInsights.aiSummary,
+        generatedAt: combinedInsights.generatedAt,
+        source: 'combined',
+        cached: false
+      }
+    });
+  } catch (error) {
+    console.error('Error refreshing insights:', error);
+    res.status(500).json({ 
+      error: 'Failed to refresh insights',
+      message: 'An unexpected error occurred while refreshing insights.'
+    });
   }
 });
 

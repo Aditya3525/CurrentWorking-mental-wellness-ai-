@@ -36,6 +36,7 @@ import {
   PullToRefreshIndicator,
   useOnlineStatus
 } from './DashboardLoadingStates';
+import { EnhancedInsightsCard } from './EnhancedInsightsCard';
 
 import {
   DashboardCustomizer,
@@ -81,7 +82,6 @@ export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = fal
   // Use dashboard data or fallback to prop
   const user = dashboardData?.user || userProp;
   const assessmentScores = dashboardData?.assessmentScores;
-  const recentInsights = dashboardData?.recentInsights || [];
   const weeklyProgress = weeklyData || dashboardData?.weeklyProgress;
   const recommendedPractice = dashboardData?.recommendedPractice;
 
@@ -769,83 +769,10 @@ export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = fal
             </>
           )}
 
-        {/* Priority 5: Recent Insights & This Week - Collapsible on mobile */}
+        {/* Priority 5: Enhanced AI Insights & This Week */}
         <ResponsiveGrid columns="custom" className="lg:grid-cols-2" gap="medium">
-          {device.isMobile ? (
-            <CollapsibleSection
-              title="Recent Insights"
-              icon={<TrendingUp className="h-5 w-5 text-primary" />}
-              defaultOpen={false}
-              summary="2 new patterns detected"
-            >
-              {recentInsights.length > 0 ? (
-                <ResponsiveStack spacing="compact">
-                  {recentInsights.map((insight, index) => (
-                    <div key={index} className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-sm">
-                        <strong>{insight.title}:</strong> {insight.description}
-                      </p>
-                    </div>
-                  ))}
-                </ResponsiveStack>
-              ) : (
-                <div className="text-center space-y-3 py-6">
-                  <Brain className="h-12 w-12 text-muted-foreground mx-auto" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">No insights yet</p>
-                    <p className="text-xs text-muted-foreground">
-                      Take your first assessment to get personalized insights
-                    </p>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    onClick={() => onNavigate('assessments')}
-                    className="min-h-[44px]"
-                  >
-                    Get Started
-                  </Button>
-                </div>
-              )}
-            </CollapsibleSection>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Recent Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {recentInsights.length > 0 ? (
-                  <div className="space-y-3">
-                    {recentInsights.map((insight, index) => (
-                      <div key={index} className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-sm">
-                          <strong>{insight.title}:</strong> {insight.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center space-y-3 py-6">
-                    <Brain className="h-12 w-12 text-muted-foreground mx-auto" />
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">No insights yet</p>
-                      <p className="text-xs text-muted-foreground">
-                        Take your first assessment to get personalized insights
-                      </p>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      onClick={() => onNavigate('assessments')}
-                    >
-                      Get Started
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Enhanced Insights Card - replaces old Recent Insights */}
+          <EnhancedInsightsCard onNavigate={onNavigate} />
 
           {device.isMobile ? (
             <CollapsibleSection

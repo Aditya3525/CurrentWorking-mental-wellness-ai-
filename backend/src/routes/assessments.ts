@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticate } from '../middleware/auth';
 import {
 	listAssessments,
+	getAvailableAssessments,
 	getAssessmentTemplates,
 	submitAssessment,
 	getAssessmentHistory,
@@ -24,6 +25,7 @@ const router = express.Router();
 
 router.use(authenticate as any);
 router.get('/', listAssessments as any);
+router.get('/available', getAvailableAssessments as any);
 router.get('/templates', validate(getAssessmentTemplatesSchema), getAssessmentTemplates as any);
 router.post('/', validate(submitAssessmentSchema), submitAssessment as any);
 router.post('/submit-combined', submitCombinedAssessments as any);

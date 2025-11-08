@@ -20,6 +20,7 @@ import {
 import React, { useState } from 'react';
 
 import { useDevice } from '../../../hooks/use-device';
+import { useAvailableAssessments } from '../../../hooks/useAssessments';
 import {
   AssessmentHistoryEntry,
   AssessmentInsights,
@@ -72,6 +73,49 @@ interface AssessmentCardState extends AssessmentCardConfig {
   recommendations?: string[];
   trendLabel?: string;
 }
+
+// Map assessment category to appropriate icon
+const getCategoryIcon = (category: string): React.ReactNode => {
+  const normalizedCategory = category.toLowerCase();
+  
+  if (normalizedCategory.includes('anxiety')) {
+    return <Brain className="h-6 w-6" />;
+  } else if (normalizedCategory.includes('depression')) {
+    return <Heart className="h-6 w-6" />;
+  } else if (normalizedCategory.includes('stress')) {
+    return <Target className="h-6 w-6" />;
+  } else if (normalizedCategory.includes('emotional')) {
+    return <Sparkles className="h-6 w-6" />;
+  } else if (normalizedCategory.includes('overthinking') || normalizedCategory.includes('rumination')) {
+    return <Zap className="h-6 w-6" />;
+  } else if (normalizedCategory.includes('trauma') || normalizedCategory.includes('ptsd')) {
+    return <Shield className="h-6 w-6" />;
+  } else if (normalizedCategory.includes('personality')) {
+    return <Users className="h-6 w-6" />;
+  }
+  
+  // Default icon
+  return <BarChart3 className="h-6 w-6" />;
+};
+
+// Map assessment type to difficulty level
+const getAssessmentDifficulty = (type: string, questionCount: number): 'Beginner' | 'Intermediate' | 'Advanced' => {
+  if (type === 'Basic') return 'Beginner';
+  if (questionCount >= 20) return 'Advanced';
+  if (questionCount >= 10) return 'Intermediate';
+  return 'Beginner';
+};
+
+// Map assessment to category (required/recommended/optional)
+const getAssessmentCategory = (category: string): 'required' | 'recommended' | 'optional' => {
+  const normalizedCategory = category.toLowerCase();
+  if (normalizedCategory.includes('anxiety') || normalizedCategory.includes('depression') || normalizedCategory.includes('stress')) {
+    return 'required';
+  } else if (normalizedCategory.includes('emotional') || normalizedCategory.includes('overthinking')) {
+    return 'recommended';
+  }
+  return 'optional';
+};
 
 const baseAssessments: AssessmentCardConfig[] = [
   {
@@ -207,6 +251,9 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
   const [activeFilter, setActiveFilter] = useState<'all' | 'required' | 'recommended' | 'optional'>('all');
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(!device.isMobile);
   
+  // Fetch available assessments from the backend
+  const { data: availableAssessmentsData, isLoading: isLoadingAssessments, error: assessmentsError } = useAvailableAssessments();
+  
   const summaryByType = insights?.byType ?? {};
   const combinedWellnessScore = insights?.wellnessScore ? Math.round(insights.wellnessScore.value) : null;
   const combinedWellnessUpdatedAt = insights?.wellnessScore?.updatedAt;
@@ -282,7 +329,23 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
     }
   };
 
-  const assessments: AssessmentCardState[] = baseAssessments.map((assessment) => {
+  // Convert available assessments from backend to AssessmentCardConfig format
+  const dynamicAssessments: AssessmentCardConfig[] = (availableAssessmentsData || []).map((assessment) => ({
+    id: assessment.id,
+    title: assessment.title,
+    description: assessment.description,
+    duration: assessment.timeEstimate,
+    questions: assessment.questions,
+    icon: getCategoryIcon(assessment.category),
+    difficulty: getAssessmentDifficulty(assessment.type, assessment.questions),
+    category: getAssessmentCategory(assessment.category),
+    typeKey: assessment.id
+  }));
+
+  // Use dynamic assessments if available, otherwise fallback to hardcoded base assessments
+  const assessmentsSource = dynamicAssessments.length > 0 ? dynamicAssessments : baseAssessments;
+
+  const assessments: AssessmentCardState[] = assessmentsSource.map((assessment) => {
     const typeKey = assessment.typeKey;
     const summary = resolveSummary(typeKey);
 
@@ -392,6 +455,24 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
       change: next ? snapshot.combinedScore - next.combinedScore : null
     };
   });
+
+  // Show loading state while fetching assessments
+  if (isLoadingAssessments) {
+    return (
+      <ResponsiveContainer spacing={device.isMobile ? 'small' : 'medium'} className="min-h-screen bg-background pb-safe">
+        <div className="flex flex-col items-center justify-center h-96 space-y-4">
+          <InlineLoading size={device.isMobile ? 'sm' : 'md'} />
+          <p className="text-muted-foreground">Loading assessments...</p>
+        </div>
+      </ResponsiveContainer>
+    );
+  }
+
+  // Show error state if assessments failed to load (with fallback to hardcoded)
+  if (assessmentsError && dynamicAssessments.length === 0) {
+    console.error('Failed to load assessments:', assessmentsError);
+    // Continue rendering with fallback baseAssessments
+  }
 
   return (
     <ResponsiveContainer spacing={device.isMobile ? 'small' : 'medium'} className="min-h-screen bg-background pb-safe">
