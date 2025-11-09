@@ -29,6 +29,18 @@ import {
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
+
+// Type for available assessment from API
+interface AvailableAssessment {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  timeEstimate: string;
+  type: string;
+  questions: number;
+  tags: string;
+}
 import { InlineLoading } from '../../ui/loading-spinner';
 import { Progress } from '../../ui/progress';
 import { 
@@ -60,8 +72,9 @@ interface AssessmentCardConfig {
   questions: number;
   icon: React.ReactNode;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  category: 'required' | 'recommended' | 'optional';
+  category: 'required' | 'recommended' | 'optional' | 'advanced';
   typeKey?: string;
+  tags?: string[]; // All tags for this assessment
 }
 
 interface AssessmentCardState extends AssessmentCardConfig {
@@ -106,13 +119,15 @@ const getAssessmentDifficulty = (type: string, questionCount: number): 'Beginner
   return 'Beginner';
 };
 
-// Map assessment to category (required/recommended/optional)
-const getAssessmentCategory = (category: string): 'required' | 'recommended' | 'optional' => {
+// Map assessment to category (required/recommended/optional/advanced)
+const getAssessmentCategory = (category: string): 'required' | 'recommended' | 'optional' | 'advanced' => {
   const normalizedCategory = category.toLowerCase();
   if (normalizedCategory.includes('anxiety') || normalizedCategory.includes('depression') || normalizedCategory.includes('stress')) {
     return 'required';
   } else if (normalizedCategory.includes('emotional') || normalizedCategory.includes('overthinking')) {
     return 'recommended';
+  } else if (normalizedCategory.includes('advanced') || normalizedCategory.includes('personality') || normalizedCategory.includes('trauma')) {
+    return 'advanced';
   }
   return 'optional';
 };
@@ -248,7 +263,7 @@ const formatChange = (change?: number | null): string | undefined => {
 
 export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, onNavigate, onViewAssessmentResults, insights, history, isLoading, isStartingCombinedAssessment, errorMessage }: AssessmentListProps) {
   const device = useDevice();
-  const [activeFilter, setActiveFilter] = useState<'all' | 'required' | 'recommended' | 'optional'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'required' | 'recommended' | 'optional' | 'advanced'>('all');
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(!device.isMobile);
   
   // Fetch available assessments from the backend
@@ -330,17 +345,38 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
   };
 
   // Convert available assessments from backend to AssessmentCardConfig format
-  const dynamicAssessments: AssessmentCardConfig[] = (availableAssessmentsData || []).map((assessment) => ({
-    id: assessment.id,
-    title: assessment.title,
-    description: assessment.description,
-    duration: assessment.timeEstimate,
-    questions: assessment.questions,
-    icon: getCategoryIcon(assessment.category),
-    difficulty: getAssessmentDifficulty(assessment.type, assessment.questions),
-    category: getAssessmentCategory(assessment.category),
-    typeKey: assessment.id
-  }));
+  const dynamicAssessments: AssessmentCardConfig[] = (availableAssessmentsData || []).map((assessment: AvailableAssessment) => {
+    // Parse tags from comma-separated string, fallback to category mapping
+    const tags = assessment.tags ? assessment.tags.split(',').map((t: string) => t.trim()) : [];
+    
+    // Determine primary category from tags or fallback to getAssessmentCategory
+    let primaryCategory: 'required' | 'recommended' | 'optional' | 'advanced' = 'optional';
+    if (tags.includes('required')) {
+      primaryCategory = 'required';
+    } else if (tags.includes('recommended')) {
+      primaryCategory = 'recommended';
+    } else if (tags.includes('advanced')) {
+      primaryCategory = 'advanced';
+    } else if (tags.includes('optional')) {
+      primaryCategory = 'optional';
+    } else {
+      // Fallback to original category mapping
+      primaryCategory = getAssessmentCategory(assessment.category);
+    }
+    
+    return {
+      id: assessment.id,
+      title: assessment.title,
+      description: assessment.description,
+      duration: assessment.timeEstimate,
+      questions: assessment.questions,
+      icon: getCategoryIcon(assessment.category),
+      difficulty: getAssessmentDifficulty(assessment.type, assessment.questions),
+      category: primaryCategory,
+      typeKey: assessment.type, // Use assessment type, not ID
+      tags: tags.length > 0 ? tags : ['all']
+    };
+  });
 
   // Use dynamic assessments if available, otherwise fallback to hardcoded base assessments
   const assessmentsSource = dynamicAssessments.length > 0 ? dynamicAssessments : baseAssessments;
@@ -362,16 +398,18 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
   });
 
   // Filter assessments based on active filter
+  // Show assessments that have the selected tag (allows assessments to appear in multiple tabs)
   const filteredAssessments = activeFilter === 'all' 
     ? assessments 
-    : assessments.filter(a => a.category === activeFilter);
+    : assessments.filter(a => a.tags?.includes(activeFilter) || a.category === activeFilter);
 
-  // Count assessments by category
+  // Count assessments by category (including tags)
   const categoryCount = {
     all: assessments.length,
-    required: assessments.filter(a => a.category === 'required').length,
-    recommended: assessments.filter(a => a.category === 'recommended').length,
-    optional: assessments.filter(a => a.category === 'optional').length
+    required: assessments.filter(a => a.tags?.includes('required') || a.category === 'required').length,
+    recommended: assessments.filter(a => a.tags?.includes('recommended') || a.category === 'recommended').length,
+    optional: assessments.filter(a => a.tags?.includes('optional') || a.category === 'optional').length,
+    advanced: assessments.filter(a => a.tags?.includes('advanced') || a.category === 'advanced').length
   };
 
   const getCategoryColor = (category: string) => {
@@ -382,6 +420,8 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
         return 'bg-yellow-100 text-yellow-800';
       case 'optional':
         return 'bg-green-100 text-green-800';
+      case 'advanced':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -627,6 +667,15 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
             >
               Optional ({categoryCount.optional})
             </Button>
+            <Button
+              variant={activeFilter === 'advanced' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveFilter('advanced')}
+              className={`${device.isMobile ? 'min-w-[110px] snap-start' : ''} min-h-[44px] touch-manipulation whitespace-nowrap`}
+              aria-current={activeFilter === 'advanced' ? 'page' : undefined}
+            >
+              Advanced ({categoryCount.advanced})
+            </Button>
           </div>
           {activeFilter !== 'all' && (
             <p className="text-xs text-muted-foreground mt-2">
@@ -855,7 +904,7 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
                     {assessment.completed ? (
                       <>
                         <Button 
-                          onClick={() => onStartAssessment(assessment.id)} 
+                          onClick={() => onStartAssessment(assessment.typeKey || assessment.id)} 
                           size="sm"
                           className={`${device.isMobile ? 'w-full' : ''} min-h-[44px] touch-manipulation`}
                           aria-label={`Retake ${assessment.title}`}
@@ -876,7 +925,7 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
                       </>
                     ) : (
                       <Button 
-                        onClick={() => onStartAssessment(assessment.id)} 
+                        onClick={() => onStartAssessment(assessment.typeKey || assessment.id)} 
                         className={`${device.isMobile ? 'w-full' : ''} min-h-[44px] touch-manipulation`}
                         size={device.isMobile ? 'default' : 'sm'}
                         aria-label={`Start ${assessment.title}`}

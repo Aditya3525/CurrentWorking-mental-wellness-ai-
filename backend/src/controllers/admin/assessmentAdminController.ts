@@ -234,7 +234,8 @@ export const createAssessment = async (req: Request, res: Response) => {
       timeEstimate,
       scoringConfig,
       questions,
-      isActive = true
+      isActive = true,
+      tags
     } = req.body;
 
     // Check for duplicate type
@@ -265,6 +266,7 @@ export const createAssessment = async (req: Request, res: Response) => {
           timeEstimate,
           scoringConfig: JSON.stringify(scoringConfig),
           isActive,
+          tags: tags || 'all',
           createdBy: adminId
         }
       });
@@ -349,6 +351,7 @@ export const updateAssessment = async (req: Request, res: Response) => {
       if (updateData.description) data.description = updateData.description;
       if (updateData.timeEstimate !== undefined) data.timeEstimate = updateData.timeEstimate;
       if (updateData.isActive !== undefined) data.isActive = updateData.isActive;
+      if (updateData.tags !== undefined) data.tags = updateData.tags;
       if (updateData.scoringConfig) data.scoringConfig = JSON.stringify(updateData.scoringConfig);
 
       // Update assessment

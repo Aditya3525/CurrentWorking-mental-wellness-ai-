@@ -13,6 +13,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Checkbox } from '../components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -109,6 +110,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
   const [description, setDescription] = useState('');
   const [timeEstimate, setTimeEstimate] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [selectedTags, setSelectedTags] = useState<string[]>(['all']);
 
   // Scoring State
   const [minScore, setMinScore] = useState(0);
@@ -192,6 +194,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
           description: string | null;
           timeEstimate: string | null;
           isActive: boolean;
+          tags?: string | null;
           scoringConfig: ScoringConfig | null;
           questions: Question[];
         };
@@ -202,6 +205,14 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
         setDescription(data.description || '');
         setTimeEstimate(data.timeEstimate || '');
         setIsActive(data.isActive);
+        
+        // Parse tags from comma-separated string
+        if (data.tags) {
+          const tags = data.tags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+          setSelectedTags(tags.length > 0 ? tags : ['all']);
+        } else {
+          setSelectedTags(['all']);
+        }
 
         if (data.scoringConfig) {
           setMinScore(data.scoringConfig.minScore);
@@ -238,6 +249,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
     setDescription('');
     setTimeEstimate('');
     setIsActive(false);
+    setSelectedTags(['all']);
     setMinScore(0);
     setMaxScore(0);
     setInterpretationBands([{ max: 5, label: 'Minimal', color: '#10b981' }]);
@@ -334,6 +346,7 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
       description: description.trim(),
       timeEstimate: timeEstimate.trim() || null,
       isActive,
+      tags: selectedTags.join(','),
       scoringConfig: {
         minScore,
         maxScore,
@@ -574,6 +587,42 @@ export const AssessmentBuilder: React.FC<AssessmentBuilderProps> = ({
                       onCheckedChange={setIsActive}
                     />
                     <Label htmlFor="isActive" className="text-sm font-medium">Active (visible to users)</Label>
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <Label className="text-sm font-medium">Display Tags</Label>
+                    <p className="text-xs text-muted-foreground">Select which tabs this assessment will appear in</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { value: 'all', label: 'All' },
+                        { value: 'required', label: 'Required' },
+                        { value: 'recommended', label: 'Recommended' },
+                        { value: 'optional', label: 'Optional' },
+                        { value: 'advanced', label: 'Advanced' }
+                      ].map((tag) => (
+                        <div key={tag.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`tag-${tag.value}`}
+                            checked={selectedTags.includes(tag.value)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedTags([...selectedTags, tag.value]);
+                              } else {
+                                const newTags = selectedTags.filter(t => t !== tag.value);
+                                // Always keep at least 'all' selected
+                                setSelectedTags(newTags.length > 0 ? newTags : ['all']);
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor={`tag-${tag.value}`}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            {tag.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </TabsContent>
 

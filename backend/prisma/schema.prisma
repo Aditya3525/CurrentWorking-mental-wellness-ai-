@@ -327,6 +327,7 @@ model AssessmentDefinition {
   isActive     Boolean @default(true) @map("is_active")
   isBasicOverallOnly Boolean @default(false) @map("is_basic_overall_only") // Flag for basic overall assessment questions
   visibleInMainList  Boolean @default(true) @map("visible_in_main_list") // Show in Mental Wellness Assessment section
+  tags         String? @map("tags") // Comma-separated tags: all,required,recommended,optional,advanced
   scoringConfig String? @map("scoring_config") // JSON: scoring logic, interpretation bands, domains
   createdBy    String? @map("created_by") // Admin user ID who created
   createdAt    DateTime? @default(now()) @map("created_at")

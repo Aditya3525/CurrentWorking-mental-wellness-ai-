@@ -438,6 +438,7 @@ export const getAvailableAssessments = async (_req: Request, res: Response) => {
         category: true,
         description: true,
         timeEstimate: true,
+        tags: true,
         _count: {
           select: { questions: true }
         }
@@ -455,7 +456,8 @@ export const getAvailableAssessments = async (_req: Request, res: Response) => {
       description: assessment.description,
       timeEstimate: assessment.timeEstimate || 'Not specified',
       type: assessment.type,
-      questions: assessment._count.questions
+      questions: assessment._count.questions,
+      tags: assessment.tags || 'all'
     }));
 
     res.json({ success: true, data: formattedAssessments });
@@ -481,45 +483,76 @@ export const getAssessmentTemplates = async (req: Request, res: Response) => {
       ? typesParam.split(',').map((type) => type.trim()).filter(Boolean)
       : (Object.keys(ASSESSMENT_TEMPLATE_MAP) as TemplateBaseType[]);
 
-    const resolvedBaseTypes = Array.from(
-      new Set(
-        requestedTypes
-          .map((type) => resolveTemplateType(type))
-          .filter((type): type is TemplateBaseType => Boolean(type))
-      )
-    );
-
-    if (!resolvedBaseTypes.length) {
-      res.status(400).json({ success: false, error: 'No valid assessment types provided' });
-      return;
+    // Separate built-in types from custom/dynamic types
+    const builtInTypes: TemplateBaseType[] = [];
+    const customTypes: string[] = [];
+    
+    for (const type of requestedTypes) {
+      const resolved = resolveTemplateType(type);
+      if (resolved && resolved in ASSESSMENT_TEMPLATE_MAP) {
+        builtInTypes.push(resolved);
+      } else {
+        // Treat as custom assessment type
+        customTypes.push(type);
+      }
     }
 
-    const definitionIds = resolvedBaseTypes.map((type) => ASSESSMENT_TEMPLATE_MAP[type].definitionId);
+    const templates: any[] = [];
 
-    const definitions = await prisma.assessmentDefinition.findMany({
-      where: { id: { in: definitionIds } },
-      include: {
-        questions: {
-          include: { options: true },
-          orderBy: { order: 'asc' }
+    // Fetch built-in assessment templates
+    if (builtInTypes.length > 0) {
+      const resolvedBaseTypes = Array.from(new Set(builtInTypes));
+      const definitionIds = resolvedBaseTypes.map((type) => ASSESSMENT_TEMPLATE_MAP[type].definitionId);
+
+      const definitions = await prisma.assessmentDefinition.findMany({
+        where: { id: { in: definitionIds } },
+        include: {
+          questions: {
+            include: { options: true },
+            orderBy: { order: 'asc' }
+          }
         }
-      }
-    });
+      });
 
-    const definitionById = new Map(
-      definitions.map((definition) => [definition.id, definition] as const)
-    );
+      const definitionById = new Map(
+        definitions.map((definition) => [definition.id, definition] as const)
+      );
 
-    const templates = resolvedBaseTypes
-      .map((baseType) => {
-        const mapping = ASSESSMENT_TEMPLATE_MAP[baseType];
-        const definition = definitionById.get(mapping.definitionId);
-        if (!definition) {
-          return null;
+      const builtInTemplates = resolvedBaseTypes
+        .map((baseType) => {
+          const mapping = ASSESSMENT_TEMPLATE_MAP[baseType];
+          const definition = definitionById.get(mapping.definitionId);
+          if (!definition) {
+            return null;
+          }
+          return formatAssessmentTemplate(baseType, definition);
+        })
+        .filter((template): template is ReturnType<typeof formatAssessmentTemplate> => template !== null);
+      
+      templates.push(...builtInTemplates);
+    }
+
+    // Fetch custom/dynamic assessment templates by type
+    if (customTypes.length > 0) {
+      const customDefinitions = await prisma.assessmentDefinition.findMany({
+        where: {
+          type: { in: customTypes },
+          isActive: true
+        },
+        include: {
+          questions: {
+            include: { options: true },
+            orderBy: { order: 'asc' }
+          }
         }
-        return formatAssessmentTemplate(baseType, definition);
-      })
-      .filter((template): template is ReturnType<typeof formatAssessmentTemplate> => template !== null);
+      });
+
+      const customTemplates = customDefinitions.map((definition) => {
+        return formatAssessmentTemplate(definition.type as any, definition);
+      });
+      
+      templates.push(...customTemplates);
+    }
 
     if (!templates.length) {
       res.status(404).json({ success: false, error: 'Assessment templates not found' });
