@@ -360,6 +360,78 @@ const formatAssessmentTemplate = (
   };
 };
 
+// Format custom/dynamic assessment templates (those not in TEMPLATE_SCORING)
+const formatCustomAssessmentTemplate = (
+  definition: AssessmentDefinitionWithQuestions
+) => {
+  // Parse scoring config from the definition
+  let scoring: any = {
+    minScore: 0,
+    maxScore: 0,
+    interpretationBands: []
+  };
+
+  if (definition.scoringConfig) {
+    try {
+      const parsed = JSON.parse(definition.scoringConfig);
+      scoring = {
+        minScore: parsed.minScore ?? 0,
+        maxScore: parsed.maxScore ?? 0,
+        interpretationBands: parsed.interpretationBands ?? [],
+        reverseScored: parsed.reverseScored ?? [],
+        domains: parsed.domains ?? []
+      };
+    } catch (e) {
+      console.warn('Failed to parse scoring config for custom assessment:', e);
+    }
+  }
+
+  const reverseSet = new Set(scoring.reverseScored ?? []);
+  const domainLookup = new Map<string, string>();
+
+  scoring.domains?.forEach((domain: any) => {
+    if (domain.questionIds) {
+      domain.questionIds.forEach((qId: string) => {
+        domainLookup.set(qId, domain.label);
+      });
+    }
+  });
+
+  return {
+    assessmentType: definition.type,
+    definitionId: definition.id,
+    title: definition.name,
+    description: definition.description ?? '',
+    estimatedTime: definition.timeEstimate ?? null,
+    scoring,
+    questions: definition.questions
+      .sort((a, b) => a.order - b.order)
+      .map((question) => ({
+        id: question.id,
+        text: question.text,
+        responseType: question.responseType,
+        uiType: mapResponseTypeToUi(question.responseType),
+        reverseScored: reverseSet.has(question.id) || question.reverseScored || false,
+        domain: question.domain || domainLookup.get(question.id) || null,
+        options: question.options
+          .sort((a, b) => a.order - b.order)
+          .map((option) => {
+            const numericValue =
+              typeof option.value === 'number' && !Number.isNaN(option.value)
+                ? option.value
+                : option.order - 1;
+
+            return {
+              id: option.id,
+              value: numericValue,
+              text: option.text,
+              order: option.order
+            };
+          })
+      }))
+  };
+};
+
 // Static catalog of supported assessments (could be stored in DB in future)
 const ASSESSMENT_CATALOG = [
   { id: 'depression', title: 'Depression Assessment (PHQ-9)', questions: 9 },
@@ -396,7 +468,7 @@ const VALID_ASSESSMENT_TYPES = [
 ];
 
 const submitSchema = Joi.object({
-  assessmentType: Joi.string().valid(...VALID_ASSESSMENT_TYPES).required(),
+  assessmentType: Joi.string().required(), // Accept any string - will validate against database
   responses: Joi.object().required(),
   responseDetails: Joi.array()
     .items(
@@ -548,7 +620,7 @@ export const getAssessmentTemplates = async (req: Request, res: Response) => {
       });
 
       const customTemplates = customDefinitions.map((definition) => {
-        return formatAssessmentTemplate(definition.type as any, definition);
+        return formatCustomAssessmentTemplate(definition);
       });
       
       templates.push(...customTemplates);
