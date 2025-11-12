@@ -1371,7 +1371,25 @@ async function seedAssessmentInsightForUser(userId: string) {
 async function main() {
   console.log('🌱 Seeding database...');
   await seedAssessmentLibrary();
-  const admin = await upsertAdmin('admin@example.com', {
+  // Primary admin user
+  const admin = await upsertAdmin('admin@mentalwellness.app', {
+    name: 'Admin User',
+    firstName: 'Admin',
+    lastName: 'User',
+    profilePhoto: 'https://avatars.githubusercontent.com/u/1?v=4',
+    approach: 'hybrid',
+    birthday: new Date('1985-03-18'),
+    gender: 'prefer not to say',
+    region: 'Global',
+    language: 'en-US',
+    emergencyContact: 'Support Team',
+    emergencyPhone: '+1-555-ADMIN',
+    dataConsent: true,
+    clinicianSharing: true,
+    isOnboarded: true
+  });
+
+  await upsertAdmin('admin@example.com', {
     name: 'Jordan Taylor',
     firstName: 'Jordan',
     lastName: 'Taylor',
@@ -1404,6 +1422,24 @@ async function main() {
     clinicianSharing: false,
     isOnboarded: true
   });
+
+  // Main demo user for public access
+  const demoUser = await upsertDemoUser('demo@mentalwellness.app', {
+    name: 'Demo User',
+    firstName: 'Demo',
+    lastName: 'User',
+    profilePhoto: 'https://placehold.co/200x200/demo',
+    approach: 'hybrid',
+    birthday: new Date('1995-06-15'),
+    gender: 'prefer not to say',
+    region: 'Global',
+    language: 'en-US',
+    emergencyContact: 'Support Team',
+    emergencyPhone: '+1-555-000-0000',
+    dataConsent: true,
+    clinicianSharing: false,
+    isOnboarded: true
+  }, { password: 'Demo@123' });
 
   const demoUser1 = await upsertDemoUser('user1@example.com', {
     name: 'Avery Johnson',
@@ -1441,19 +1477,31 @@ async function main() {
   await seedPractices();
   await seedContent();
   await seedPlanModules();
+  await assignPlanModulesToUser(demoUser.id);
   await assignPlanModulesToUser(demoUser1.id);
   await assignPlanModulesToUser(demoUser2.id);
+  await seedMoodEntriesForUser(demoUser.id);
   await seedMoodEntriesForUser(demoUser1.id);
   await seedMoodEntriesForUser(demoUser2.id);
+  await seedProgressTrackingForUser(demoUser.id);
   await seedProgressTrackingForUser(demoUser1.id);
   await seedProgressTrackingForUser(demoUser2.id);
+  await seedAssessmentsForUser(demoUser.id);
   await seedAssessmentsForUser(demoUser1.id);
   await seedAssessmentsForUser(demoUser2.id);
+  await seedAssessmentInsightForUser(demoUser.id);
   await seedAssessmentInsightForUser(demoUser1.id);
   await seedAssessmentInsightForUser(demoUser2.id);
-  console.log('✅ Admin users:', admin.email, 'and secondary admin ensured');
-  console.log('👤 Demo users:', demoUser1.email, 'and', demoUser2.email, 'available');
-  console.log('🌱 Seed complete');
+  console.log('✅ Admin users created:');
+  console.log('   - admin@mentalwellness.app (password: admin123)');
+  console.log('   - admin@example.com (password: admin123)');
+  console.log('👤 Demo users created:');
+  console.log('   - demo@mentalwellness.app (password: Demo@123) ⭐ USE THIS');
+  console.log('   - user1@example.com (password: user123)');
+  console.log('   - testuser@example.com (password: user123)');
+  console.log('📊 Assessment library seeded with 8 assessment types');
+  console.log('📝 Content and practices seeded');
+  console.log('🌱 Seed complete!');
 }
 
 main().catch(e => {
