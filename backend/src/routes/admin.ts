@@ -297,7 +297,20 @@ async function getYouTubeMetadata(id: string): Promise<YouTubeMetadata | null> {
 // (Upload route added later after requireAdmin definition)
 
 // One-time setup endpoint - Creates admin account if it doesn't exist
+// Allow CORS for this endpoint specifically (for setup page)
+router.options('/setup', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
+});
+
 router.post('/setup', async (req, res) => {
+  // Allow CORS for setup endpoint
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  
   try {
     const { setupKey } = req.body;
     
