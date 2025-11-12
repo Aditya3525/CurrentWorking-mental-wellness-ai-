@@ -40,23 +40,29 @@ services:
           name: mental-wellbeing-db
           property: connectionString
       - key: GEMINI_API_KEY_1
-        sync: false
+        value: placeholder_set_in_render_dashboard
       - key: GEMINI_API_KEY_2
-        sync: false
+        value: placeholder_set_in_render_dashboard
       - key: GEMINI_API_KEY_3
-        sync: false
+        value: placeholder_set_in_render_dashboard
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash-exp
+      - key: GEMINI_MAX_TOKENS
+        value: "800"
+      - key: GEMINI_TEMPERATURE
+        value: "0.7"
       - key: OPENAI_API_KEY_1
-        sync: false
+        value: placeholder_optional
       - key: ANTHROPIC_API_KEY_1
-        sync: false
+        value: placeholder_optional
       - key: HUGGINGFACE_API_KEY
-        sync: false
+        value: placeholder_optional
       - key: GOOGLE_CLIENT_ID
-        sync: false
+        value: placeholder_set_in_render_dashboard
       - key: GOOGLE_CLIENT_SECRET
-        sync: false
+        value: placeholder_set_in_render_dashboard
       - key: YOUTUBE_API_KEY
-        sync: false
+        value: placeholder_set_in_render_dashboard
       - key: ADMIN_EMAILS
         value: admin@example.com,admin@mentalwellbeing.ai
 
@@ -72,7 +78,7 @@ services:
       - key: VITE_API_URL
         value: https://mental-wellbeing-api.onrender.com/api
       - key: VITE_GOOGLE_CLIENT_ID
-        sync: false
+        value: placeholder_set_in_render_dashboard
     
 databases:
   - name: mental-wellbeing-db
