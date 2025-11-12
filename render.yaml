@@ -69,6 +69,6 @@ staticSites:
     publishDir: dist
     envVars:
       - key: VITE_API_URL
-        value: https://mental-wellbeing-api.onrender.com/api
+        sync: false
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
