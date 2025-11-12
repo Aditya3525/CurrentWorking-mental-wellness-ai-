@@ -107,11 +107,12 @@ export class LLMService {
     const defaultTimeout = this.parseNumber(process.env.AI_TIMEOUT, 30000);
 
     const sanitizeKeys = (keys: Array<string | undefined>): string[] => {
-      const PLACEHOLDER_REGEX = /(your[_-]|placeholder|example|changeme)/i;
+      const PLACEHOLDER_REGEX = /(your[_-]|placeholder|example|changeme|set_in_render)/i;
       return keys
         .map((key) => key?.trim())
         .filter((key): key is string => {
           if (!key) return false;
+          if (key.length < 10) return false; // Minimum key length validation
           return !PLACEHOLDER_REGEX.test(key);
         });
     };

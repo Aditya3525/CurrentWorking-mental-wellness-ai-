@@ -708,18 +708,24 @@ export const submitAssessment = async (req: any, res: Response) => {
       detailedContext
     );
 
-    const insightId = randomUUID();
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO assessment_insights (id, userId, summary, overallTrend, aiSummary, wellness_score, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       ON CONFLICT(userId) DO UPDATE SET summary = excluded.summary, overallTrend = excluded.overallTrend, aiSummary = excluded.aiSummary, wellness_score = excluded.wellness_score, updatedAt = CURRENT_TIMESTAMP`,
-      insightId,
-      userId,
-  JSON.stringify(insightsPayload),
-      insightsPayload.insights.overallTrend,
-      insightsPayload.insights.aiSummary,
-      insightsPayload.insights.wellnessScore?.value ?? 0
-    );
+    await prisma.assessmentInsight.upsert({
+      where: { userId },
+      create: {
+        userId,
+        summary: JSON.stringify(insightsPayload),
+        overallTrend: insightsPayload.insights.overallTrend,
+        aiSummary: insightsPayload.insights.aiSummary,
+        wellnessScore: insightsPayload.insights.wellnessScore?.value ?? 0,
+        updatedAt: new Date()
+      },
+      update: {
+        summary: JSON.stringify(insightsPayload),
+        overallTrend: insightsPayload.insights.overallTrend,
+        aiSummary: insightsPayload.insights.aiSummary,
+        wellnessScore: insightsPayload.insights.wellnessScore?.value ?? 0,
+        updatedAt: new Date()
+      }
+    });
 
     const enrichedAssessment =
       insightsPayload.history.find(item => item.id === record.id) ?? insightsPayload.history[0] ?? null;
@@ -791,18 +797,24 @@ export const getAssessmentHistory = async (req: any, res: Response) => {
       }
     );
 
-    const historyInsightId = randomUUID();
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO assessment_insights (id, userId, summary, overallTrend, aiSummary, wellness_score, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       ON CONFLICT(userId) DO UPDATE SET summary = excluded.summary, overallTrend = excluded.overallTrend, aiSummary = excluded.aiSummary, wellness_score = excluded.wellness_score, updatedAt = CURRENT_TIMESTAMP`,
-      historyInsightId,
-      userId,
-      JSON.stringify(insightsPayload),
-      insightsPayload.insights.overallTrend,
-      insightsPayload.insights.aiSummary,
-      insightsPayload.insights.wellnessScore?.value ?? 0
-    );
+    await prisma.assessmentInsight.upsert({
+      where: { userId },
+      create: {
+        userId,
+        summary: JSON.stringify(insightsPayload),
+        overallTrend: insightsPayload.insights.overallTrend,
+        aiSummary: insightsPayload.insights.aiSummary,
+        wellnessScore: insightsPayload.insights.wellnessScore?.value ?? 0,
+        updatedAt: new Date()
+      },
+      update: {
+        summary: JSON.stringify(insightsPayload),
+        overallTrend: insightsPayload.insights.overallTrend,
+        aiSummary: insightsPayload.insights.aiSummary,
+        wellnessScore: insightsPayload.insights.wellnessScore?.value ?? 0,
+        updatedAt: new Date()
+      }
+    });
 
     res.json({
       success: true,
@@ -1140,18 +1152,24 @@ export const submitCombinedAssessments = async (req: any, res: Response) => {
 
     // Save wellness score to database for combined onboarding assessment
     const wellnessScoreValue = insightsPayload.insights.wellnessScore?.value ?? 0;
-    const insightId = randomUUID();
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO assessment_insights (id, userId, summary, overallTrend, aiSummary, wellness_score, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       ON CONFLICT(userId) DO UPDATE SET summary = excluded.summary, overallTrend = excluded.overallTrend, aiSummary = excluded.aiSummary, wellness_score = excluded.wellness_score, updatedAt = CURRENT_TIMESTAMP`,
-      insightId,
-      userId,
-  JSON.stringify(insightsPayload),
-      insightsPayload.insights.overallTrend,
-      insightsPayload.insights.aiSummary,
-      wellnessScoreValue
-    );
+    await prisma.assessmentInsight.upsert({
+      where: { userId },
+      create: {
+        userId,
+        summary: JSON.stringify(insightsPayload),
+        overallTrend: insightsPayload.insights.overallTrend,
+        aiSummary: insightsPayload.insights.aiSummary,
+        wellnessScore: wellnessScoreValue,
+        updatedAt: new Date()
+      },
+      update: {
+        summary: JSON.stringify(insightsPayload),
+        overallTrend: insightsPayload.insights.overallTrend,
+        aiSummary: insightsPayload.insights.aiSummary,
+        wellnessScore: wellnessScoreValue,
+        updatedAt: new Date()
+      }
+    });
 
     const selectedTypes = updatedSession.selectedTypes as string[];
     const completedTypes = updatedSession.assessments.map(a => a.assessmentType);
