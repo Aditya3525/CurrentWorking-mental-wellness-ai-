@@ -10,6 +10,7 @@ services:
       npm run db:generate
       npm run build
       npx prisma migrate deploy
+      npm run seed || true
     startCommand: npm start
     autoDeploy: true
     healthCheckPath: /health
