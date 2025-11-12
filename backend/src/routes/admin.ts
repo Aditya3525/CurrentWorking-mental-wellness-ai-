@@ -362,6 +362,190 @@ router.post('/setup', async (req, res) => {
   }
 });
 
+// Remote seed endpoint - Populate database with demo content
+router.options('/seed-data', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
+});
+
+router.post('/seed-data', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  
+  try {
+    const { setupKey } = req.body;
+    
+    const expectedKey = process.env.SETUP_KEY || 'mental-wellbeing-setup-2024';
+    
+    if (setupKey !== expectedKey) {
+      return res.status(403).json({ error: 'Invalid setup key' });
+    }
+
+    console.log('🌱 Starting remote database seeding...');
+
+    // Check if data already exists
+    const existingContent = await prisma.content.count();
+    const existingPractices = await prisma.practice.count();
+    
+    if (existingContent > 0 || existingPractices > 0) {
+      return res.json({
+        message: 'Database already has content',
+        contentCount: existingContent,
+        practiceCount: existingPractices,
+        note: 'Seeding skipped to prevent duplicates'
+      });
+    }
+
+    // Seed content
+    console.log('📄 Seeding content...');
+    const contentData = [
+      {
+        title: "Understanding Anxiety Basics",
+        type: "article",
+        category: "anxiety",
+        approach: "hybrid",
+        description: "Core concepts about anxiety and how to approach it.",
+        content: "Anxiety is a natural response to stress. Learn to recognize it and manage it effectively.",
+        tags: "anxiety,basics,education",
+        isPublished: true
+      },
+      {
+        title: "5-Minute Breathing Exercise",
+        type: "audio",
+        category: "relaxation",
+        approach: "hybrid",
+        description: "Quick guided breathing for instant calm.",
+        content: "/audio/breathing.mp3",
+        duration: 300,
+        tags: "breathing,relaxation,quick",
+        isPublished: true
+      },
+      {
+        title: "Mindfulness Introduction",
+        type: "video",
+        category: "mindfulness",
+        approach: "eastern",
+        description: "Learn the basics of mindfulness meditation.",
+        content: "https://youtube.com/watch?v=mindfulness-intro",
+        youtubeUrl: "https://youtube.com/watch?v=mindfulness-intro",
+        duration: 600,
+        tags: "mindfulness,meditation,video",
+        isPublished: true
+      },
+      {
+        title: "CBT Thought Diary",
+        type: "article",
+        category: "cbt",
+        approach: "western",
+        description: "Track and challenge negative thought patterns.",
+        content: "Cognitive Behavioral Therapy helps identify and change unhelpful thinking patterns.",
+        tags: "cbt,thoughts,worksheet",
+        isPublished: true
+      },
+      {
+        title: "Sleep Hygiene Guide",
+        type: "article",
+        category: "sleep",
+        approach: "hybrid",
+        description: "Evidence-based tips for better sleep.",
+        content: "Good sleep hygiene includes consistent schedules, comfortable environment, and relaxation routines.",
+        tags: "sleep,health,tips",
+        isPublished: true
+      }
+    ];
+
+    await prisma.content.createMany({ data: contentData });
+    const contentCount = await prisma.content.count();
+
+    // Seed practices
+    console.log('🧘 Seeding practices...');
+    const practiceData = [
+      {
+        title: "Morning Gratitude Journal",
+        category: "journaling",
+        approach: "hybrid",
+        description: "Start your day by listing three things you're grateful for.",
+        duration: 300,
+        difficulty: "beginner",
+        instructions: "1. Find a quiet space\n2. Write down 3 things you're grateful for\n3. Reflect on why they matter",
+        benefits: "Increases positive emotions and life satisfaction",
+        tags: "gratitude,morning,journaling",
+        isPublished: true
+      },
+      {
+        title: "Box Breathing Technique",
+        category: "breathwork",
+        approach: "eastern",
+        description: "4-4-4-4 breathing pattern for quick stress relief.",
+        duration: 240,
+        difficulty: "beginner",
+        instructions: "1. Inhale for 4 counts\n2. Hold for 4 counts\n3. Exhale for 4 counts\n4. Hold for 4 counts\n5. Repeat",
+        benefits: "Reduces anxiety and improves focus",
+        tags: "breathing,stress,quick",
+        isPublished: true
+      },
+      {
+        title: "Body Scan Meditation",
+        category: "meditation",
+        approach: "eastern",
+        description: "Progressive relaxation through body awareness.",
+        duration: 900,
+        difficulty: "intermediate",
+        instructions: "1. Lie down comfortably\n2. Focus on each body part from toes to head\n3. Notice sensations without judgment",
+        benefits: "Releases physical tension and improves body awareness",
+        tags: "meditation,relaxation,body-scan",
+        isPublished: true
+      },
+      {
+        title: "Cognitive Reframing Exercise",
+        category: "cbt",
+        approach: "western",
+        description: "Challenge and reframe negative thoughts.",
+        duration: 600,
+        difficulty: "intermediate",
+        instructions: "1. Identify a negative thought\n2. List evidence for and against it\n3. Create a balanced alternative thought",
+        benefits: "Reduces negative thinking patterns and improves mood",
+        tags: "cbt,thoughts,reframing",
+        isPublished: true
+      },
+      {
+        title: "Progressive Muscle Relaxation",
+        category: "relaxation",
+        approach: "western",
+        description: "Systematically tense and release muscle groups.",
+        duration: 720,
+        difficulty: "beginner",
+        instructions: "1. Start with feet\n2. Tense muscles for 5 seconds\n3. Release and notice the difference\n4. Move up through body",
+        benefits: "Reduces physical tension and promotes relaxation",
+        tags: "relaxation,tension,physical",
+        isPublished: true
+      }
+    ];
+
+    await prisma.practice.createMany({ data: practiceData });
+    const practiceCount = await prisma.practice.count();
+
+    console.log('✅ Database seeding completed');
+
+    return res.json({
+      message: 'Database seeded successfully!',
+      contentCount,
+      practiceCount,
+      note: 'You can now see this content in your admin dashboard'
+    });
+
+  } catch (error) {
+    console.error('Seed endpoint error:', error);
+    return res.status(500).json({ 
+      error: 'Seeding failed', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+});
+
 // Admin login
 router.post('/login', async (req, res) => {
   try {
