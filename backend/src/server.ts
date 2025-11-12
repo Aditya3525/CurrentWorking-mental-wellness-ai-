@@ -97,7 +97,9 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+    // CRITICAL: Must be 'none' in production for cross-origin cookies to work
+    // Frontend (mental-wellbeing-frontend.onrender.com) and backend (mental-wellbeing-api.onrender.com) are different origins
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
