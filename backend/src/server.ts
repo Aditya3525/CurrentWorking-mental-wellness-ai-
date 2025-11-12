@@ -93,13 +93,11 @@ app.use(session({
   secret: process.env.JWT_SECRET || 'fallback-secret',
   resave: false,
   saveUninitialized: false,
-  proxy: true, // Trust proxy for Render deployment
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' required for cross-site cookies
+    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    // Removed domain restriction to allow cookies to be sent properly
   }
 }));
 
