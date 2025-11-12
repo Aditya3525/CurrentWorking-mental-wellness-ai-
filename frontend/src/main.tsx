@@ -1,4 +1,4 @@
-
+// Force rebuild with correct API URL configuration
 import { createRoot } from "react-dom/client";
 
 import App from "./App";
