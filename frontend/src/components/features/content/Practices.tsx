@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
 
+import { getApiUrl } from '../../../config/api';
 import { useDevice } from '../../../hooks/use-device';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { MediaPlayer } from '../../common/MediaPlayer';
@@ -105,7 +106,7 @@ export function Practices({ onNavigate }: PracticesProps) {
     const load = async () => {
       setLoading(true); setError(null);
       try {
-        const resp = await fetch('/api/practices');
+        const resp = await fetch(getApiUrl('/api/practices'));
         if(!resp.ok) throw new Error('Failed to load practices');
         const json = await resp.json();
         if(!json.success) throw new Error(json.error || 'Failed to load practices');

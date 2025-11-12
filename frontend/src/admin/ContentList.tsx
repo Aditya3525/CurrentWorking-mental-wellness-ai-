@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { getApiUrl } from '../config/api';
 import { useNotificationStore } from '../stores/notificationStore';
 
 import { BulkActionToolbar } from './BulkActionToolbar';
@@ -86,7 +87,7 @@ export const ContentList: React.FC<ContentListProps> = ({
 
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/content', {
+      const response = await fetch(getApiUrl('/api/admin/content'), {
         credentials: 'include'
       });
       
@@ -181,7 +182,7 @@ export const ContentList: React.FC<ContentListProps> = ({
   const handleBulkPublish = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/content/publish', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/content/publish'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -217,7 +218,7 @@ export const ContentList: React.FC<ContentListProps> = ({
   const handleBulkUnpublish = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/content/publish', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/content/publish'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -253,7 +254,7 @@ export const ContentList: React.FC<ContentListProps> = ({
   const handleBulkDelete = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/content', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/content'), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

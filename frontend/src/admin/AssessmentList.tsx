@@ -43,6 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
+import { getApiUrl } from '../config/api';
 import { adminApi, type ApiResponse } from '../services/api';
 import { useNotificationStore } from '../stores/notificationStore';
 
@@ -255,7 +256,7 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
   const handleBulkPublish = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/assessments/publish', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/assessments/publish'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -291,7 +292,7 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
   const handleBulkUnpublish = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/assessments/publish', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/assessments/publish'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -327,7 +328,7 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
   const handleBulkDelete = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/assessments', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/assessments'), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

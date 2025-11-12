@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { getApiUrl } from '../config/api';
 import { useNotificationStore } from '../stores/notificationStore';
 
 import { BulkActionToolbar } from './BulkActionToolbar';
@@ -181,7 +182,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
 
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/practices', {
+      const response = await fetch(getApiUrl('/api/admin/practices'), {
         credentials: 'include'
       });
       
@@ -254,7 +255,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
   const handleBulkPublish = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/practices/publish', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/practices/publish'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -290,7 +291,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
   const handleBulkUnpublish = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/practices/publish', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/practices/publish'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -326,7 +327,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
   const handleBulkDelete = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch('/api/admin/bulk/practices', {
+      const response = await fetch(getApiUrl('/api/admin/bulk/practices'), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

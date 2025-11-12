@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import { getApiUrl } from '../config/api';
 import { useNotificationStore } from '../stores/notificationStore';
 
 interface ActivityLogEntry {
@@ -74,7 +75,7 @@ export const ActivityLog: React.FC = () => {
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/activity-logs/filters');
+      const response = await fetch(getApiUrl('/api/admin/activity-logs/filters'));
       const result = await response.json();
 
       if (result.success) {
@@ -127,7 +128,7 @@ export const ActivityLog: React.FC = () => {
   // Fetch stats
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/activity-logs/stats');
+      const response = await fetch(getApiUrl('/api/admin/activity-logs/stats'));
       const result = await response.json();
 
       if (result.success) {

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
+import { getApiUrl } from '../../../config/api';
 import { useDevice } from '../../../hooks/use-device';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { Badge } from '../../ui/badge';
@@ -137,8 +138,8 @@ export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
       setError(null);
       try {
         const [practicesResp, contentResp] = await Promise.all([
-          fetch('/api/practices'),
-          fetch('/api/public/content')
+          fetch(getApiUrl('/api/practices')),
+          fetch(getApiUrl('/api/public/content'))
         ]);
 
         type RawPractice = {
