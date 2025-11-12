@@ -535,7 +535,7 @@ router.post('/seed-data', async (req, res) => {
       }
     ];
 
-    await prisma.practice.createMany({ data: practiceData });
+    await prisma.practice.createMany({ data: practiceData as any });
     const practiceCount = await prisma.practice.count();
 
     // Seed assessments (basic definitions only)
