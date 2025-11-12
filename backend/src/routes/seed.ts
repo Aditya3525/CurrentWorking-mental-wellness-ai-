@@ -7,19 +7,19 @@ const execAsync = promisify(exec);
 
 /**
  * Manual seed endpoint - can be called once to seed the database
- * Access: GET /api/seed/run?token=your_jwt_secret
+ * Access: GET /api/seed/run?secret=your_jwt_secret
  * This is a one-time setup endpoint - remove after use or secure properly
  */
 router.get('/run', async (req, res) => {
   try {
     // Simple security: require JWT_SECRET as query param
-    const token = req.query.token;
-    const expectedToken = process.env.JWT_SECRET;
+    const secret = req.query.secret || req.query.token; // Accept both for compatibility
+    const expectedSecret = process.env.JWT_SECRET;
 
-    if (!token || token !== expectedToken) {
+    if (!secret || secret !== expectedSecret) {
       return res.status(403).json({ 
         success: false, 
-        error: 'Unauthorized. Provide valid token as query parameter.' 
+        error: 'Unauthorized. Provide valid secret as query parameter.' 
       });
     }
 
