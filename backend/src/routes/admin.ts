@@ -528,13 +528,101 @@ router.post('/seed-data', async (req, res) => {
     await prisma.practice.createMany({ data: practiceData });
     const practiceCount = await prisma.practice.count();
 
+    // Seed assessments (basic definitions only)
+    console.log('📋 Seeding assessments...');
+    const assessmentData = [
+      {
+        name: "GAD-7 Anxiety Assessment",
+        type: "gad7",
+        category: "anxiety",
+        description: "Generalized Anxiety Disorder 7-item scale for anxiety screening",
+        timeEstimate: "2-3 minutes",
+        isActive: true,
+        visibleInMainList: true,
+        tags: "all,recommended,anxiety",
+        scoringConfig: JSON.stringify({
+          ranges: [
+            { min: 0, max: 4, label: "Minimal Anxiety" },
+            { min: 5, max: 9, label: "Mild Anxiety" },
+            { min: 10, max: 14, label: "Moderate Anxiety" },
+            { min: 15, max: 21, label: "Severe Anxiety" }
+          ]
+        })
+      },
+      {
+        name: "PHQ-9 Depression Screening",
+        type: "phq9",
+        category: "depression",
+        description: "Patient Health Questionnaire-9 for depression severity",
+        timeEstimate: "2-3 minutes",
+        isActive: true,
+        visibleInMainList: true,
+        tags: "all,recommended,depression",
+        scoringConfig: JSON.stringify({
+          ranges: [
+            { min: 0, max: 4, label: "Minimal Depression" },
+            { min: 5, max: 9, label: "Mild Depression" },
+            { min: 10, max: 14, label: "Moderate Depression" },
+            { min: 15, max: 27, label: "Severe Depression" }
+          ]
+        })
+      },
+      {
+        name: "Wellness Check-in",
+        type: "custom",
+        category: "wellness",
+        description: "Quick overall mental wellbeing assessment",
+        timeEstimate: "1-2 minutes",
+        isActive: true,
+        visibleInMainList: true,
+        tags: "all,quick,wellness",
+        scoringConfig: JSON.stringify({
+          ranges: [
+            { min: 0, max: 33, label: "Low Wellbeing" },
+            { min: 34, max: 66, label: "Moderate Wellbeing" },
+            { min: 67, max: 100, label: "High Wellbeing" }
+          ]
+        })
+      }
+    ];
+
+    await prisma.assessmentDefinition.createMany({ data: assessmentData });
+    const assessmentCount = await prisma.assessmentDefinition.count();
+
+    // Seed demo users
+    console.log('👥 Seeding demo users...');
+    const demoUsers = [];
+    
+    // Create 3 demo users
+    for (let i = 1; i <= 3; i++) {
+      const hashedPassword = await bcrypt.hash('demo123', 10);
+      const user = await prisma.user.create({
+        data: {
+          email: `demo${i}@example.com`,
+          name: `Demo User ${i}`,
+          password: hashedPassword,
+          isOnboarded: true,
+          dataConsent: true,
+          clinicianSharing: false,
+          approach: i === 1 ? 'western' : i === 2 ? 'eastern' : 'hybrid',
+          language: 'en'
+        }
+      });
+      demoUsers.push(user);
+    }
+
+    const userCount = await prisma.user.count();
+
     console.log('✅ Database seeding completed');
 
     return res.json({
       message: 'Database seeded successfully!',
       contentCount,
       practiceCount,
-      note: 'You can now see this content in your admin dashboard'
+      assessmentCount,
+      userCount,
+      demoUsers: demoUsers.map(u => ({ email: u.email, password: 'demo123' })),
+      note: 'Refresh your admin dashboard to see all the data!'
     });
 
   } catch (error) {
