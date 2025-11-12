@@ -58,7 +58,6 @@ services:
   - type: web
     name: mental-wellbeing-frontend
     env: static
-    plan: free
     rootDir: frontend
     buildCommand: |
       npm install --include=dev
