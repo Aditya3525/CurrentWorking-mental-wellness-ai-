@@ -49,7 +49,7 @@ export function useAvailableAssessments() {
 /**
  * Fetch assessment history for current user
  */
-export function useAssessmentHistory() {
+export function useAssessmentHistory(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.assessmentHistory(),
     queryFn: async () => {
@@ -60,6 +60,7 @@ export function useAssessmentHistory() {
       return response.data;
     },
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+    enabled: options?.enabled ?? true, // Only run if enabled
   });
 }
 

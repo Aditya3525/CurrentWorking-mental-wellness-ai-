@@ -190,12 +190,15 @@ function AppInner() {
   const [selectedAssessmentTypes, setSelectedAssessmentTypes] = useState<string[]>([]);
   
   // React Query for assessment data ✅
+  // Only fetch when user is logged in (not on admin pages)
   const { 
     data: assessmentData, 
     isLoading: assessmentsLoading,
     error: assessmentQueryError,
     refetch: refetchAssessments 
-  } = useAssessmentHistory();
+  } = useAssessmentHistory({ 
+    enabled: !!user && currentPage !== 'admin' && currentPage !== 'admin-login' 
+  });
   
   // Derive values from React Query
   const assessmentHistory = assessmentData?.history ?? [];

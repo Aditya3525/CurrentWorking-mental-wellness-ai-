@@ -1,9 +1,9 @@
 // Assessment Management UI - Updated
-import { 
-  Plus, 
-  LogOut, 
-  Brain, 
-  BookOpen, 
+import {
+  Plus,
+  LogOut,
+  Brain,
+  BookOpen,
   Shield,
   Menu,
   X,
@@ -16,7 +16,9 @@ import {
   Loader2,
   AlertCircle,
   Clock,
-  ClipboardList
+  ClipboardList,
+  BarChart3,
+  Users
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -31,12 +33,15 @@ import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { adminApi, type ApiResponse } from '../services/api';
 import { useNotificationStore } from '../stores/notificationStore';
 
+import { ActivityLog } from './ActivityLog';
+import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { AssessmentBuilder } from './AssessmentBuilder';
 import { AssessmentList, Assessment } from './AssessmentList';
 import { ContentForm, ContentRecord } from './ContentForm';
 import { ContentList, ContentItem } from './ContentList';
 import { PracticeForm, PracticeRecord } from './PracticeForm';
 import { PracticesList, Practice } from './PracticesList';
+import { UserManagement } from './UserManagement';
 
 type ToastPush = (toast: { title: string; description?: string; type: 'success' | 'error' | 'warning' | 'info'; duration?: number }) => void;
 
@@ -122,12 +127,26 @@ const fetchAdminCollection = async <TItem, TMapped>(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to load ${endpoint}`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to load ${endpoint}`);
   }
 
   const json = await response.json();
-  const data: unknown = Array.isArray(json) ? json : json?.data;
+  
+  // Handle both direct array and {success, data} format
+  let data: unknown;
+  if (json.success === true && json.data) {
+    data = json.data;
+  } else if (Array.isArray(json)) {
+    data = json;
+  } else if (json.data) {
+    data = json.data;
+  } else {
+    data = json;
+  }
+  
   if (!Array.isArray(data)) {
+    console.error('Invalid data format from', endpoint, ':', json);
     return [];
   }
 
@@ -212,7 +231,7 @@ const useAdminDashboardData = (
   };
 };
 
-type Tab = 'practices' | 'content' | 'assessments';
+type Tab = 'practices' | 'content' | 'assessments' | 'analytics' | 'users' | 'activity';
 
 export const AdminDashboard: React.FC = () => {
   console.log('🎯 AdminDashboard loaded with Assessments tab support');
@@ -464,31 +483,31 @@ export const AdminDashboard: React.FC = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-gradient-to-r from-primary/10 to-accent/10 border-b">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex justify-between items-center">
             <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                <Shield className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                <h1 className="text-lg sm:text-2xl font-semibold">Admin Dashboard</h1>
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                 Manage practices, content, and monitor platform health
               </p>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {/* Mobile menu toggle */}
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
+                className="lg:hidden"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               >
                 {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
               
               {/* Desktop menu */}
-              <div className="hidden md:flex items-center gap-4">
+              <div className="hidden lg:flex items-center gap-4">
                 <div className="text-right">
                   <Badge variant="secondary" className="bg-primary/10 text-primary">
                     {admin?.role || 'Admin'}
@@ -512,7 +531,7 @@ export const AdminDashboard: React.FC = () => {
           
           {/* Mobile menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden mt-4 p-4 bg-background rounded-lg border space-y-3">
+            <div className="lg:hidden mt-4 p-4 bg-background rounded-lg border space-y-3">
               <div className="text-center">
                 <Badge variant="secondary" className="bg-primary/10 text-primary">
                   {admin?.role || 'Admin'}
@@ -534,13 +553,13 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6 space-y-8" aria-busy={isLoading}>
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8" aria-busy={isLoading}>
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {isInitialLoading
             ? Array.from({ length: 3 }).map((_, index) => (
                 <Card key={`stat-skeleton-${index}`}>
-                  <CardContent className="p-6">
+                  <CardContent className="p-4 sm:p-6">
                     <div className="flex items-center space-x-4">
                       <Skeleton className="h-12 w-12 rounded-lg" />
                       <div className="flex-1 space-y-2">
@@ -553,16 +572,16 @@ export const AdminDashboard: React.FC = () => {
               ))
             : stats.map((stat, index) => (
                 <Card key={index}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center space-x-4">
-                      <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                        <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                      <div className={`p-2 sm:p-3 rounded-lg ${stat.bgColor}`}>
+                        <stat.icon className={`h-5 w-5 sm:h-6 sm:w-6 ${stat.color}`} />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">
+                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                           {stat.title}
                         </p>
-                        <p className="text-2xl font-bold">
+                        <p className="text-xl sm:text-2xl font-bold">
                           {stat.value}
                         </p>
                       </div>
@@ -635,36 +654,53 @@ export const AdminDashboard: React.FC = () => {
         {/* Main Content Tabs */}
         <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList className="grid w-full max-w-2xl grid-cols-3">
-              <TabsTrigger value="practices" className="flex items-center gap-2">
-                <Brain className="h-4 w-4" />
-                Practices
+            <TabsList className="inline-flex h-auto w-full flex-wrap items-center justify-start gap-1 p-1">
+              <TabsTrigger value="practices" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>Practices</span>
               </TabsTrigger>
-              <TabsTrigger value="content" className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4" />
-                Content
+              <TabsTrigger value="content" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>Content</span>
               </TabsTrigger>
-              <TabsTrigger value="assessments" className="flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" />
-                Assessments
+              <TabsTrigger value="assessments" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>Assessments</span>
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>Analytics</span>
+              </TabsTrigger>
+              <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>Users</span>
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>Activity Log</span>
               </TabsTrigger>
             </TabsList>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:items-center">
               <Button
                 variant="outline"
                 onClick={handleRefresh}
                 disabled={isLoading}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 flex-1 sm:flex-initial"
+                size="sm"
               >
                 <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
+                <span className="sm:hidden">Sync</span>
               </Button>
-              <Button onClick={openAdd} className="flex items-center gap-2">
+              <Button onClick={openAdd} className="flex items-center gap-2 flex-1 sm:flex-initial" size="sm">
                 <Plus className="h-4 w-4" />
-                Add {tab === 'practices' ? 'Practice' : tab === 'content' ? 'Content' : 'Assessment'}
+                <span className="hidden sm:inline">
+                  Add {tab === 'practices' ? 'Practice' : tab === 'content' ? 'Content' : tab === 'users' ? 'User' : 'Assessment'}
+                </span>
+                <span className="sm:hidden">Add</span>
               </Button>
               {formattedLastUpdated && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
+                <span className="hidden lg:flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap" aria-live="polite">
                   <Clock className="h-3 w-3" />
                   Updated {formattedLastUpdated}
                 </span>
@@ -735,6 +771,18 @@ export const AdminDashboard: React.FC = () => {
                 />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <AnalyticsDashboard />
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <UserManagement />
+          </TabsContent>
+
+          <TabsContent value="activity" className="space-y-6">
+            <ActivityLog />
           </TabsContent>
         </Tabs>
 

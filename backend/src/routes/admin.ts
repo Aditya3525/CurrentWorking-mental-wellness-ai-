@@ -23,6 +23,39 @@ import {
   previewAssessment,
   getCategories
 } from '../controllers/admin/assessmentAdminController';
+import {
+  getAnalytics,
+  getUserAnalytics,
+  getContentAnalytics,
+  getAssessmentAnalytics
+} from '../controllers/admin/analyticsController';
+import {
+  getUsers,
+  getUserDetails,
+  updateUserStatus,
+  getUserActivity,
+  deleteUser,
+  resetUserPassword,
+  getUserStats
+} from '../controllers/admin/userManagementController';
+import {
+  bulkUpdateAssessmentStatus,
+  bulkDeleteAssessments,
+  bulkUpdatePracticeStatus,
+  bulkDeletePractices,
+  bulkUpdateContentStatus,
+  bulkDeleteContent,
+  bulkUpdateAssessmentTags,
+  bulkUpdatePracticeApproach,
+  bulkUpdateContentType
+} from '../controllers/admin/bulkOperationsController';
+import {
+  getActivityLogs,
+  getActivityStats,
+  getActivityFilters,
+  exportActivityLogs,
+  logActivity
+} from '../controllers/admin/activityLogController';
 import { validate } from '../middleware/validate';
 import {
   createAssessmentSchema,
@@ -483,7 +516,8 @@ export const requireAdmin = async (req: any, res: any, next: any) => {
   try {
     const token = (req.session as any).adminToken;
     if (!token) {
-      return res.status(401).json({ error: 'Admin authentication required' });
+      console.error('Admin middleware: No admin token in session');
+      return res.status(401).json({ error: 'Admin authentication required', details: 'No session token' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
@@ -493,14 +527,15 @@ export const requireAdmin = async (req: any, res: any, next: any) => {
     });
 
     if (!admin || !ADMIN_EMAILS.includes(admin.email)) {
-      return res.status(401).json({ error: 'Admin authentication required' });
+      console.error('Admin middleware: User not found or not admin:', admin?.email);
+      return res.status(401).json({ error: 'Admin authentication required', details: 'Invalid admin credentials' });
     }
 
     req.admin = admin;
     next();
   } catch (error) {
     console.error('Admin auth middleware error:', error);
-    res.status(401).json({ error: 'Admin authentication required' });
+    res.status(401).json({ error: 'Admin authentication required', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
@@ -1186,4 +1221,93 @@ router.post('/assessments/:id/duplicate', requireAdmin, duplicateAssessment);
 // Preview assessment scoring
 router.post('/assessments/:id/preview', requireAdmin, previewAssessment);
 
+// ==========================================
+// ANALYTICS ROUTES (ADMIN ONLY)
+// ==========================================
+
+// Get comprehensive analytics
+router.get('/analytics', requireAdmin, getAnalytics);
+
+// Get user analytics
+router.get('/analytics/users', requireAdmin, getUserAnalytics);
+
+// Get content analytics
+router.get('/analytics/content', requireAdmin, getContentAnalytics);
+
+// Get assessment analytics
+router.get('/analytics/assessments', requireAdmin, getAssessmentAnalytics);
+
+// ==========================================
+// USER MANAGEMENT ROUTES (ADMIN ONLY)
+// ==========================================
+
+// Get user statistics
+router.get('/users/stats', requireAdmin, getUserStats);
+
+// Get list of users with filters
+router.get('/users', requireAdmin, getUsers);
+
+// Get specific user details
+router.get('/users/:id', requireAdmin, getUserDetails);
+
+// Update user status
+router.patch('/users/:id', requireAdmin, updateUserStatus);
+
+// Get user activity timeline
+router.get('/users/:id/activity', requireAdmin, getUserActivity);
+
+// Delete user account
+router.delete('/users/:id', requireAdmin, deleteUser);
+
+// Reset user password
+router.post('/users/:id/reset-password', requireAdmin, resetUserPassword);
+
+// ==========================================
+// BULK OPERATIONS ROUTES (ADMIN ONLY)
+// ==========================================
+
+// Bulk update assessment status (publish/unpublish)
+router.post('/bulk/assessments/publish', requireAdmin, bulkUpdateAssessmentStatus);
+
+// Bulk delete assessments
+router.delete('/bulk/assessments', requireAdmin, bulkDeleteAssessments);
+
+// Bulk update assessment tags
+router.post('/bulk/assessments/tags', requireAdmin, bulkUpdateAssessmentTags);
+
+// Bulk update practice status (publish/unpublish)
+router.post('/bulk/practices/publish', requireAdmin, bulkUpdatePracticeStatus);
+
+// Bulk delete practices
+router.delete('/bulk/practices', requireAdmin, bulkDeletePractices);
+
+// Bulk update practice approach
+router.post('/bulk/practices/approach', requireAdmin, bulkUpdatePracticeApproach);
+
+// Bulk update content status (publish/unpublish)
+router.post('/bulk/content/publish', requireAdmin, bulkUpdateContentStatus);
+
+// Bulk delete content
+router.delete('/bulk/content', requireAdmin, bulkDeleteContent);
+
+// Bulk update content type
+router.post('/bulk/content/type', requireAdmin, bulkUpdateContentType);
+
+// ==========================================
+// ACTIVITY LOG ROUTES (ADMIN ONLY)
+// ==========================================
+
+// Get activity logs with filtering and pagination
+router.get('/activity-logs', requireAdmin, getActivityLogs);
+
+// Get activity log statistics
+router.get('/activity-logs/stats', requireAdmin, getActivityStats);
+
+// Get filter options (unique values)
+router.get('/activity-logs/filters', requireAdmin, getActivityFilters);
+
+// Export activity logs as CSV
+router.get('/activity-logs/export', requireAdmin, exportActivityLogs);
+
 export default router;
+export { logActivity };

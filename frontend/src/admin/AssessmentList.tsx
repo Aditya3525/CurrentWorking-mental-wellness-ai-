@@ -8,7 +8,8 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Loader2
+  Loader2,
+  Eye
 } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
 
@@ -24,6 +25,8 @@ import {
 } from '../components/ui/alert-dialog';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import {
   Select,
@@ -42,6 +45,9 @@ import {
 } from '../components/ui/table';
 import { adminApi, type ApiResponse } from '../services/api';
 import { useNotificationStore } from '../stores/notificationStore';
+
+import { AssessmentPreviewModal } from './AssessmentPreviewModal';
+import { BulkActionToolbar } from './BulkActionToolbar';
 
 export interface Assessment {
   id: string;
@@ -76,6 +82,14 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [assessmentToDelete, setAssessmentToDelete] = useState<Assessment | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
+
+  // Preview modal state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewAssessment, setPreviewAssessment] = useState<Assessment | null>(null);
 
   const { addNotification } = useNotificationStore();
 
@@ -219,6 +233,132 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
     }
   };
 
+  // Bulk selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredAssessments.map(a => a.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkPublish = async () => {
+    try {
+      setIsBulkActionLoading(true);
+      const response = await fetch('/api/admin/bulk/assessments/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          assessmentIds: Array.from(selectedIds),
+          published: true
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to publish assessments');
+
+      const data = await response.json();
+      addNotification({
+        type: 'success',
+        title: 'Success',
+        description: data.message || `Published ${selectedIds.size} assessments`
+      });
+
+      setSelectedIds(new Set());
+      fetchAssessments();
+    } catch (error) {
+      console.error('Bulk publish error:', error);
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to publish assessments'
+      });
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkUnpublish = async () => {
+    try {
+      setIsBulkActionLoading(true);
+      const response = await fetch('/api/admin/bulk/assessments/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          assessmentIds: Array.from(selectedIds),
+          published: false
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to unpublish assessments');
+
+      const data = await response.json();
+      addNotification({
+        type: 'success',
+        title: 'Success',
+        description: data.message || `Unpublished ${selectedIds.size} assessments`
+      });
+
+      setSelectedIds(new Set());
+      fetchAssessments();
+    } catch (error) {
+      console.error('Bulk unpublish error:', error);
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to unpublish assessments'
+      });
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      setIsBulkActionLoading(true);
+      const response = await fetch('/api/admin/bulk/assessments', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          assessmentIds: Array.from(selectedIds)
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to delete assessments');
+
+      const data = await response.json();
+      addNotification({
+        type: 'success',
+        title: 'Success',
+        description: data.message || `Deleted ${selectedIds.size} assessments`
+      });
+
+      setSelectedIds(new Set());
+      fetchAssessments();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete assessments'
+      });
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
   // Format date
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -317,22 +457,36 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
           )}
         </div>
       ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-center">Questions</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAssessments.map((assessment) => (
-                <TableRow key={assessment.id}>
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden md:block border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={selectedIds.size === filteredAssessments.length && filteredAssessments.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-center">Questions</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAssessments.map((assessment) => (
+                  <TableRow key={assessment.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(assessment.id)}
+                      onCheckedChange={(checked) => handleSelectOne(assessment.id, checked as boolean)}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div>
                       <div className="flex items-center gap-2">
@@ -382,6 +536,17 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => {
+                          setPreviewAssessment(assessment);
+                          setPreviewOpen(true);
+                        }}
+                        title="Preview assessment"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => onEdit(assessment)}
                         title="Edit assessment"
                       >
@@ -411,6 +576,113 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
             </TableBody>
           </Table>
         </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden space-y-3">
+          {filteredAssessments.map((assessment) => (
+            <Card key={assessment.id} className="relative">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start gap-3 flex-1">
+                    <Checkbox
+                      checked={selectedIds.has(assessment.id)}
+                      onCheckedChange={(checked) => handleSelectOne(assessment.id, checked as boolean)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-sm mb-1 flex items-center gap-2 flex-wrap">
+                        <span className="line-clamp-2">{assessment.name}</span>
+                        {assessment.isBasicOverallOnly && (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                            Basic
+                          </Badge>
+                        )}
+                      </h3>
+                      {assessment.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                          {assessment.description}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <code className="text-xs bg-muted px-2 py-0.5 rounded">
+                          {assessment.type}
+                        </code>
+                        <Badge variant="outline" className="text-xs">{assessment.category}</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {assessment.questionCount} Q
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {assessment.isActive ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Inactive
+                          </Badge>
+                        )}
+                        {assessment.createdAt && (
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(assessment.createdAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-1 pt-2 border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setPreviewAssessment(assessment);
+                      setPreviewOpen(true);
+                    }}
+                    title="Preview assessment"
+                    className="h-8"
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Preview</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(assessment)}
+                    title="Edit assessment"
+                    className="h-8"
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Edit</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDuplicate(assessment)}
+                    title="Duplicate assessment"
+                    className="h-8"
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Copy</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => confirmDelete(assessment)}
+                    className="text-destructive hover:text-destructive h-8"
+                    title="Delete assessment"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Delete</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </>
       )}
 
       {/* Delete Confirmation Dialog */}
@@ -442,6 +714,24 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Action Toolbar */}
+      <BulkActionToolbar
+        selectedCount={selectedIds.size}
+        entityType="assessments"
+        onPublish={handleBulkPublish}
+        onUnpublish={handleBulkUnpublish}
+        onDelete={handleBulkDelete}
+        onClearSelection={() => setSelectedIds(new Set())}
+        isLoading={isBulkActionLoading}
+      />
+
+      {/* Preview Modal */}
+      <AssessmentPreviewModal
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        assessment={previewAssessment}
+      />
     </div>
   );
 };

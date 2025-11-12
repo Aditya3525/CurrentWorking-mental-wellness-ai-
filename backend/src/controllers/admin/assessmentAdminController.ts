@@ -7,6 +7,7 @@ import {
   ConflictError
 } from '../../shared/errors/AppError';
 import { ScoringConfig, Question as QuestionSchema } from '../../api/validators/adminAssessment.validator';
+import { logActivity } from './activityLogController';
 
 /**
  * Admin Assessment Management Controller
@@ -301,6 +302,18 @@ export const createAssessment = async (req: Request, res: Response) => {
       return created;
     });
 
+    // Log activity
+    const adminEmail = (req as any).admin?.email || 'unknown';
+    await logActivity(
+      adminEmail,
+      'CREATE',
+      'ASSESSMENT',
+      assessment.id,
+      assessment.name,
+      { type: assessment.type, category, isActive },
+      req
+    );
+
     res.status(201).json({
       success: true,
       data: { id: assessment.id, type: assessment.type },
@@ -396,6 +409,19 @@ export const updateAssessment = async (req: Request, res: Response) => {
       }
     });
 
+    // Log activity
+    const adminEmail = (req as any).admin?.email || 'unknown';
+    const updatedAssessment = await prisma.assessmentDefinition.findUnique({ where: { id } });
+    await logActivity(
+      adminEmail,
+      'UPDATE',
+      'ASSESSMENT',
+      id,
+      updatedAssessment?.name || existing.name,
+      { changes: Object.keys(updateData) },
+      req
+    );
+
     res.json({
       success: true,
       message: 'Assessment updated successfully'
@@ -428,6 +454,18 @@ export const deleteAssessment = async (req: Request, res: Response) => {
       where: { id },
       data: { isActive: false }
     });
+
+    // Log activity
+    const adminEmail = (req as any).admin?.email || 'unknown';
+    await logActivity(
+      adminEmail,
+      'DELETE',
+      'ASSESSMENT',
+      id,
+      assessment.name,
+      { type: assessment.type },
+      req
+    );
 
     res.json({
       success: true,

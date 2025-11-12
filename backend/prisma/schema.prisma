@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -541,4 +541,25 @@ model DashboardInsights {
   @@index([userId, expiresAt])
   @@index([userId])
   @@map("dashboard_insights")
+}
+
+// Activity Log for admin actions tracking
+model ActivityLog {
+  id          String   @id @default(cuid())
+  adminEmail  String   // Email of admin who performed action
+  action      String   // 'CREATE', 'UPDATE', 'DELETE', 'PUBLISH', 'UNPUBLISH', 'BULK_UPDATE', etc.
+  entityType  String   // 'ASSESSMENT', 'PRACTICE', 'CONTENT', 'USER', etc.
+  entityId    String?  // ID of the affected entity
+  entityName  String?  // Name/title of the affected entity for display
+  details     String?  // JSON string with additional details
+  ipAddress   String?  // IP address of admin
+  userAgent   String?  // Browser/device info
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([adminEmail, createdAt])
+  @@index([entityType, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("activity_logs")
 }

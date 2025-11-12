@@ -17,9 +17,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useNotificationStore } from '../stores/notificationStore';
+
+import { BulkActionToolbar } from './BulkActionToolbar';
+import { PracticePreviewModal } from './PracticePreviewModal';
 
 export interface Practice {
   id: string;
@@ -157,6 +161,14 @@ export const PracticesList: React.FC<PracticesListProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const filterGridClasses = 'grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4';
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
+
+  // Preview modal state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewPractice, setPreviewPractice] = useState<Practice | null>(null);
+
   // Use external items if provided (embedded mode)
   const currentItems = embedded && itemsExternal ? itemsExternal : items;
   const setCurrentItems = embedded && setItemsExternal ? setItemsExternal : setItems;
@@ -225,6 +237,124 @@ export const PracticesList: React.FC<PracticesListProps> = ({
         title: 'Error', 
         description: 'Failed to delete practice' 
       });
+    }
+  };
+
+  // Bulk selection handlers
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkPublish = async () => {
+    try {
+      setIsBulkActionLoading(true);
+      const response = await fetch('/api/admin/bulk/practices/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          practiceIds: Array.from(selectedIds),
+          published: true
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to publish practices');
+
+      const data = await response.json();
+      push({
+        type: 'success',
+        title: 'Success',
+        description: data.message || `Published ${selectedIds.size} practices`
+      });
+
+      setSelectedIds(new Set());
+      loadPractices();
+    } catch (error) {
+      console.error('Bulk publish error:', error);
+      push({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to publish practices'
+      });
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkUnpublish = async () => {
+    try {
+      setIsBulkActionLoading(true);
+      const response = await fetch('/api/admin/bulk/practices/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          practiceIds: Array.from(selectedIds),
+          published: false
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to unpublish practices');
+
+      const data = await response.json();
+      push({
+        type: 'success',
+        title: 'Success',
+        description: data.message || `Unpublished ${selectedIds.size} practices`
+      });
+
+      setSelectedIds(new Set());
+      loadPractices();
+    } catch (error) {
+      console.error('Bulk unpublish error:', error);
+      push({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to unpublish practices'
+      });
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      setIsBulkActionLoading(true);
+      const response = await fetch('/api/admin/bulk/practices', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          practiceIds: Array.from(selectedIds)
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to delete practices');
+
+      const data = await response.json();
+      push({
+        type: 'success',
+        title: 'Success',
+        description: data.message || `Deleted ${selectedIds.size} practices`
+      });
+
+      setSelectedIds(new Set());
+      loadPractices();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      push({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete practices'
+      });
+    } finally {
+      setIsBulkActionLoading(false);
     }
   };
 
@@ -394,10 +524,25 @@ export const PracticesList: React.FC<PracticesListProps> = ({
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedIds.has(item.id)}
+                      onCheckedChange={(checked) => handleSelectOne(item.id, checked as boolean)}
+                    />
                     {getTypeIcon(item.type)}
                     <span className="text-sm font-medium">{item.type}</span>
                   </div>
                   <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setPreviewPractice(item);
+                        setPreviewOpen(true);
+                      }}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     {onEdit && (
                       <Button
                         variant="ghost"
@@ -470,6 +615,24 @@ export const PracticesList: React.FC<PracticesListProps> = ({
           ))}
         </div>
       )}
+
+      {/* Bulk Action Toolbar */}
+      <BulkActionToolbar
+        selectedCount={selectedIds.size}
+        entityType="practices"
+        onPublish={handleBulkPublish}
+        onUnpublish={handleBulkUnpublish}
+        onDelete={handleBulkDelete}
+        onClearSelection={() => setSelectedIds(new Set())}
+        isLoading={isBulkActionLoading}
+      />
+
+      {/* Preview Modal */}
+      <PracticePreviewModal
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        practice={previewPractice}
+      />
     </div>
   );
 };

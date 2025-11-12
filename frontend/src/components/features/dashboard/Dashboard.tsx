@@ -311,7 +311,7 @@ export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = fal
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => {
-                          if (onLogout && window.confirm('Log out of your session?')) onLogout();
+                          if (onLogout) onLogout();
                         }}
                         className="text-red-600"
                       >
@@ -354,7 +354,7 @@ export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = fal
                   <Button 
                     variant="ghost" 
                     onClick={() => {
-                      if (onLogout && window.confirm('Log out of your session?')) onLogout();
+                      if (onLogout) onLogout();
                     }} 
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
