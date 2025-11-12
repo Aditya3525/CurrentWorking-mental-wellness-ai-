@@ -1,14 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// API Configuration
-const getApiBaseUrl = () => {
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:5000/api';
-  }
-  return import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5000/api`;
-};
-
-const API_BASE_URL = getApiBaseUrl();
+import { API_BASE_URL } from '../config/api';
 
 interface Admin {
   id: string;

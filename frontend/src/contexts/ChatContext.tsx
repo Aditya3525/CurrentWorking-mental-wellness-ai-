@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
+import { getApiUrl } from '../config/api';
+
 interface Message {
   id: string;
   text: string;
@@ -46,7 +48,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
     try {
       // Call AI service
-      const response = await fetch('/api/chat', {
+      const response = await fetch(getApiUrl('/api/chat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
