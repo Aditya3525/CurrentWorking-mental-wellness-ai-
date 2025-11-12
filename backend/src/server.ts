@@ -98,8 +98,8 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' required for cross-site cookies
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined // Allow subdomains
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    // Removed domain restriction to allow cookies to be sent properly
   }
 }));
 
