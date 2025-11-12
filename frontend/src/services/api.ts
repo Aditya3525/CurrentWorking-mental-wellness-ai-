@@ -533,6 +533,97 @@ class ApiClient {
 // Create API client instance
 const apiClient = new ApiClient(API_BASE_URL);
 
+// Admin API Client (session-based, no JWT)
+class AdminApiClient {
+  private baseURL: string;
+
+  constructor(baseURL: string) {
+    this.baseURL = baseURL;
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    try {
+      const url = `${this.baseURL}${endpoint}`;
+      const config: RequestInit = {
+        credentials: 'include', // Always include cookies for session
+        ...options,
+      };
+
+      config.headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+        // DO NOT add JWT Bearer token - admin uses session cookies
+      };
+
+      const response = await fetch(url, config);
+      
+      // Handle non-JSON responses
+      const contentType = response.headers.get('content-type');
+      let data;
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        data = { error: text || `HTTP error! status: ${response.status}` };
+      }
+
+      if (!response.ok) {
+        // Handle validation errors (422) specially
+        if (response.status === 422 && data.errors) {
+          const errorMessages = Object.entries(data.errors)
+            .map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`)
+            .join('; ');
+          throw new Error(errorMessages || data.error || 'Validation failed');
+        }
+        throw new Error(data.error || data.details || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Admin API request failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+
+  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'GET' });
+  }
+
+  async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data !== undefined ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: data !== undefined ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async patch<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: data !== undefined ? JSON.stringify(data) : undefined
+    });
+  }
+
+  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+}
+
+// Create admin API client instance (session-based)
+const adminApiClient = new AdminApiClient(API_BASE_URL);
+
 // Auth API
 export const authApi = {
   async register(userData: { name: string; email: string; password: string }): Promise<AuthResponse> {
@@ -973,7 +1064,7 @@ export const crisisApi = {
   }
 };
 
-// Admin API
+// Admin API (uses session-based authentication)
 export const adminApi = {
   // Assessments
   async listAssessments(params?: { category?: string; isActive?: boolean; search?: string }) {
@@ -983,35 +1074,35 @@ export const adminApi = {
     if (params?.search) query.append('search', params.search);
     
     const queryString = query.toString();
-    return apiClient.get(`/admin/assessments${queryString ? `?${queryString}` : ''}`);
+    return adminApiClient.get(`/admin/assessments${queryString ? `?${queryString}` : ''}`);
   },
   
   async getAssessment(id: string) {
-    return apiClient.get(`/admin/assessments/${id}`);
+    return adminApiClient.get(`/admin/assessments/${id}`);
   },
   
   async createAssessment(data: any) {
-    return apiClient.post('/admin/assessments', data);
+    return adminApiClient.post('/admin/assessments', data);
   },
   
   async updateAssessment(id: string, data: any) {
-    return apiClient.put(`/admin/assessments/${id}`, data);
+    return adminApiClient.put(`/admin/assessments/${id}`, data);
   },
   
   async deleteAssessment(id: string) {
-    return apiClient.delete(`/admin/assessments/${id}`);
+    return adminApiClient.delete(`/admin/assessments/${id}`);
   },
   
   async duplicateAssessment(id: string) {
-    return apiClient.post(`/admin/assessments/${id}/duplicate`);
+    return adminApiClient.post(`/admin/assessments/${id}/duplicate`);
   },
   
   async previewAssessment(id: string, responses: Record<string, string>) {
-    return apiClient.post(`/admin/assessments/${id}/preview`, { responses });
+    return adminApiClient.post(`/admin/assessments/${id}/preview`, { responses });
   },
   
   async getAssessmentCategories() {
-    return apiClient.get('/admin/assessments/categories');
+    return adminApiClient.get('/admin/assessments/categories');
   }
 };
 

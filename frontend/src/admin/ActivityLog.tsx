@@ -75,7 +75,9 @@ export const ActivityLog: React.FC = () => {
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
     try {
-      const response = await fetch(getApiUrl('/api/admin/activity-logs/filters'));
+      const response = await fetch(getApiUrl('/api/admin/activity-logs/filters'), {
+        credentials: 'include'
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -99,7 +101,9 @@ export const ActivityLog: React.FC = () => {
       if (entityTypeFilter !== 'all') params.append('entityType', entityTypeFilter);
       if (adminFilter !== 'all') params.append('adminEmail', adminFilter);
 
-      const response = await fetch(`/api/admin/activity-logs?${params}`);
+      const response = await fetch(`/api/admin/activity-logs?${params}`, {
+        credentials: 'include'
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -128,7 +132,9 @@ export const ActivityLog: React.FC = () => {
   // Fetch stats
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch(getApiUrl('/api/admin/activity-logs/stats'));
+      const response = await fetch(getApiUrl('/api/admin/activity-logs/stats'), {
+        credentials: 'include'
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -147,7 +153,9 @@ export const ActivityLog: React.FC = () => {
       if (entityTypeFilter !== 'all') params.append('entityType', entityTypeFilter);
       if (adminFilter !== 'all') params.append('adminEmail', adminFilter);
 
-      const response = await fetch(`/api/admin/activity-logs/export?${params}`);
+      const response = await fetch(`/api/admin/activity-logs/export?${params}`, {
+        credentials: 'include'
+      });
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
