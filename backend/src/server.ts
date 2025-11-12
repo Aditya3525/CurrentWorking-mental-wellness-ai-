@@ -93,11 +93,13 @@ app.use(session({
   secret: process.env.JWT_SECRET || 'fallback-secret',
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Trust proxy for Render deployment
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' required for cross-site cookies
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined // Allow subdomains
   }
 }));
 
