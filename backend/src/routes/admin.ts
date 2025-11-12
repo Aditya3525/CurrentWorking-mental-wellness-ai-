@@ -296,6 +296,59 @@ async function getYouTubeMetadata(id: string): Promise<YouTubeMetadata | null> {
 
 // (Upload route added later after requireAdmin definition)
 
+// One-time setup endpoint - Creates admin account if it doesn't exist
+router.post('/setup', async (req, res) => {
+  try {
+    const { setupKey } = req.body;
+    
+    // Simple security: require a setup key from environment or use a default
+    const expectedKey = process.env.SETUP_KEY || 'mental-wellbeing-setup-2024';
+    
+    if (setupKey !== expectedKey) {
+      return res.status(403).json({ error: 'Invalid setup key' });
+    }
+
+    // Check if admin already exists
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: 'admin@example.com' }
+    });
+
+    if (existingAdmin) {
+      return res.json({ 
+        message: 'Admin account already exists', 
+        email: 'admin@example.com',
+        alreadyExists: true 
+      });
+    }
+
+    // Create admin user with hashed password
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    const admin = await prisma.user.create({
+      data: {
+        email: 'admin@example.com',
+        name: 'Admin User',
+        password: hashedPassword,
+        isOnboarded: true,
+        dataConsent: true,
+        clinicianSharing: false
+      }
+    });
+
+    console.log('✅ Admin user created via setup endpoint:', admin.email);
+
+    return res.json({ 
+      message: 'Admin account created successfully',
+      email: admin.email,
+      note: 'You can now login with admin@example.com / admin123'
+    });
+
+  } catch (error) {
+    console.error('Setup endpoint error:', error);
+    return res.status(500).json({ error: 'Setup failed', details: error instanceof Error ? error.message : 'Unknown error' });
+  }
+});
+
 // Admin login
 router.post('/login', async (req, res) => {
   try {
