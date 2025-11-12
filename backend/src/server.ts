@@ -28,6 +28,7 @@ import publicContentRoutes from './routes/publicContent';
 import engagementRoutes from './routes/engagement';
 import dashboardRoutes from './routes/dashboard';
 import chatbotRoutes from './routes/chatbot';
+import seedRoutes from './routes/seed';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { logger, refreshLogLevelFromEnv } from './utils/logger';
@@ -180,6 +181,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/content', engagementRoutes); // For /api/content/:id/engage and /api/content/:id/engagement
 app.use('/api/recommendations', engagementRoutes); // For /api/recommendations/personalized
 app.use('/api/crisis', engagementRoutes); // For /api/crisis/check
+app.use('/api/seed', seedRoutes); // Manual database seeding endpoint
 
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {
