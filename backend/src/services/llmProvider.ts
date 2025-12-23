@@ -5,6 +5,7 @@ import { OllamaProvider } from './providers/OllamaProvider';
 import { HuggingFaceProvider } from './providers/HuggingFaceProvider';
 import { AIProvider, AIMessage, AIResponse, AIConfig, ConversationContext, AIProviderConfig, AIProviderType } from '../types/ai';
 import { logger } from '../utils/logger';
+import { advancedAnalyticsService } from './advancedAnalyticsService';
 
 type ProviderState = {
   failureCount: number;
@@ -78,7 +79,6 @@ export class LLMService {
             failureCount: 0,
             cooldownUntil: null
           });
-          serviceLogger.info({ provider: provider.name, providerType: type }, 'Initialized AI provider');
         }
       } catch (error) {
         serviceLogger.warn({ providerType: type, err: error }, 'Failed to initialize AI provider');
@@ -87,16 +87,9 @@ export class LLMService {
 
     // Set provider priority from environment or use default
     this.providerPriority = this.getProviderPriority();
-    serviceLogger.info(
-      { providerPriority: this.providerPriority },
-      'Provider priority configured'
-    );
 
     this.fallbackEnabled = this.getFallbackFlag();
-    serviceLogger.info(
-      { fallbackEnabled: this.fallbackEnabled, maxFailuresBeforeCooldown: this.maxFailuresBeforeCooldown, cooldownMs: this.providerCooldownMs },
-      'LLM fallback configuration applied'
-    );
+    // Silent initialization
   }
 
   private loadProviderConfigs(): Record<string, AIProviderConfig> {
@@ -107,12 +100,11 @@ export class LLMService {
     const defaultTimeout = this.parseNumber(process.env.AI_TIMEOUT, 30000);
 
     const sanitizeKeys = (keys: Array<string | undefined>): string[] => {
-      const PLACEHOLDER_REGEX = /(your[_-]|placeholder|example|changeme|set_in_render)/i;
+      const PLACEHOLDER_REGEX = /(your[_-]|placeholder|example|changeme)/i;
       return keys
         .map((key) => key?.trim())
         .filter((key): key is string => {
           if (!key) return false;
-          if (key.length < 10) return false; // Minimum key length validation
           return !PLACEHOLDER_REGEX.test(key);
         });
     };
@@ -348,6 +340,23 @@ export class LLMService {
           tokens: response.usage?.total_tokens,
           model: response.model
         });
+
+        // Track AI usage analytics
+        try {
+          await advancedAnalyticsService.trackAIUsage({
+            provider: providerType,
+            model: response.model || 'unknown',
+            responseTime: totalTime,
+            totalTokens: response.usage?.total_tokens || 0,
+            promptTokens: response.usage?.prompt_tokens || 0,
+            completionTokens: response.usage?.completion_tokens || 0,
+            success: true,
+            userId: context?.user?.id,
+            conversationId: context?.sessionId
+          });
+        } catch (analyticsError) {
+          serviceLogger.warn({ err: analyticsError }, 'Failed to track AI usage analytics');
+        }
         
         return {
           ...response,
@@ -359,6 +368,24 @@ export class LLMService {
         lastError = error;
         this.recordProviderFailure(providerType, error);
         serviceLogger.warn({ provider: provider.name, providerType, err: error }, 'Provider failed to generate response');
+
+        // Track failed AI usage
+        try {
+          await advancedAnalyticsService.trackAIUsage({
+            provider: providerType,
+            model: config?.model || 'unknown',
+            responseTime: 0,
+            totalTokens: 0,
+            promptTokens: 0,
+            completionTokens: 0,
+            success: false,
+            errorMessage: error.message,
+            userId: context?.user?.id,
+            conversationId: context?.sessionId
+          });
+        } catch (analyticsError) {
+          serviceLogger.warn({ err: analyticsError }, 'Failed to track failed AI usage analytics');
+        }
         
         // If it's an authentication error, don't retry this provider
         if (error.statusCode === 401) {

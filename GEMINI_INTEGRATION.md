@@ -2,7 +2,7 @@
 
 ## ✅ **Gemini Integration Complete!**
 
-Your Mental Wellbeing AI App now supports **Google Gemini 2.0 Flash-Lite** - one of the fastest and most capable AI models available!
+MaanaSarathi now supports **Google Gemini 2.0 Flash-Lite** - one of the fastest and most capable AI models available!
 
 ## 🚀 **Why Gemini 2.0 Flash-Lite?**
 
@@ -35,7 +35,7 @@ AI_PROVIDER_PRIORITY=gemini,openai,anthropic,ollama
 
 ### 3. **Test the Integration**
 ```powershell
-cd "c:\Users\adity\Downloads\Mental Wellbeing AI App Overview\backend"
+cd "c:\Users\adity\Downloads\MaanaSarathi\backend"
 npm run test:gemini
 ```
 
@@ -51,7 +51,7 @@ npm run test:gemini
 - ✅ **Model**: `gemini-2.0-flash-exp` (latest experimental version)
 - ✅ **Max Tokens**: Configurable (default: 150 for chat responses)
 - ✅ **Temperature**: Configurable (default: 0.7 for balanced creativity)
-- ✅ **Safety Settings**: Built-in content filtering for mental health safety
+- ✅ **Safety Settings**: Built-in content filtering for wellbeing safety
 
 ### **3. Therapeutic Integration**
 - ✅ **Context Awareness**: Understands user's therapeutic approach
@@ -105,8 +105,8 @@ With Gemini 2.0 Flash-Lite, you can expect:
 1. **Rate Limits**: Add multiple API keys to handle high traffic
 2. **Cost Optimization**: Monitor token usage via response metadata
 3. **Performance**: Gemini is perfect for real-time chat experiences
-4. **Safety**: The built-in safety filters work well for mental health content
+4. **Safety**: The built-in safety filters work well for wellbeing content
 
 ---
 
-**Your Mental Wellbeing AI App now has state-of-the-art AI capabilities with Gemini 2.0 Flash-Lite! 🔥✨**
+**MaanaSarathi now has state-of-the-art AI capabilities with Gemini 2.0 Flash-Lite! 🔥✨**

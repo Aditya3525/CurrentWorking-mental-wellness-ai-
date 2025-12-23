@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowLeft, Shield, Heart, Users, CheckCircle, AlertTriangle, LogOut, Save, Check, X, MoreVertical, RefreshCw } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Shield, Heart, Users, CheckCircle, Save, Check } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { useToast } from '../../../contexts/ToastContext';
@@ -7,13 +7,7 @@ import { setupSecurityQuestion } from '../../../services/auth';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
 import { Checkbox } from '../../ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../ui/dropdown-menu';
+
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Progress } from '../../ui/progress';
@@ -40,6 +34,7 @@ interface OnboardingFlowProps {
     isGoogleUser?: boolean;
   } | null;
   onExit?: () => void;
+  onBack?: () => void;
 }
 
 interface ProfileData {
@@ -67,7 +62,7 @@ type StoredProgress = {
   savedAt: string;
 };
 
-export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps) {
+export function OnboardingFlow({ onComplete, user, onExit, onBack }: OnboardingFlowProps) {
   // Device detection for responsive behavior
   const device = useDevice();
   const { isMobile, isTablet, isDesktop } = device;
@@ -334,24 +329,36 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
   };
 
   const handleSaveAndExit = () => {
+    console.log('Save & Exit clicked - saving progress...');
     saveProgressToStorage(true);
+    // Use onExit callback to navigate - parent component handles routing
+    // Clear onboarding progress will happen in parent if needed
+    console.log('Calling onExit callback, onExit exists:', !!onExit);
     if (onExit) {
       onExit();
+    } else {
+      console.error('onExit callback is not defined!');
     }
   };
 
-  const handleExitWithoutSaving = () => {
-    const confirmExit = window.confirm('Exit onboarding and continue to your dashboard? Your current responses will be saved so you can complete this later.');
+  const handleBackToLanding = () => {
+    // Exit without saving - go back to landing page and logout
+    const confirmExit = window.confirm('Are you sure you want to exit? You will be logged out and your progress will not be saved.');
     if (!confirmExit) return;
-    saveProgressToStorage();
-    if (onExit) {
+    
+    // Clear onboarding progress before exiting
+    try {
+      localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+    } catch (error) {
+      console.error('Failed to clear onboarding progress:', error);
+    }
+    
+    // Use onBack callback if provided (logs out), otherwise fallback to onExit
+    if (onBack) {
+      onBack();
+    } else if (onExit) {
       onExit();
     }
-    push({
-      title: 'Onboarding paused',
-      description: 'You can complete your profile anytime from Settings.',
-      type: 'info'
-    });
   };
 
   const handleSkipProfileStep = () => {
@@ -364,93 +371,84 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
   // Responsive header component
   const renderHeader = () => {
     if (isMobile) {
-      // Mobile: Compressed header with Previous button, step indicator, overflow menu
+      // Mobile: Back button, step indicator, Save & Exit button
       return (
         <div className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
           <Button
             variant="ghost"
             size="sm"
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-            className="h-9 w-9 p-0"
+            onClick={handleBackToLanding}
+            className="h-9 flex items-center gap-1"
           >
             <ArrowLeft className="h-4 w-4" />
+            <span className="text-sm">Back</span>
           </Button>
           
           <div className="text-sm font-medium">
             Step {currentStep + 1}/{totalSteps}
           </div>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={handleSaveAndExit}>
-                <Save className="h-4 w-4 mr-2" />
-                Save & continue later
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExitWithoutSaving}>
-                <X className="h-4 w-4 mr-2" />
-                Save & Exit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleStartFresh} className="text-destructive">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Start Fresh
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSaveAndExit}
+            className="h-9 flex items-center gap-1"
+          >
+            <Save className="h-4 w-4" />
+            <span className="text-sm">Save & Exit</span>
+          </Button>
         </div>
       );
     } else if (isTablet) {
-      // Tablet: Show Save & Exit, hide secondary in overflow menu
+      // Tablet: Back button on left, Save & Exit on right
       return (
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handlePrevious}
-              disabled={currentStep === 0}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBackToLanding}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
           
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSaveAndExit}
-              className="flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" />
-              Save & Exit
-            </Button>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleStartFresh} className="text-destructive">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Start Fresh
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveAndExit}
+            className="flex items-center gap-2"
+          >
+            <Save className="h-4 w-4" />
+            Save & Exit
+          </Button>
         </div>
       );
     } else {
-      // Desktop: Keep original header (no header, actions at bottom)
-      return null;
+      // Desktop: Show header with Back and Save & Exit
+      return (
+        <div className="flex items-center justify-between mb-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBackToLanding}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveAndExit}
+            className="flex items-center gap-2"
+          >
+            <Save className="h-4 w-4" />
+            Save & Exit
+          </Button>
+        </div>
+      );
     }
   };
 
@@ -465,7 +463,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
             <div className="space-y-4">
               <h2 className="text-2xl">Welcome, {([user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name)}! 👋</h2>
               <p className="text-muted-foreground text-lg">
-                We&apos;re here to support your mental wellbeing journey. This quick setup will help us personalize your experience.
+                We&apos;re here to support your wellbeing journey. This quick setup will help us personalize your experience.
               </p>
               <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-2">
                 <p className="flex items-center gap-2">
@@ -648,14 +646,6 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                 </div>
               </div>
             </div>
-
-            <Button 
-              variant="ghost"
-              className="w-full"
-              onClick={handleSkipProfileStep}
-            >
-              Skip this step for now
-            </Button>
           </div>
         );
 
@@ -680,7 +670,7 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
                     <h3 className="font-medium text-red-800">Important Safety Notice</h3>
                     <p className="text-sm text-red-700">
                       This app is designed for general wellbeing support and is not a substitute for professional 
-                      medical care. If you&apos;re experiencing a mental health crisis or having thoughts of self-harm, 
+                      medical care. If you&apos;re experiencing a wellbeing crisis or having thoughts of self-harm, 
                       please contact emergency services immediately.
                     </p>
                     <div className="text-sm text-red-700 font-medium">
@@ -999,49 +989,38 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
 
     return (
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4 pb-safe">
-        {/* Secondary actions row */}
-        <div className="flex items-center justify-between mb-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSaveAndExit}
-            className="text-xs h-9"
-          >
-            <Save className="h-3.5 w-3.5 mr-1.5" />
-            Save & continue later
-          </Button>
-          
+        {/* Navigation buttons */}
+        <div className="flex items-center gap-3">
           {currentStep > 0 && (
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={handlePrevious}
-              className="text-xs h-9"
+              className="flex-1 h-12"
             >
-              <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Previous
             </Button>
           )}
+          
+          <Button
+            onClick={handleNext}
+            disabled={!canProceed()}
+            className={`h-12 text-base font-medium ${currentStep === 0 ? 'w-full' : 'flex-[2]'}`}
+          >
+            {currentStep === totalSteps - 1 ? (
+              <>
+                <Check className="h-5 w-5 mr-2" />
+                Complete Setup
+              </>
+            ) : (
+              <>
+                Next Step
+                <ArrowRight className="h-5 w-5 ml-2" />
+              </>
+            )}
+          </Button>
         </div>
-
-        {/* Primary action - full width */}
-        <Button
-          onClick={handleNext}
-          disabled={!canProceed()}
-          className="w-full h-12 text-base font-medium"
-        >
-          {currentStep === totalSteps - 1 ? (
-            <>
-              <Check className="h-5 w-5 mr-2" />
-              Complete Setup
-            </>
-          ) : (
-            <>
-              Next Step
-              <ArrowRight className="h-5 w-5 ml-2" />
-            </>
-          )}
-        </Button>
       </div>
     );
   };
@@ -1049,48 +1028,8 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
   return (
     <div className={`min-h-screen bg-background ${isMobile ? 'p-0' : 'p-6'} flex items-center justify-center`}>
       <div className={`w-full ${isMobile ? 'max-w-full' : isTablet ? 'max-w-3xl' : 'max-w-2xl'}`}>
-        {/* Responsive Header */}
+        {/* Header with Back and Save & Exit buttons */}
         {renderHeader()}
-
-        {/* Desktop/Tablet Top Actions (hidden on mobile) */}
-        {!isMobile && (
-          <div className="flex items-center justify-between mb-4">
-            {currentStep > 0 ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleStartFresh}
-                className="flex items-center gap-2"
-              >
-                <AlertTriangle className="h-4 w-4" />
-                Start Fresh
-              </Button>
-            ) : (
-              <div className="flex-1" />
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSaveAndExit}
-                className="flex items-center gap-2"
-              >
-                <Save className="h-4 w-4" />
-                Save & Exit
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleExitWithoutSaving}
-                className="flex items-center gap-2 text-muted-foreground"
-                title="Exit to dashboard and complete onboarding later"
-              >
-                <LogOut className="h-4 w-4" />
-                Skip to Dashboard
-              </Button>
-            </div>
-          </div>
-        )}
 
         {/* Progress Bar (hidden on mobile - shown in header) */}
         {!isMobile && (
@@ -1112,36 +1051,25 @@ export function OnboardingFlow({ onComplete, user, onExit }: OnboardingFlowProps
 
         {/* Desktop/Tablet Navigation (hidden on mobile - using sticky bar) */}
         {!isMobile && (
-          <div className="flex flex-col gap-3 mt-6">
+          <div className="flex justify-between mt-6">
             <Button
               variant="outline"
-              onClick={handleSaveAndExit}
-              className="flex items-center gap-2 self-start"
+              onClick={handlePrevious}
+              disabled={currentStep === 0}
+              className="flex items-center gap-2"
             >
-              <Save className="h-4 w-4" />
-              Save & continue later
+              <ArrowLeft className="h-4 w-4" />
+              Previous
             </Button>
 
-            <div className="flex justify-between">
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentStep === 0}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Previous
-              </Button>
-
-              <Button
-                onClick={handleNext}
-                disabled={!canProceed()}
-                className="flex items-center gap-2"
-              >
-                {currentStep === totalSteps - 1 ? 'Complete Setup' : 'Next Step'}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button
+              onClick={handleNext}
+              disabled={!canProceed()}
+              className="flex items-center gap-2"
+            >
+              {currentStep === totalSteps - 1 ? 'Complete Setup' : 'Next Step'}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 # Data Seeding Guide
 
-This guide explains how to populate the Mental Wellbeing AI database with baseline data for assessments, demo users, plan modules, content, and analytics history. The backend includes a comprehensive Prisma seed script at `backend/src/prisma/seed.ts` that can be run for development, QA fixtures, or demo environments.
+This guide explains how to populate the MaanaSarathi database with baseline data for assessments, demo users, plan modules, content, and analytics history. The backend includes a comprehensive Prisma seed script at `backend/src/prisma/seed.ts` that can be run for development, QA fixtures, or demo environments.
 
 ## 1. Prerequisites
 - Database schema applied (run `npx prisma migrate deploy` or `npx prisma migrate dev`).

@@ -18,16 +18,11 @@ export class GeminiProvider extends BaseAIProvider {
 
     this.clients = this.config.apiKeys
       .filter(key => key && key.trim() !== '' && !key.includes('your_gemini'))
-      .map(apiKey => {
-        console.log(`[Gemini] Initialized client for API key: ${apiKey.substring(0, 8)}...`);
-        return new GoogleGenerativeAI(apiKey);
-      });
+      .map(apiKey => new GoogleGenerativeAI(apiKey));
 
     if (this.clients.length === 0) {
       throw new Error('No valid Gemini API keys provided');
     }
-
-    console.log(`[Gemini] Initialized with ${this.clients.length} API key(s)`);
   }
 
   async generateResponse(

@@ -1,5 +1,6 @@
-import { Heart, MessageCircle, BookOpen, HelpCircle } from 'lucide-react';
+import { Heart, MessageCircle, BookOpen, HelpCircle, Gamepad2 } from 'lucide-react';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useDevice } from '../../hooks/use-device';
 
@@ -18,30 +19,36 @@ interface NavItem {
   ariaLabel: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
+const getNavItems = (t: (key: string) => string): NavItem[] => [
   {
     id: 'dashboard',
-    label: 'Home',
+    label: t('nav.dashboard'),
     icon: <Heart className="h-5 w-5" />,
-    ariaLabel: 'Navigate to home'
+    ariaLabel: t('nav.dashboard')
   },
   {
     id: 'practices',
-    label: 'Practice',
+    label: t('nav.practices'),
     icon: <BookOpen className="h-5 w-5" />,
-    ariaLabel: 'Navigate to practices'
+    ariaLabel: t('nav.practices')
+  },
+  {
+    id: 'games',
+    label: t('nav.games') || 'Games',
+    icon: <Gamepad2 className="h-5 w-5" />,
+    ariaLabel: t('nav.games') || 'Wellness Games'
   },
   {
     id: 'chatbot',
-    label: 'Chat',
+    label: t('nav.chat'),
     icon: <MessageCircle className="h-5 w-5" />,
-    ariaLabel: 'Navigate to AI chat'
+    ariaLabel: t('nav.chat')
   },
   {
     id: 'help',
-    label: 'Help',
+    label: t('nav.help'),
     icon: <HelpCircle className="h-5 w-5" />,
-    ariaLabel: 'Navigate to help'
+    ariaLabel: t('nav.help')
   }
 ];
 
@@ -62,6 +69,7 @@ export function BottomNavigation({
   className 
 }: BottomNavigationProps) {
   const { isMobile } = useDevice();
+  const { t } = useTranslation();
 
   // Only show on mobile devices
   if (!isMobile) {
@@ -80,7 +88,7 @@ export function BottomNavigation({
       aria-label="Primary navigation"
     >
       <div className="grid grid-cols-4 gap-1 px-2 py-1 max-w-md mx-auto">
-        {NAV_ITEMS.map((item) => {
+        {getNavItems(t).map((item) => {
           const isActive = currentPage === item.id;
           
           return (

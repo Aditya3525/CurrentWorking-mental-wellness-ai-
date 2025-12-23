@@ -243,7 +243,7 @@ router.get('/insights', async (req: Request, res: Response) => {
       if (assessments.length === 0) {
         return res.json({
           insights: [],
-          message: 'Complete your first assessment or chat with our AI to receive personalized insights.'
+          aiSummary: 'Complete your first assessment or chat with our AI to receive personalized insights.'
         });
       }
 
@@ -274,10 +274,27 @@ router.get('/insights', async (req: Request, res: Response) => {
 
     // Return combined insights
     res.json({
-      assessments: combinedInsights.assessments,
-      chatbot: combinedInsights.chatbot,
+      insights: [],
       aiSummary: combinedInsights.aiSummary,
-      generatedAt: combinedInsights.generatedAt,
+      overallTrend: 'baseline',
+      wellnessScore: null,
+      assessments: {
+        count: combinedInsights.assessments.scores.length,
+        averageScore: combinedInsights.assessments.scores.length > 0 
+          ? combinedInsights.assessments.scores.reduce((sum, s) => sum + s.score, 0) / combinedInsights.assessments.scores.length 
+          : 0,
+        trend: 'stable',
+        recentScores: combinedInsights.assessments.scores.slice(0, 5).map(s => s.score)
+      },
+      chatbot: {
+        conversationCount: combinedInsights.chatbot.summaries.length,
+        averageEmotionalState: combinedInsights.chatbot.emotionalStates.length > 0 
+          ? combinedInsights.chatbot.emotionalStates[0] 
+          : 'neutral',
+        commonTopics: combinedInsights.chatbot.keyTopics,
+        lastConversationDate: combinedInsights.chatbot.lastDate?.toISOString()
+      },
+      generatedAt: combinedInsights.generatedAt.toISOString(),
       source: 'combined',
       cached: true
     });

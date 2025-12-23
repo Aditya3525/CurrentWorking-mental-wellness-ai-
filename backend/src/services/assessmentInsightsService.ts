@@ -275,7 +275,7 @@ function calculateRecommendations(type: string, summary: AssessmentTypeSummary):
   if (type === 'anxiety' || type === 'anxiety_assessment') {
     const interpretation = summary.interpretation.toLowerCase();
     if (interpretation.includes('severe')) {
-      recs.push('Your anxiety levels are high. Consider reaching out to a mental health professional for support.');
+      recs.push('Your anxiety levels are high. Consider reaching out to a professional for support.');
     } else if (interpretation.includes('moderate')) {
       recs.push('Set aside a daily 5-minute thought download to ease worry loops.');
     }
@@ -618,7 +618,7 @@ async function generateAISummary(
 
   const detailSections = buildResponseHighlights(detailedAssessments, summaries);
 
-  const prompt = `User ${userName || 'the member'} has completed the following mental health assessments. Provide a warm, compassionate summary highlighting strengths, noticing concerns, and suggesting one gentle next step. Avoid clinical diagnoses or medication advice. If the user references self-harm, encourage seeking immediate professional or emergency support. Keep the response under 120 words.`;
+  const prompt = `User ${userName || 'the member'} has completed the following wellbeing assessments. Provide a warm, compassionate summary highlighting strengths, noticing concerns, and suggesting one gentle next step. Avoid clinical diagnoses or medication advice. If the user references self-harm, encourage seeking immediate professional or emergency support. Keep the response under 120 words.`;
 
   const fullContext = `${prompt}\n\nAssessments:\n${lines}${anxietyBreakdownContext ? `\n\n${anxietyBreakdownContext}` : ''}${detailSections ? `\n\nHighlights from recent responses:\n${detailSections}` : ''}`;
 
@@ -632,7 +632,7 @@ async function generateAISummary(
 
   try {
     const response = await llmService.generateResponse([
-      { role: 'system', content: 'You are a licensed mental health coach speaking in a supportive, empowering tone. Avoid making medical diagnoses, refrain from apologising for being an AI, and keep language strengths-based. If acute risk is detected, calmly recommend contacting a professional or emergency services.' },
+      { role: 'system', content: 'You are a licensed wellbeing coach speaking in a supportive, empowering tone. Avoid making medical diagnoses, refrain from apologising for being an AI, and keep language strengths-based. If acute risk is detected, calmly recommend contacting a professional or emergency services.' },
       {
         role: 'user',
         content: fullContext

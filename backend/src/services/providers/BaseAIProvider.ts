@@ -107,7 +107,7 @@ export abstract class BaseAIProvider implements AIProvider {
    * Create therapeutic system prompt based on user context
    */
   protected createSystemPrompt(context?: ConversationContext): string {
-  const basePrompt = `You are a licensed mental wellbeing coach. You deliver warm, strengths-based guidance while following these guardrails:
+  const basePrompt = `You are a licensed wellbeing coach. You deliver warm, strengths-based guidance while following these guardrails:
 
 • Never make medical diagnoses, prescribe medication, or replace emergency/professional care.
 • Keep each response under 150 words, conversational, and trauma-informed.
@@ -211,7 +211,7 @@ Age-Appropriate Communication:
 - Support with empty nest syndrome, career changes, or caregiving responsibilities
 - Focus on rediscovering purpose and maintaining vitality
 - Encourage reflection on life achievements and future goals
-- Address concerns about physical and mental health changes with sensitivity`;
+- Address concerns about physical and emotional health changes with sensitivity`;
           break;
         case 'senior':
           ageGuidance = `
@@ -275,7 +275,7 @@ Therapeutic Focus:
 Response Guidelines:
 - Provide general emotional support and validation
 - Ask open-ended questions to understand their situation better
-- Gently suggest that completing mental health assessments could help provide more personalized support
+- Gently suggest that completing wellbeing assessments could help provide more personalized support
 - Focus on basic coping strategies that work for most people
 - Encourage them to share more about their specific concerns`;
     }

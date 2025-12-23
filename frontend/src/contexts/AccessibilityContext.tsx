@@ -24,6 +24,15 @@ type FontFamilyOption =
   | 'workSans'
   | 'nunito'
   | 'helvetica';
+
+export type ColorPaletteOption = 
+  | 'default'
+  | 'ocean'
+  | 'forest'
+  | 'sunset'
+  | 'lavender'
+  | 'neutral';
+
 type BooleanAccessibilitySettingKey = 'largeText' | 'highContrast' | 'screenReader' | 'reducedMotion' | 'voiceGuidance' | 'darkMode';
 
 export interface AccessibilitySettings {
@@ -34,6 +43,7 @@ export interface AccessibilitySettings {
   voiceGuidance: boolean;
   darkMode: boolean;
   fontFamily: FontFamilyOption;
+  colorPalette: ColorPaletteOption;
 }
 
 interface AccessibilityContextValue {
@@ -41,6 +51,7 @@ interface AccessibilityContextValue {
   setSetting: (key: BooleanAccessibilitySettingKey, value: boolean, options?: FeedbackOptions) => void;
   toggleSetting: (key: BooleanAccessibilitySettingKey, options?: FeedbackOptions) => void;
   setFontFamily: (font: FontFamilyOption, options?: FeedbackOptions) => void;
+  setColorPalette: (palette: ColorPaletteOption, options?: FeedbackOptions) => void;
   resetSettings: () => void;
   announce: (message: string) => void;
   speak: (message: string) => void;
@@ -61,7 +72,8 @@ const defaultSettings: AccessibilitySettings = {
   reducedMotion: false,
   voiceGuidance: false,
   darkMode: false,
-  fontFamily: 'system'
+  fontFamily: 'system',
+  colorPalette: 'default'
 };
 
 const AccessibilityContext = createContext<AccessibilityContextValue | undefined>(undefined);
@@ -145,7 +157,13 @@ const loadStoredSettings = (): AccessibilitySettings => {
       fontFamily = defaultSettings.fontFamily;
     }
 
-    return { ...defaultSettings, ...parsed, fontFamily };
+    let colorPalette = parsed.colorPalette ?? defaultSettings.colorPalette;
+    const validPalettes: ColorPaletteOption[] = ['default', 'ocean', 'forest', 'sunset', 'lavender', 'neutral'];
+    if (!validPalettes.includes(colorPalette)) {
+      colorPalette = defaultSettings.colorPalette;
+    }
+
+    return { ...defaultSettings, ...parsed, fontFamily, colorPalette };
   } catch (error) {
     console.warn('Unable to parse stored accessibility settings', error);
     return defaultSettings;
@@ -205,6 +223,13 @@ export const AccessibilityProvider: React.FC<AccessibilityProviderProps> = ({ ch
     } else {
       root.classList.remove('dark');
       root.setAttribute('data-theme', 'light');
+    }
+
+    // Apply color palette
+    if (next.colorPalette && next.colorPalette !== 'default') {
+      root.setAttribute('data-color-palette', next.colorPalette);
+    } else {
+      root.removeAttribute('data-color-palette');
     }
 
     const fontEntry = FONT_MAP[next.fontFamily] ?? FONT_MAP.system;
@@ -364,6 +389,39 @@ export const AccessibilityProvider: React.FC<AccessibilityProviderProps> = ({ ch
     }
   }, [announce, speak]);
 
+  const setColorPalette = useCallback<AccessibilityContextValue['setColorPalette']>((palette, options) => {
+    setSettings((prev) => {
+      if (prev.colorPalette === palette) return prev;
+      return { ...prev, colorPalette: palette };
+    });
+
+    if (options?.announce) {
+      const paletteNames: Record<ColorPaletteOption, string> = {
+        default: 'Default Teal',
+        ocean: 'Ocean Calm',
+        forest: 'Forest Zen',
+        sunset: 'Sunset Warmth',
+        lavender: 'Lavender Peace',
+        neutral: 'Neutral Balance'
+      };
+      const paletteName = paletteNames[palette] ?? palette;
+      announce(options.announce.replace('{palette}', paletteName));
+    }
+
+    if (options?.speak) {
+      const paletteNames: Record<ColorPaletteOption, string> = {
+        default: 'Default Teal',
+        ocean: 'Ocean Calm',
+        forest: 'Forest Zen',
+        sunset: 'Sunset Warmth',
+        lavender: 'Lavender Peace',
+        neutral: 'Neutral Balance'
+      };
+      const paletteName = paletteNames[palette] ?? palette;
+      speak(options.speak.replace('{palette}', paletteName));
+    }
+  }, [announce, speak]);
+
   const resetSettings = useCallback(() => {
     setSettings(defaultSettings);
     announce('Accessibility preferences reset to defaults');
@@ -374,11 +432,12 @@ export const AccessibilityProvider: React.FC<AccessibilityProviderProps> = ({ ch
     setSetting,
     toggleSetting,
     setFontFamily,
+    setColorPalette,
     resetSettings,
     announce,
     speak,
     isVoiceGuidanceSupported
-  }), [announce, isVoiceGuidanceSupported, resetSettings, setFontFamily, setSetting, settings, speak, toggleSetting]);
+  }), [announce, isVoiceGuidanceSupported, resetSettings, setFontFamily, setColorPalette, setSetting, settings, speak, toggleSetting]);
 
   return (
     <AccessibilityContext.Provider value={value}>

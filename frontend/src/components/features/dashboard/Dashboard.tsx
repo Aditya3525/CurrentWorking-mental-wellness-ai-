@@ -1,5 +1,6 @@
 import { Award, BookOpen, Brain, Calendar, ChevronRight, Heart, MessageCircle, Moon, MoreVertical, Play, Sparkles, Sun, Target, TrendingUp } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useAccessibility } from '../../../contexts/AccessibilityContext';
 import { useAdminAuth } from '../../../contexts/AdminAuthContext';
@@ -57,6 +58,7 @@ interface DashboardProps {
 export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = false, onTourDismiss, onTourComplete }: DashboardProps) {
   const [todayMood, setTodayMood] = useState<string>('');
   const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const { t } = useTranslation();
   const { settings: accessibilitySettings, setSetting: setAccessibilitySetting } = useAccessibility();
   const { checkIsUserAdmin } = useAdminAuth();
   const { visibility, updateVisibility, isVisible } = useWidgetVisibility();
@@ -150,9 +152,9 @@ export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = fal
   const getWelcomeMessage = () => {
     const hour = new Date().getHours();
     let timeGreeting = '';
-    if (hour < 12) timeGreeting = 'Good morning';
-    else if (hour < 17) timeGreeting = 'Good afternoon';
-    else timeGreeting = 'Good evening';
+    if (hour < 12) timeGreeting = t('dashboard.goodMorning');
+    else if (hour < 17) timeGreeting = t('dashboard.goodAfternoon');
+    else timeGreeting = t('dashboard.goodEvening');
     
     // Personalized greeting based on user profile completeness
     const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || 'there';
@@ -259,7 +261,7 @@ export function Dashboard({ user: userProp, onNavigate, onLogout, showTour = fal
                 {getWelcomeMessage()}
               </h1>
               <p className="text-sm md:text-base text-muted-foreground">
-                How are you feeling today?
+                {t('dashboard.howFeeling')}
               </p>
             </div>
             

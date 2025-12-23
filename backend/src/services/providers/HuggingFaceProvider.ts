@@ -121,7 +121,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
 
   private formatPromptForPsychologist(messages: AIMessage[], context?: ConversationContext): string {
     // Format the prompt specifically for the Psychologist-3b model
-    const systemPrompt = `You are a compassionate and professional mental health counselor. Your role is to:
+    const systemPrompt = `You are a compassionate and professional wellbeing counselor. Your role is to:
 - Listen actively and provide empathetic responses
 - Offer therapeutic insights and coping strategies
 - Ask thoughtful follow-up questions

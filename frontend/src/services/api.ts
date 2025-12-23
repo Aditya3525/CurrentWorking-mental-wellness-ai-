@@ -1,5 +1,14 @@
-// Import centralized API configuration
-import { API_BASE_URL } from '../config/api';
+// API Configuration - Smart detection for localhost vs mobile access
+const getApiBaseUrl = () => {
+  // If accessed via localhost, use localhost for API
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5000/api';
+  }
+  // If accessed via IP address, use the same IP for API
+  return `http://${window.location.hostname}:5000/api`;
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || getApiBaseUrl();
 
 // Types
 export interface User {
@@ -470,11 +479,20 @@ class ApiClient {
         ...options,
       };
 
+      const authHeaders = TokenManager.getAuthHeaders();
       config.headers = {
         'Content-Type': 'application/json',
-        ...TokenManager.getAuthHeaders(),
+        ...authHeaders,
         ...(options.headers ?? {}),
       };
+
+      // Log token presence for debugging (only in development)
+      if (import.meta.env.DEV) {
+        console.log(`API Request: ${options.method || 'GET'} ${endpoint}`, {
+          hasToken: !!TokenManager.getToken(),
+          tokenPrefix: TokenManager.getToken()?.substring(0, 20) + '...',
+        });
+      }
 
       const response = await fetch(url, config);
       const data = await response.json();
@@ -532,97 +550,6 @@ class ApiClient {
 
 // Create API client instance
 const apiClient = new ApiClient(API_BASE_URL);
-
-// Admin API Client (session-based, no JWT)
-class AdminApiClient {
-  private baseURL: string;
-
-  constructor(baseURL: string) {
-    this.baseURL = baseURL;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    try {
-      const url = `${this.baseURL}${endpoint}`;
-      const config: RequestInit = {
-        credentials: 'include', // Always include cookies for session
-        ...options,
-      };
-
-      config.headers = {
-        'Content-Type': 'application/json',
-        ...(options.headers ?? {}),
-        // DO NOT add JWT Bearer token - admin uses session cookies
-      };
-
-      const response = await fetch(url, config);
-      
-      // Handle non-JSON responses
-      const contentType = response.headers.get('content-type');
-      let data;
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        data = { error: text || `HTTP error! status: ${response.status}` };
-      }
-
-      if (!response.ok) {
-        // Handle validation errors (422) specially
-        if (response.status === 422 && data.errors) {
-          const errorMessages = Object.entries(data.errors)
-            .map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`)
-            .join('; ');
-          throw new Error(errorMessages || data.error || 'Validation failed');
-        }
-        throw new Error(data.error || data.details || `HTTP error! status: ${response.status}`);
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Admin API request failed:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-      };
-    }
-  }
-
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET' });
-  }
-
-  async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: data !== undefined ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      body: data !== undefined ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async patch<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PATCH',
-      body: data !== undefined ? JSON.stringify(data) : undefined
-    });
-  }
-
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
-  }
-}
-
-// Create admin API client instance (session-based)
-const adminApiClient = new AdminApiClient(API_BASE_URL);
 
 // Auth API
 export const authApi = {
@@ -1064,7 +991,7 @@ export const crisisApi = {
   }
 };
 
-// Admin API (uses session-based authentication)
+// Admin API
 export const adminApi = {
   // Assessments
   async listAssessments(params?: { category?: string; isActive?: boolean; search?: string }) {
@@ -1074,35 +1001,35 @@ export const adminApi = {
     if (params?.search) query.append('search', params.search);
     
     const queryString = query.toString();
-    return adminApiClient.get(`/admin/assessments${queryString ? `?${queryString}` : ''}`);
+    return apiClient.get(`/admin/assessments${queryString ? `?${queryString}` : ''}`);
   },
   
   async getAssessment(id: string) {
-    return adminApiClient.get(`/admin/assessments/${id}`);
+    return apiClient.get(`/admin/assessments/${id}`);
   },
   
   async createAssessment(data: any) {
-    return adminApiClient.post('/admin/assessments', data);
+    return apiClient.post('/admin/assessments', data);
   },
   
   async updateAssessment(id: string, data: any) {
-    return adminApiClient.put(`/admin/assessments/${id}`, data);
+    return apiClient.put(`/admin/assessments/${id}`, data);
   },
   
   async deleteAssessment(id: string) {
-    return adminApiClient.delete(`/admin/assessments/${id}`);
+    return apiClient.delete(`/admin/assessments/${id}`);
   },
   
   async duplicateAssessment(id: string) {
-    return adminApiClient.post(`/admin/assessments/${id}/duplicate`);
+    return apiClient.post(`/admin/assessments/${id}/duplicate`);
   },
   
   async previewAssessment(id: string, responses: Record<string, string>) {
-    return adminApiClient.post(`/admin/assessments/${id}/preview`, { responses });
+    return apiClient.post(`/admin/assessments/${id}/preview`, { responses });
   },
   
   async getAssessmentCategories() {
-    return adminApiClient.get('/admin/assessments/categories');
+    return apiClient.get('/admin/assessments/categories');
   }
 };
 

@@ -215,7 +215,7 @@ export class EnhancedInsightsService {
         [
           {
             role: 'system',
-            content: `You are a compassionate mental health coach. Create a holistic wellbeing summary combining assessment results and chat conversations. Be warm, encouraging, and insightful. Focus on patterns, progress, and gentle next steps.`,
+            content: `You are a compassionate wellbeing coach. Create a holistic wellbeing summary combining assessment results and chat conversations. Be warm, encouraging, and insightful. Focus on patterns, progress, and gentle next steps.`,
           },
           { role: 'user', content: context },
         ],
@@ -318,7 +318,7 @@ Be compassionate, specific, and actionable.`;
 
     // Add chat engagement
     if (chatbotData.summaries.length > 0) {
-      summary += `You've engaged in ${chatbotData.summaries.length} meaningful conversations about your mental health. `;
+      summary += `You've engaged in ${chatbotData.summaries.length} meaningful conversations about your wellbeing. `;
     }
 
     // Add topics
@@ -327,7 +327,7 @@ Be compassionate, specific, and actionable.`;
       summary += `Recent focus areas include ${uniqueTopics.slice(0, 3).join(', ')}. `;
     }
 
-    summary += 'Keep nurturing your wellbeing with consistent self-care practices. You\'re making important progress by staying engaged with your mental health.';
+    summary += 'Keep nurturing your wellbeing with consistent self-care practices. You\'re making important progress by staying engaged with your wellbeing.';
 
     return summary;
   }

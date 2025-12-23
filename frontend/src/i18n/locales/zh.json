@@ -1,0 +1,73 @@
+{
+  "app": {
+    "name": "MaanaSarathi",
+    "tagline": "您的AI健康伴侣",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功"
+  },
+  "nav": {
+    "dashboard": "仪表板",
+    "chat": "AI聊天",
+    "mood": "心情追踪",
+    "practices": "练习",
+    "content": "内容库",
+    "assessments": "评估",
+    "schedule": "日程",
+    "help": "帮助与安全",
+    "profile": "个人资料",
+    "settings": "设置",
+    "logout": "登出",
+    "login": "登录",
+    "register": "注册"
+  },
+  "dashboard": {
+    "welcome": "欢迎回来",
+    "goodMorning": "早上好",
+    "goodAfternoon": "下午好",
+    "goodEvening": "晚上好",
+    "moodCheckIn": "心情签到",
+    "howFeeling": "今天感觉如何？",
+    "recentActivity": "最近活动",
+    "quickActions": "快捷操作",
+    "insights": "您的见解",
+    "streak": "连续天数",
+    "practicesCompleted": "完成的练习",
+    "moodEntries": "心情记录"
+  },
+  "chat": {
+    "title": "AI健康伴侣",
+    "subtitle": "随时倾听",
+    "placeholder": "分享您的想法...",
+    "send": "发送",
+    "newChat": "新聊天",
+    "conversationHistory": "对话历史",
+    "exportChat": "导出聊天",
+    "crisisResources": "危机资源",
+    "typing": "AI正在输入...",
+    "starters": {
+      "relaxation": "我想尝试放松练习",
+      "process": "帮我处理我的想法和感受",
+      "question": "我有关于心理健康的问题",
+      "goal": "和我一起设定个人目标"
+    }
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "close": "关闭",
+    "back": "返回",
+    "next": "下一步",
+    "previous": "上一步",
+    "submit": "提交",
+    "search": "搜索",
+    "filter": "过滤",
+    "sort": "排序",
+    "loading": "加载中...",
+    "noResults": "未找到结果",
+    "tryAgain": "重试",
+    "learnMore": "了解更多"
+  }
+}

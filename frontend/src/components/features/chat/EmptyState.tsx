@@ -60,7 +60,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           Welcome to Your AI Wellness Companion
         </h2>
         <p className="text-muted-foreground text-sm">
-          I&apos;m here to support your mental wellbeing journey. Share what&apos;s on your mind, and let&apos;s work together toward better emotional health.
+          I&apos;m here to support your wellbeing journey. Share what&apos;s on your mind, and let&apos;s work together toward better emotional health.
         </p>
       </div>
 

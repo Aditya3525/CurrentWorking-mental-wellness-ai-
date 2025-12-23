@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -23,147 +25,160 @@ import {
   Shield,
   BookOpen,
   Video,
-  Mail
+  Mail,
+  Loader2,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
+import { 
+  crisisResourcesApi, 
+  faqApi, 
+  therapistApi, 
+  supportTicketsApi,
+  type CrisisResource,
+  type FAQ,
+  type Therapist,
+  type FAQCategory,
+  type TicketCategory
+} from '../../services/helpSafetyApi';
+import { useToast } from '../../contexts/ToastContext';
 
 interface HelpSafetyProps {
   onNavigate: (page: string) => void;
 }
 
-interface Therapist {
-  id: string;
-  name: string;
-  title: string;
-  specialties: string[];
-  rating: number;
-  location: string;
-  availableSlots: string[];
-  acceptsInsurance: boolean;
-  profileImage: string;
-  bio: string;
-}
-
 export function HelpSafety({ onNavigate }: HelpSafetyProps) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [faqSearchQuery, setFaqSearchQuery] = useState('');
+  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [ticketCategory, setTicketCategory] = useState<TicketCategory>('GENERAL');
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
+  const [selectedFaqCategory, setSelectedFaqCategory] = useState<FAQCategory | 'all'>('all');
+  const { push } = useToast();
+  const queryClient = useQueryClient();
 
-  const crisisResources = [
-    {
-      name: 'National Suicide Prevention Lifeline',
-      number: '988',
-      description: '24/7 free and confidential support for people in distress',
-      type: 'crisis'
+  // Fetch crisis resources
+  const { data: crisisResources = [], isLoading: loadingCrisis } = useQuery({
+    queryKey: ['crisisResources'],
+    queryFn: () => crisisResourcesApi.getAll()
+  });
+
+  // Fetch FAQs
+  const { data: allFaqs = [], isLoading: loadingFaqs } = useQuery({
+    queryKey: ['faqs', selectedFaqCategory],
+    queryFn: () => faqApi.getAll(selectedFaqCategory === 'all' ? undefined : selectedFaqCategory)
+  });
+
+  // Fetch therapists
+  const { data: therapists = [], isLoading: loadingTherapists } = useQuery({
+    queryKey: ['therapists', selectedSpecialty],
+    queryFn: () => therapistApi.getAll(
+      selectedSpecialty === 'all' ? undefined : { specialty: selectedSpecialty }
+    )
+  });
+
+  // Create support ticket mutation
+  const createTicketMutation = useMutation({
+    mutationFn: supportTicketsApi.create,
+    onSuccess: () => {
+      push({
+        type: 'success',
+        title: 'Ticket Submitted',
+        description: 'Your support request has been received. We\'ll respond within 24 hours.',
+      });
+      setTicketSubject('');
+      setTicketMessage('');
+      setTicketCategory('GENERAL');
     },
-    {
-      name: 'Crisis Text Line',
-      number: 'Text HOME to 741741',
-      description: 'Free 24/7 support via text message',
-      type: 'crisis'
-    },
-    {
-      name: 'SAMHSA National Helpline',
-      number: '1-800-662-HELP (4357)',
-      description: 'Treatment referral and information service',
-      type: 'support'
-    },
-    {
-      name: 'Emergency Services',
-      number: '911',
-      description: 'For immediate life-threatening emergencies',
-      type: 'emergency'
+    onError: () => {
+      push({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to submit ticket. Please try again.',
+      });
     }
-  ];
+  });
 
-  const therapists: Therapist[] = [
-    {
-      id: '1',
-      name: 'Dr. Sarah Johnson',
-      title: 'Licensed Clinical Psychologist',
-      specialties: ['Anxiety', 'Depression', 'CBT', 'Mindfulness'],
-      rating: 4.9,
-      location: 'San Francisco, CA',
-      availableSlots: ['Mon 2PM', 'Wed 10AM', 'Fri 3PM'],
-      acceptsInsurance: true,
-      profileImage: 'https://images.unsplash.com/photo-1599744403700-b7330f3c4dbe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxtaW5kZnVsbmVzcyUyMG5hdHVyZSUyMHBlYWNlZnVsfGVufDF8fHx8MTc1NjcxMDg5M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      bio: 'Specializing in anxiety and depression with over 10 years of experience in cognitive behavioral therapy.'
-    },
-    {
-      id: '2',
-      name: 'Dr. Michael Chen',
-      title: 'Licensed Marriage & Family Therapist',
-      specialties: ['Relationships', 'Family Therapy', 'Stress Management'],
-      rating: 4.8,
-      location: 'Los Angeles, CA',
-      availableSlots: ['Tue 1PM', 'Thu 11AM', 'Sat 9AM'],
-      acceptsInsurance: true,
-      profileImage: 'https://images.unsplash.com/photo-1687180948607-9ba1dd045e10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbWVkaXRhdGlvbiUyMHdlbGxuZXNzfGVufDF8fHx8MTc1NjcxMDg4Bnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      bio: 'Helping individuals and couples build stronger relationships and manage life transitions.'
-    },
-    {
-      id: '3',
-      name: 'Dr. Emily Rodriguez',
-      title: 'Licensed Clinical Social Worker',
-      specialties: ['Trauma', 'PTSD', 'EMDR', 'Women\'s Issues'],
-      rating: 4.9,
-      location: 'New York, NY',
-      availableSlots: ['Mon 4PM', 'Wed 2PM', 'Thu 6PM'],
-      acceptsInsurance: false,
-      profileImage: 'https://images.unsplash.com/photo-1622048769696-4d042b1028de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZWFjZWZ1bCUyMHlvZ2ElMjBtZWRpdGF0aW9ufGVufDF8fHx8MTc1NjcxMDg4OXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      bio: 'Trauma-informed therapy specialist with expertise in EMDR and somatic approaches.'
+  // FAQ vote mutation
+  const voteOnFaqMutation = useMutation({
+    mutationFn: ({ id, helpful }: { id: string; helpful: boolean }) => 
+      faqApi.vote(id, helpful),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['faqs'] });
+      push({
+        type: 'success',
+        title: 'Thanks for your feedback!',
+        description: 'Your vote helps us improve our content.',
+      });
     }
-  ];
+  });
 
-  const faqs = [
-    {
-      question: 'Is my data private and secure?',
-      answer: 'Yes, absolutely. All your data is encrypted both in transit and at rest. We follow HIPAA guidelines and never share your personal information without your explicit consent. You can review our privacy policy for full details.'
-    },
-    {
-      question: 'How accurate are the assessment results?',
-      answer: 'Our assessments are based on validated psychological instruments and research. However, they are screening tools, not diagnostic tests. Results should be discussed with a healthcare professional for clinical interpretation.'
-    },
-    {
-      question: 'Can I use this app instead of therapy?',
-      answer: 'This app is designed to supplement, not replace, professional mental health care. While our tools can be very helpful for general wellbeing, we always recommend consulting with licensed professionals for clinical issues.'
-    },
-    {
-      question: 'What if I\'m having thoughts of self-harm?',
-      answer: 'Please reach out for immediate help. Call 988 (Suicide Prevention Lifeline), text HOME to 741741, or go to your nearest emergency room. Your safety is the top priority.'
-    },
-    {
-      question: 'How often should I take assessments?',
-      answer: 'We recommend retaking assessments every 2-4 weeks to track progress. However, you can take them more frequently if you\'re going through significant changes or working with a therapist.'
-    },
-    {
-      question: 'Can I export my data to share with my therapist?',
-      answer: 'Yes! You can export your assessment results, progress charts, and insights from your profile settings. This can be very helpful for your healthcare provider to understand your patterns.'
-    },
-    {
-      question: 'What if the app isn\'t helping me?',
-      answer: 'Everyone\'s mental health journey is different. If you\'re not finding the app helpful, we encourage you to speak with a mental health professional. We also offer refunds within the first 30 days.'
-    },
-    {
-      question: 'Are there any age restrictions?',
-      answer: 'This app is designed for adults 18 and older. If you\'re under 18 and struggling with mental health, please talk to a parent, guardian, teacher, or counselor about getting appropriate support.'
-    }
-  ];
-
-  const filteredFAQs = faqs.filter(faq => 
-    faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+  // Filter FAQs by search query
+  const filteredFAQs = allFaqs.filter(faq => 
+    faq.question.toLowerCase().includes(faqSearchQuery.toLowerCase()) ||
+    faq.answer.toLowerCase().includes(faqSearchQuery.toLowerCase())
   );
 
-  const specialties = ['all', 'Anxiety', 'Depression', 'Trauma', 'Relationships', 'CBT', 'Mindfulness'];
-
-  const filteredTherapists = therapists.filter(therapist => 
-    selectedSpecialty === 'all' || therapist.specialties.includes(selectedSpecialty)
+  // Get unique specialties from therapists
+  const allSpecialties = Array.from(
+    new Set(therapists.flatMap(t => t.specialties))
   );
+  const specialties = ['all', ...allSpecialties];
 
-  const handleFeedbackSubmit = () => {
-    // In a real app, this would send feedback to support
-    console.log('Feedback submitted:', feedbackMessage);
-    setFeedbackMessage('');
+  // Filter therapists by specialty
+  const filteredTherapists = selectedSpecialty === 'all' 
+    ? therapists 
+    : therapists.filter(therapist => therapist.specialties.includes(selectedSpecialty));
+
+  // FAQ categories
+  const faqCategories: Array<FAQCategory | 'all'> = [
+    'all', 'GENERAL', 'TECHNICAL', 'PRIVACY', 'BILLING', 'ASSESSMENTS', 'CHATBOT', 'SAFETY'
+  ];
+
+  const handleTicketSubmit = () => {
+    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+      push({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Please fill in both subject and message.',
+      });
+      return;
+    }
+
+    if (ticketSubject.length < 5 || ticketSubject.length > 200) {
+      push({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Subject must be between 5 and 200 characters.',
+      });
+      return;
+    }
+
+    if (ticketMessage.length < 20 || ticketMessage.length > 5000) {
+      push({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Message must be between 20 and 5000 characters.',
+      });
+      return;
+    }
+
+    createTicketMutation.mutate({
+      subject: ticketSubject,
+      message: ticketMessage,
+      category: ticketCategory
+    });
+  };
+
+  const handleFaqVote = (faqId: string, helpful: boolean) => {
+    voteOnFaqMutation.mutate({ id: faqId, helpful });
+  };
+
+  const handleFaqClick = (faqId: string) => {
+    // Record view when FAQ is expanded
+    faqApi.recordView(faqId);
   };
 
   return (
@@ -236,62 +251,85 @@ export function HelpSafety({ onNavigate }: HelpSafetyProps) {
                   Reach out for professional help right away.
                 </p>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  {crisisResources.map((resource, index) => (
-                    <Card key={index} className={`border-2 ${
-                      resource.type === 'crisis' ? 'border-red-200 bg-red-50' :
-                      resource.type === 'emergency' ? 'border-orange-200 bg-orange-50' :
-                      'border-blue-200 bg-blue-50'
-                    }`}>
-                      <CardContent className="p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold">{resource.name}</h3>
-                          <Badge variant={
-                            resource.type === 'crisis' ? 'destructive' :
-                            resource.type === 'emergency' ? 'secondary' : 'default'
-                          }>
-                            {resource.type === 'crisis' ? 'Crisis' : 
-                             resource.type === 'emergency' ? 'Emergency' : 'Support'}
-                          </Badge>
-                        </div>
-                        
-                        <p className="text-sm text-muted-foreground">
-                          {resource.description}
-                        </p>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-lg">{resource.number}</span>
-                          <Button 
-                            size="sm"
-                            onClick={() => {
-                              if (resource.number.includes('741741')) {
-                                window.open('sms:741741&body=HOME');
-                              } else if (resource.number === '988') {
-                                window.open('tel:988');
-                              } else if (resource.number === '911') {
-                                window.open('tel:911');
-                              } else {
-                                window.open(`tel:${resource.number.replace(/\D/g, '')}`);
-                              }
-                            }}
-                          >
-                            {resource.number.includes('Text') ? (
-                              <>
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Text
-                              </>
-                            ) : (
-                              <>
+                {loadingCrisis ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {crisisResources.map((resource) => (
+                      <Card key={resource.id} className={`border-2 ${
+                        resource.type === 'HOTLINE' ? 'border-red-200 bg-red-50' :
+                        resource.type === 'TEXT' ? 'border-orange-200 bg-orange-50' :
+                        'border-blue-200 bg-blue-50'
+                      }`}>
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold">{resource.name}</h3>
+                            <div className="flex gap-2">
+                              {resource.available24x7 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  24/7
+                                </Badge>
+                              )}
+                              <Badge variant={
+                                resource.type === 'HOTLINE' ? 'destructive' :
+                                resource.type === 'TEXT' ? 'secondary' : 'default'
+                              }>
+                                {resource.type}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <p className="text-sm text-muted-foreground">
+                            {resource.description}
+                          </p>
+
+                          {resource.languages && resource.languages.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Languages: {resource.languages.join(', ')}
+                            </p>
+                          )}
+                          
+                          <div className="flex flex-col gap-2">
+                            {resource.phone && (
+                              <Button 
+                                size="sm"
+                                onClick={() => window.open(`tel:${resource.phone}`)}
+                                className="w-full"
+                              >
                                 <Phone className="h-4 w-4 mr-2" />
-                                Call
-                              </>
+                                Call {resource.phone}
+                              </Button>
                             )}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                            {resource.sms && (
+                              <Button 
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(`sms:${resource.sms}`)}
+                                className="w-full"
+                              >
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Text {resource.sms}
+                              </Button>
+                            )}
+                            {resource.website && (
+                              <Button 
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(resource.website!, '_blank')}
+                                className="w-full"
+                              >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Visit Website
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -352,37 +390,118 @@ export function HelpSafety({ onNavigate }: HelpSafetyProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {/* Category Filter */}
+                  <div className="flex flex-wrap gap-2">
+                    {faqCategories.map((category) => (
+                      <Button
+                        key={category}
+                        variant={selectedFaqCategory === category ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedFaqCategory(category)}
+                        className="capitalize"
+                      >
+                        {category === 'all' ? 'All' : category.replace('_', ' ').toLowerCase()}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {/* Search Bar */}
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer" 
+                      onClick={(e) => {
+                        const input = e.currentTarget.parentElement?.querySelector('input');
+                        input?.focus();
+                        input?.select();
+                      }}
+                    />
                     <Input
-                      placeholder="Search FAQs..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
+                      placeholder={t('help.searchFAQ')}
+                      value={faqSearchQuery}
+                      onChange={(e) => setFaqSearchQuery(e.target.value)}
+                      className="pr-12"
                     />
                   </div>
 
-                  <Accordion type="single" collapsible className="space-y-2">
-                    {filteredFAQs.map((faq, index) => (
-                      <AccordionItem key={index} value={`item-${index}`} className="border rounded-lg px-4">
-                        <AccordionTrigger className="text-left">
-                          {faq.question}
-                        </AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground leading-relaxed">
-                          {faq.answer}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-
-                  {filteredFAQs.length === 0 && (
-                    <div className="text-center py-8">
-                      <HelpCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">No results found</h3>
-                      <p className="text-muted-foreground">
-                        Try different search terms or contact support for personalized help.
-                      </p>
+                  {loadingFaqs ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
+                  ) : (
+                    <>
+                      <Accordion type="single" collapsible className="space-y-2">
+                        {filteredFAQs.map((faq) => (
+                          <AccordionItem 
+                            key={faq.id} 
+                            value={faq.id} 
+                            className="border rounded-lg px-4"
+                            onClick={() => handleFaqClick(faq.id)}
+                          >
+                            <AccordionTrigger className="text-left">
+                              <div className="flex items-center justify-between w-full pr-4">
+                                <span>{faq.question}</span>
+                                <Badge variant="outline" className="ml-2">
+                                  {faq.category}
+                                </Badge>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="space-y-3">
+                              <p className="text-muted-foreground leading-relaxed">
+                                {faq.answer}
+                              </p>
+                              {faq.tags && (
+                                <div className="flex flex-wrap gap-1">
+                                  {faq.tags.split(',').map((tag, i) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">
+                                      {tag.trim()}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-4 pt-2 border-t">
+                                <span className="text-sm text-muted-foreground">Was this helpful?</span>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleFaqVote(faq.id, true);
+                                    }}
+                                    disabled={voteOnFaqMutation.isPending}
+                                  >
+                                    <ThumbsUp className="h-3 w-3 mr-1" />
+                                    Yes ({faq.helpful})
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleFaqVote(faq.id, false);
+                                    }}
+                                    disabled={voteOnFaqMutation.isPending}
+                                  >
+                                    <ThumbsDown className="h-3 w-3 mr-1" />
+                                    No ({faq.notHelpful})
+                                  </Button>
+                                </div>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        ))}
+                      </Accordion>
+
+                      {filteredFAQs.length === 0 && (
+                        <div className="text-center py-8">
+                          <HelpCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold mb-2">No results found</h3>
+                          <p className="text-muted-foreground">
+                            Try different search terms or contact support for personalized help.
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </CardContent>
@@ -401,7 +520,7 @@ export function HelpSafety({ onNavigate }: HelpSafetyProps) {
               <CardContent>
                 <div className="space-y-4">
                   <p className="text-muted-foreground">
-                    Connect with licensed mental health professionals in your area. 
+                    Connect with licensed professionals in your area. 
                     This directory includes verified therapists who specialize in various areas.
                   </p>
 
@@ -427,78 +546,133 @@ export function HelpSafety({ onNavigate }: HelpSafetyProps) {
             </Card>
 
             {/* Therapist Cards */}
-            <div className="space-y-4">
-              {filteredTherapists.map((therapist) => (
-                <Card key={therapist.id}>
-                  <CardContent className="p-6">
-                    <div className="flex gap-4">
-                      <div className="w-16 h-16 bg-muted rounded-full flex-shrink-0"></div>
-                      
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-semibold">{therapist.name}</h3>
-                            <p className="text-sm text-muted-foreground">{therapist.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="flex items-center gap-1">
-                                <Star className="h-4 w-4 fill-current text-yellow-500" />
-                                <span className="text-sm">{therapist.rating}</span>
+            {loadingTherapists ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredTherapists.map((therapist) => (
+                  <Card key={therapist.id}>
+                    <CardContent className="p-6">
+                      <div className="flex gap-4">
+                        {therapist.profileImageUrl ? (
+                          <img 
+                            src={therapist.profileImageUrl} 
+                            alt={therapist.name}
+                            className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-muted rounded-full flex-shrink-0 flex items-center justify-center">
+                            <Users className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                        )}
+                        
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold">{therapist.name}</h3>
+                                {therapist.isVerified && (
+                                  <Badge variant="default" className="text-xs">
+                                    Verified
+                                  </Badge>
+                                )}
                               </div>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <MapPin className="h-3 w-3" />
-                                <span>{therapist.location}</span>
+                              <p className="text-sm text-muted-foreground">
+                                {therapist.title} • {therapist.credential}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-4 w-4 fill-current text-yellow-500" />
+                                  <span className="text-sm">{therapist.rating.toFixed(1)}</span>
+                                  {therapist.reviewCount > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                      ({therapist.reviewCount} reviews)
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <MapPin className="h-3 w-3" />
+                                  <span>{therapist.city}, {therapist.state}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          
-                          <Badge variant={therapist.acceptsInsurance ? 'default' : 'secondary'}>
-                            {therapist.acceptsInsurance ? 'Insurance Accepted' : 'Self-Pay'}
-                          </Badge>
-                        </div>
-
-                        <p className="text-sm text-muted-foreground">
-                          {therapist.bio}
-                        </p>
-
-                        <div className="flex flex-wrap gap-1">
-                          {therapist.specialties.map((specialty) => (
-                            <Badge key={specialty} variant="outline" className="text-xs">
-                              {specialty}
+                            
+                            <Badge variant={therapist.acceptsInsurance ? 'default' : 'secondary'}>
+                              {therapist.acceptsInsurance ? 'Insurance Accepted' : 'Self-Pay'}
                             </Badge>
-                          ))}
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Available Times:
-                            </p>
-                            <div className="flex gap-2">
-                              {therapist.availableSlots.slice(0, 3).map((slot) => (
-                                <Badge key={slot} variant="secondary" className="text-xs">
-                                  {slot}
-                                </Badge>
-                              ))}
-                            </div>
                           </div>
 
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
-                              View Profile
-                            </Button>
+                          <p className="text-sm text-muted-foreground">
+                            {therapist.bio}
+                          </p>
+
+                          <div className="flex flex-wrap gap-1">
+                            {therapist.specialties.map((specialty, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {specialty}
+                              </Badge>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex gap-2">
+                              {therapist.phone && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => window.open(`tel:${therapist.phone}`)}
+                                >
+                                  <Phone className="h-3 w-3 mr-1" />
+                                  Call
+                                </Button>
+                              )}
+                              {therapist.email && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => window.open(`mailto:${therapist.email}`)}
+                                >
+                                  <Mail className="h-3 w-3 mr-1" />
+                                  Email
+                                </Button>
+                              )}
+                              {therapist.website && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => window.open(therapist.website!, '_blank')}
+                                >
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  Website
+                                </Button>
+                              )}
+                            </div>
+
                             <Button size="sm">
-                              Book Consultation
-                              <ExternalLink className="h-3 w-3 ml-1" />
+                              Request Consultation
                             </Button>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {filteredTherapists.length === 0 && (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No therapists found</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Try adjusting your filters or contact support for help finding a therapist.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
 
             <Card>
               <CardContent className="p-6 text-center">
@@ -531,22 +705,64 @@ export function HelpSafety({ onNavigate }: HelpSafetyProps) {
 
                   <div className="space-y-3">
                     <div className="space-y-2">
+                      <label className="text-sm font-medium">Category</label>
+                      <select
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                        value={ticketCategory}
+                        onChange={(e) => setTicketCategory(e.target.value as any)}
+                      >
+                        <option value="GENERAL">General Inquiry</option>
+                        <option value="TECHNICAL">Technical Issue</option>
+                        <option value="BILLING">Billing Question</option>
+                        <option value="FEATURE_REQUEST">Feature Request</option>
+                        <option value="CRISIS">Crisis Support</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Subject</label>
+                      <Input
+                        type="text"
+                        placeholder="Brief summary of your issue"
+                        value={ticketSubject}
+                        onChange={(e) => setTicketSubject(e.target.value)}
+                        className={ticketSubject.length > 0 && ticketSubject.length < 5 ? 'border-destructive' : ''}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {ticketSubject.length}/200 characters (minimum 5)
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
                       <label className="text-sm font-medium">Your Message</label>
                       <Textarea
-                        placeholder="Describe your question or issue..."
-                        value={feedbackMessage}
-                        onChange={(e) => setFeedbackMessage(e.target.value)}
+                        placeholder="Describe your question or issue in detail..."
+                        value={ticketMessage}
+                        onChange={(e) => setTicketMessage(e.target.value)}
                         rows={4}
+                        className={ticketMessage.length > 0 && ticketMessage.length < 20 ? 'border-destructive' : ''}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        {ticketMessage.length}/5000 characters (minimum 20)
+                      </p>
                     </div>
 
                     <Button 
-                      onClick={handleFeedbackSubmit}
-                      disabled={!feedbackMessage.trim()}
+                      onClick={handleTicketSubmit}
+                      disabled={createTicketMutation.isPending}
                       className="w-full"
                     >
-                      <Send className="h-4 w-4 mr-2" />
-                      Send Message
+                      {createTicketMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send Message
+                        </>
+                      )}
                     </Button>
                   </div>
 

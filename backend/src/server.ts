@@ -23,14 +23,20 @@ import progressRoutes from './routes/progress';
 import moodRoutes from './routes/mood';
 import contentRoutes from './routes/content';
 import adminRoutes from './routes/admin';
+import adminDataRoutes from './routes/adminData';
 import publicPracticesRoutes from './routes/practices';
 import publicContentRoutes from './routes/publicContent';
 import engagementRoutes from './routes/engagement';
 import dashboardRoutes from './routes/dashboard';
 import chatbotRoutes from './routes/chatbot';
-import seedRoutes from './routes/seed';
+import supportRoutes from './routes/support';
+import faqRoutes from './routes/faq';
+import crisisRoutes from './routes/crisis';
+import therapistRoutes from './routes/therapists';
+import helpSafetyAdminRoutes from './routes/admin/helpSafetyAdmin';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
+import { systemHealthMiddleware, startHealthMonitoring } from './middleware/systemHealthMiddleware';
 import { logger, refreshLogLevelFromEnv } from './utils/logger';
 import { llmService } from './services/llmProvider';
 
@@ -71,6 +77,7 @@ const httpLogger = pinoHttp({
 app.use(helmet());
 app.use(compression());
 app.use(httpLogger);
+app.use(systemHealthMiddleware); // Track API response times and system metrics
 app.use((req, res, next) => {
   res.locals.requestId = (req as any).id;
   try {
@@ -97,9 +104,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    // CRITICAL: Must be 'none' in production for cross-origin cookies to work
-    // Frontend (mental-wellbeing-frontend.onrender.com) and backend (mental-wellbeing-api.onrender.com) are different origins
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -119,8 +124,8 @@ if (!fs.existsSync(uploadsDir)) {
 // Serve uploaded media statically
 app.use('/uploads', express.static(uploadsDir));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Health check endpoints
+app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -129,7 +134,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.get('/health/ready', async (req, res) => {
+app.get('/api/health/ready', async (req, res) => {
   const requestId = (req as any).id;
   const checks: {
     database: { status: 'pass' | 'fail'; error?: string };
@@ -176,6 +181,8 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/mood', moodRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/help-safety', helpSafetyAdminRoutes); // Help & Safety admin management
+app.use('/api/admin-data', adminDataRoutes); // For database CRUD operations
 app.use('/api/practices', publicPracticesRoutes);
 app.use('/api/public-content', publicContentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -183,7 +190,12 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/content', engagementRoutes); // For /api/content/:id/engage and /api/content/:id/engagement
 app.use('/api/recommendations', engagementRoutes); // For /api/recommendations/personalized
 app.use('/api/crisis', engagementRoutes); // For /api/crisis/check
-app.use('/api/seed', seedRoutes); // Manual database seeding endpoint
+
+// Help & Safety System Routes
+app.use('/api/support', supportRoutes);       // Support tickets
+app.use('/api/faq', faqRoutes);               // FAQ system
+app.use('/api/crisis', crisisRoutes);         // Crisis resources & safety plans
+app.use('/api/therapists', therapistRoutes);  // Therapist directory & bookings
 
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -203,13 +215,8 @@ app.use(errorHandler);
 // Start server
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, '0.0.0.0', () => {
-    logger.info({
-      event: 'server_started',
-      port: PORT,
-      environment: process.env.NODE_ENV,
-      frontendUrl: process.env.FRONTEND_URL,
-      host: '0.0.0.0'
-    }, 'HTTP server is listening on all network interfaces');
+    console.log(`\n✅ Server ready at http://localhost:${PORT}\n`);
+    startHealthMonitoring(60000);
   });
 }
 

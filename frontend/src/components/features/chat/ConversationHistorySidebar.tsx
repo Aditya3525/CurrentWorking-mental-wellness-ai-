@@ -138,13 +138,20 @@ export function ConversationHistorySidebar({
 
         {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search 
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer" 
+            onClick={(e) => {
+              const input = e.currentTarget.parentElement?.querySelector('input');
+              input?.focus();
+              input?.select();
+            }}
+          />
           <Input
             type="text"
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9"
+            className="pr-12 h-9"
           />
         </div>
       </div>

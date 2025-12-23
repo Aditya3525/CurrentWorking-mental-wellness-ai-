@@ -30,6 +30,14 @@ import {
   getAssessmentAnalytics
 } from '../controllers/admin/analyticsController';
 import {
+  getAIPerformanceAnalytics,
+  getCrisisDetectionAnalytics,
+  getSystemHealthAnalytics,
+  getUserEngagementAnalytics,
+  getWellnessImpactAnalytics,
+  getComprehensiveAnalytics
+} from '../controllers/admin/advancedAnalyticsController';
+import {
   getUsers,
   getUserDetails,
   updateUserStatus,
@@ -72,19 +80,8 @@ try {
   console.warn('FFmpeg setup warning:', e);
 }
 
-// Determine admin allowlist from environment to support deployment configuration
-const parseAdminEmails = (value: string | undefined): string[] => {
-  if (!value) {
-    return ['admin@example.com', 'admin@mentalwellbeing.ai'];
-  }
-
-  return value
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter((email) => email.length > 0);
-};
-
-const ADMIN_EMAILS = parseAdminEmails(process.env.ADMIN_EMAILS);
+// Admin emails (can be moved to environment variables)
+const ADMIN_EMAILS = ['admin@example.com', 'admin@mentalwellbeing.ai'];
 
 // Multer storage configuration with validation
 const ALLOWED_AUDIO = ['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/webm','audio/ogg','audio/m4a','audio/aac'];
@@ -1236,16 +1233,34 @@ router.post('/assessments/:id/preview', requireAdmin, previewAssessment);
 // ANALYTICS ROUTES (ADMIN ONLY)
 // ==========================================
 
-// Get comprehensive analytics
+// Get comprehensive analytics (all metrics combined)
+router.get('/analytics/comprehensive', requireAdmin, getComprehensiveAnalytics);
+
+// Get AI performance metrics
+router.get('/analytics/ai-performance', requireAdmin, getAIPerformanceAnalytics);
+
+// Get crisis detection metrics
+router.get('/analytics/crisis-detection', requireAdmin, getCrisisDetectionAnalytics);
+
+// Get system health metrics
+router.get('/analytics/system-health', requireAdmin, getSystemHealthAnalytics);
+
+// Get user engagement metrics
+router.get('/analytics/user-engagement', requireAdmin, getUserEngagementAnalytics);
+
+// Get wellness impact metrics
+router.get('/analytics/wellness-impact', requireAdmin, getWellnessImpactAnalytics);
+
+// Get basic analytics (legacy)
 router.get('/analytics', requireAdmin, getAnalytics);
 
-// Get user analytics
+// Get user analytics (legacy)
 router.get('/analytics/users', requireAdmin, getUserAnalytics);
 
-// Get content analytics
+// Get content analytics (legacy)
 router.get('/analytics/content', requireAdmin, getContentAnalytics);
 
-// Get assessment analytics
+// Get assessment analytics (legacy)
 router.get('/analytics/assessments', requireAdmin, getAssessmentAnalytics);
 
 // ==========================================
@@ -1319,6 +1334,365 @@ router.get('/activity-logs/filters', requireAdmin, getActivityFilters);
 
 // Export activity logs as CSV
 router.get('/activity-logs/export', requireAdmin, exportActivityLogs);
+
+// ==========================================
+// THERAPIST MANAGEMENT ROUTES (ADMIN ONLY)
+// ==========================================
+
+// Therapist validation schema
+const therapistValidationSchema = Joi.object({
+  name: Joi.string().required().max(100),
+  credential: Joi.string().required().valid('PSYCHOLOGIST', 'PSYCHIATRIST', 'LCSW', 'LMFT', 'LPC', 'LMHC'),
+  title: Joi.string().required().max(150),
+  bio: Joi.string().required().max(2000),
+  specialties: Joi.array().items(Joi.string()).min(1).required(),
+  email: Joi.string().email().allow('', null).optional(),
+  phone: Joi.string().max(20).allow('', null).optional(),
+  website: Joi.string().uri().allow('', null).optional(),
+  street: Joi.string().max(200).allow('', null).optional(),
+  city: Joi.string().max(100).allow('', null).optional(),
+  state: Joi.string().max(50).allow('', null).optional(),
+  zipCode: Joi.string().max(20).allow('', null).optional(),
+  country: Joi.string().max(50).default('US'),
+  acceptsInsurance: Joi.boolean().default(false),
+  insurances: Joi.array().items(Joi.string()).optional(),
+  sessionFee: Joi.number().min(0).allow(null).optional(),
+  offersSliding: Joi.boolean().default(false),
+  availability: Joi.array().items(Joi.object({
+    day: Joi.string().required(),
+    startTime: Joi.string().required(),
+    endTime: Joi.string().required()
+  })).optional(),
+  profileImageUrl: Joi.string().uri().allow('', null).optional(),
+  yearsExperience: Joi.number().integer().min(0).allow(null).optional(),
+  languages: Joi.string().max(200).allow('', null).optional(),
+  isActive: Joi.boolean().default(true),
+  isVerified: Joi.boolean().default(false)
+});
+
+// Get all therapists (admin - includes inactive/unverified)
+router.get('/therapists', requireAdmin, async (req, res) => {
+  try {
+    const { 
+      search,
+      specialty,
+      credential,
+      isActive,
+      isVerified,
+      city,
+      state,
+      limit = '50',
+      offset = '0',
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search as string } },
+        { bio: { contains: search as string } },
+        { city: { contains: search as string } },
+        { title: { contains: search as string } }
+      ];
+    }
+    if (specialty) {
+      where.specialtiesJson = { contains: specialty as string };
+    }
+    if (credential) {
+      where.credential = credential as string;
+    }
+    if (isActive !== undefined) {
+      where.isActive = isActive === 'true';
+    }
+    if (isVerified !== undefined) {
+      where.isVerified = isVerified === 'true';
+    }
+    if (city) {
+      where.city = { contains: city as string };
+    }
+    if (state) {
+      where.state = state as string;
+    }
+
+    const [therapists, total] = await Promise.all([
+      prisma.therapist.findMany({
+        where,
+        orderBy: { [sortBy as string]: sortOrder as 'asc' | 'desc' },
+        take: parseInt(limit as string),
+        skip: parseInt(offset as string)
+      }),
+      prisma.therapist.count({ where })
+    ]);
+
+    // Parse JSON fields
+    const therapistsWithParsed = therapists.map(t => ({
+      ...t,
+      specialties: JSON.parse(t.specialtiesJson || '[]'),
+      availability: JSON.parse(t.availabilityJson || '[]'),
+      insurancesList: t.insurances ? JSON.parse(t.insurances) : []
+    }));
+
+    res.json({
+      success: true,
+      data: therapistsWithParsed,
+      pagination: {
+        total,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching therapists:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch therapists' });
+  }
+});
+
+// Get single therapist by ID (admin)
+router.get('/therapists/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const therapist = await prisma.therapist.findUnique({
+      where: { id },
+      include: {
+        bookings: {
+          take: 10,
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+
+    if (!therapist) {
+      return res.status(404).json({ success: false, error: 'Therapist not found' });
+    }
+
+    const therapistData = {
+      ...therapist,
+      specialties: JSON.parse(therapist.specialtiesJson || '[]'),
+      availability: JSON.parse(therapist.availabilityJson || '[]'),
+      insurancesList: therapist.insurances ? JSON.parse(therapist.insurances) : []
+    };
+
+    res.json({ success: true, data: therapistData });
+  } catch (error) {
+    console.error('Error fetching therapist:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch therapist' });
+  }
+});
+
+// Create new therapist
+router.post('/therapists', requireAdmin, async (req, res) => {
+  try {
+    const { error, value } = therapistValidationSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Validation error', 
+        details: error.details.map(d => d.message) 
+      });
+    }
+
+    const { specialties, insurances, availability, ...rest } = value;
+
+    const therapist = await prisma.therapist.create({
+      data: {
+        ...rest,
+        specialtiesJson: JSON.stringify(specialties || []),
+        insurances: insurances ? JSON.stringify(insurances) : null,
+        availabilityJson: JSON.stringify(availability || [])
+      }
+    });
+
+    // Log activity
+    const adminEmail = (req.session as any)?.adminId ? 'admin' : 'unknown';
+    await logActivity(adminEmail, 'CREATE', 'THERAPIST', therapist.id, therapist.name, { created: therapist }, req);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...therapist,
+        specialties: specialties || [],
+        availability: availability || [],
+        insurancesList: insurances || []
+      }
+    });
+  } catch (error) {
+    console.error('Error creating therapist:', error);
+    res.status(500).json({ success: false, error: 'Failed to create therapist' });
+  }
+});
+
+// Update therapist
+router.put('/therapists/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.therapist.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Therapist not found' });
+    }
+
+    const { error, value } = therapistValidationSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Validation error', 
+        details: error.details.map(d => d.message) 
+      });
+    }
+
+    const { specialties, insurances, availability, ...rest } = value;
+
+    const therapist = await prisma.therapist.update({
+      where: { id },
+      data: {
+        ...rest,
+        specialtiesJson: JSON.stringify(specialties || []),
+        insurances: insurances ? JSON.stringify(insurances) : null,
+        availabilityJson: JSON.stringify(availability || [])
+      }
+    });
+
+    // Log activity
+    const adminEmail = (req.session as any)?.adminId ? 'admin' : 'unknown';
+    await logActivity(adminEmail, 'UPDATE', 'THERAPIST', therapist.id, therapist.name, { before: existing, after: therapist }, req);
+
+    res.json({
+      success: true,
+      data: {
+        ...therapist,
+        specialties: specialties || [],
+        availability: availability || [],
+        insurancesList: insurances || []
+      }
+    });
+  } catch (error) {
+    console.error('Error updating therapist:', error);
+    res.status(500).json({ success: false, error: 'Failed to update therapist' });
+  }
+});
+
+// Delete therapist
+router.delete('/therapists/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.therapist.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Therapist not found' });
+    }
+
+    // Check for active bookings
+    const activeBookings = await prisma.therapistBooking.count({
+      where: {
+        therapistId: id,
+        status: { in: ['PENDING', 'CONFIRMED'] }
+      }
+    });
+
+    if (activeBookings > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot delete therapist with ${activeBookings} active booking(s). Please cancel or complete them first.`
+      });
+    }
+
+    await prisma.therapist.delete({ where: { id } });
+
+    // Log activity
+    const adminEmail = (req.session as any)?.adminId ? 'admin' : 'unknown';
+    await logActivity(adminEmail, 'DELETE', 'THERAPIST', id, existing?.name || '', { deleted: existing }, req);
+
+    res.json({ success: true, message: 'Therapist deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting therapist:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete therapist' });
+  }
+});
+
+// Toggle therapist active status
+router.patch('/therapists/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive, isVerified } = req.body;
+
+    const existing = await prisma.therapist.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Therapist not found' });
+    }
+
+    const updateData: any = {};
+    if (typeof isActive === 'boolean') updateData.isActive = isActive;
+    if (typeof isVerified === 'boolean') updateData.isVerified = isVerified;
+
+    const therapist = await prisma.therapist.update({
+      where: { id },
+      data: updateData
+    });
+
+    // Log activity
+    const adminEmail = (req.session as any)?.adminId ? 'admin' : 'unknown';
+    await logActivity(adminEmail, 'UPDATE', 'THERAPIST', id, therapist.name, { before: existing, after: therapist }, req);
+
+    res.json({
+      success: true,
+      data: {
+        ...therapist,
+        specialties: JSON.parse(therapist.specialtiesJson || '[]'),
+        availability: JSON.parse(therapist.availabilityJson || '[]'),
+        insurancesList: therapist.insurances ? JSON.parse(therapist.insurances) : []
+      }
+    });
+  } catch (error) {
+    console.error('Error updating therapist status:', error);
+    res.status(500).json({ success: false, error: 'Failed to update therapist status' });
+  }
+});
+
+// Get therapist statistics
+router.get('/therapists-stats', requireAdmin, async (req, res) => {
+  try {
+    const [total, active, verified, byCredential, bySpecialty] = await Promise.all([
+      prisma.therapist.count(),
+      prisma.therapist.count({ where: { isActive: true } }),
+      prisma.therapist.count({ where: { isVerified: true } }),
+      prisma.therapist.groupBy({
+        by: ['credential'],
+        _count: true
+      }),
+      prisma.therapist.findMany({
+        select: { specialtiesJson: true }
+      })
+    ]);
+
+    // Count specialties
+    const specialtyCounts: Record<string, number> = {};
+    bySpecialty.forEach(t => {
+      const specs = JSON.parse(t.specialtiesJson || '[]') as string[];
+      specs.forEach(s => {
+        specialtyCounts[s] = (specialtyCounts[s] || 0) + 1;
+      });
+    });
+
+    res.json({
+      success: true,
+      data: {
+        total,
+        active,
+        verified,
+        inactive: total - active,
+        unverified: total - verified,
+        byCredential: byCredential.map(c => ({ credential: c.credential, count: c._count })),
+        bySpecialty: Object.entries(specialtyCounts).map(([specialty, count]) => ({ specialty, count }))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching therapist stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch therapist statistics' });
+  }
+});
 
 export default router;
 export { logActivity };

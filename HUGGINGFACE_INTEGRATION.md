@@ -1,13 +1,13 @@
 # 🤗 HuggingFace Integration Guide
 
 ## Overview
-Your Mental Wellbeing AI App now includes **HuggingFace integration** with the specialized **"Guilherme34/Psychologist-3b"** model. This model is specifically trained for psychological conversations and counseling, making it perfect for your mental health chatbot.
+MaanaSarathi now includes **HuggingFace integration** with the specialized **"Guilherme34/Psychologist-3b"** model. This model is specifically trained for psychological conversations and counseling, making it perfect for your wellbeing chatbot.
 
 ## 🎯 Benefits of Psychologist-3b Model
 
 ### ✅ **Psychology-Specific Training**
 - Trained specifically for therapeutic conversations
-- Understands mental health terminology and concepts
+- Understands wellbeing terminology and concepts
 - Provides empathetic and professional responses
 - Maintains appropriate therapeutic boundaries
 
@@ -96,7 +96,7 @@ Processing time: 2500ms
 ## 📊 Model Performance
 
 ### **Response Quality**
-- **Psychology-focused**: Specifically trained for mental health conversations
+- **Psychology-focused**: Specifically trained for wellbeing conversations
 - **Empathetic tone**: Natural, caring, and professional responses
 - **Appropriate boundaries**: Knows when to suggest professional help
 
@@ -180,8 +180,8 @@ If you get "Model is loading" errors:
 ## 🚀 Next Steps
 
 1. **Deploy with HuggingFace**: Add the API key to your Render environment
-2. **Test thoroughly**: Try various mental health conversation scenarios
+2. **Test thoroughly**: Try various wellbeing conversation scenarios
 3. **Monitor performance**: Check response times and quality
 4. **Fine-tune prompts**: Adjust the system prompts for your specific use case
 
-Your Mental Wellbeing AI App now has a specialized psychology model that will provide more appropriate and empathetic responses for mental health conversations! 🎉
+MaanaSarathi now has a specialized psychology model that will provide more appropriate and empathetic responses for wellbeing conversations! 🎉

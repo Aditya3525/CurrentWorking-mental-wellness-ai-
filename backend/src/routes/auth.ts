@@ -48,6 +48,22 @@ router.get('/google/failure', googleAuthFailure);
 // Token validation
 router.post('/validate', asyncHandler(validateToken));
 
+// Google OAuth status check (for diagnostics) - No auth required
+router.get('/google/status', asyncHandler(async (req, res) => {
+  const hasClientId = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID.trim());
+  const hasClientSecret = !!(process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_CLIENT_SECRET.trim());
+  const configured = hasClientId && hasClientSecret;
+  
+  res.json({
+    configured,
+    clientIdPresent: hasClientId,
+    clientSecretPresent: hasClientSecret,
+    message: configured 
+      ? 'Google OAuth is configured' 
+      : 'Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env'
+  });
+}));
+
 // Protected routes
 router.get('/me', authenticate as any, asyncHandler(getCurrentUser));
 router.post('/setup-password', authenticate as any, validate(passwordSetupSchema), asyncHandler(setupPassword));

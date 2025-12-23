@@ -1,16 +1,16 @@
 import {
   Activity,
-  Filter,
-  Download,
-  Calendar,
-  User,
-  FileText,
   AlertCircle,
-  RefreshCw,
+  Calendar,
   ChevronLeft,
   ChevronRight,
+  Download,
+  FileText,
+  Filter,
+  RefreshCw,
+  User,
 } from 'lucide-react';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -23,8 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { getApiUrl } from '../config/api';
 import { useNotificationStore } from '../stores/notificationStore';
+import { AdminSectionCard } from './AdminSectionCard';
 
 interface ActivityLogEntry {
   id: string;
@@ -33,7 +33,7 @@ interface ActivityLogEntry {
   entityType: string;
   entityId?: string;
   entityName?: string;
-  details?: Record<string, unknown>;
+  details?: Record<string, unknown> | null;
   ipAddress?: string;
   userAgent?: string;
   createdAt: string;
@@ -46,227 +46,298 @@ interface ActivityStats {
   dailyTrend: Array<{ date: string; count: number }>;
 }
 
+const formatLabel = (value?: string) =>
+  (value || '')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/(^|\s)\w/g, match => match.toUpperCase());
+
+const getEntityIcon = (entityType?: string) => {
+  const normalized = (entityType || '').toLowerCase();
+  const iconClass = 'h-5 w-5 text-muted-foreground';
+
+  if (normalized.includes('user')) {
+    return <User className={iconClass} />;
+  }
+
+  if (normalized.includes('content') || normalized.includes('article')) {
+    return <FileText className={iconClass} />;
+  }
+
+  if (normalized.includes('alert') || normalized.includes('error')) {
+    return <AlertCircle className={iconClass} />;
+  }
+
+  return <Activity className={iconClass} />;
+};
+
+const getActionBadge = (action: string) => {
+  const normalized = action.toLowerCase();
+  let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
+  let Icon = Activity;
+
+  if (normalized.includes('create') || normalized.includes('add')) {
+    variant = 'default';
+    Icon = Activity;
+  } else if (normalized.includes('delete') || normalized.includes('remove')) {
+    variant = 'destructive';
+    Icon = AlertCircle;
+  } else if (normalized.includes('update') || normalized.includes('edit')) {
+    variant = 'secondary';
+    Icon = FileText;
+  } else if (normalized.includes('login') || normalized.includes('auth')) {
+    variant = 'outline';
+    Icon = User;
+  }
+
+  return (
+    <Badge variant={variant} className="flex items-center gap-1 capitalize">
+      <Icon className="h-3 w-3" />
+      {formatLabel(action)}
+    </Badge>
+  );
+};
+
 export const ActivityLog: React.FC = () => {
   const { push } = useNotificationStore();
   const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
   const [stats, setStats] = useState<ActivityStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all');
   const [adminFilter, setAdminFilter] = useState<string>('all');
 
-  // Available filter options
-  const [filterOptions, setFilterOptions] = useState<{
-    actions: string[];
-    entityTypes: string[];
-    admins: string[];
-  }>({
-    actions: [],
-    entityTypes: [],
-    admins: [],
+  const [filterOptions, setFilterOptions] = useState({
+    actions: [] as string[],
+    entityTypes: [] as string[],
+    admins: [] as string[],
   });
 
-  // Fetch filter options
+  const handleActionFilterChange = useCallback((value: string) => {
+    setActionFilter(value);
+    setPage(1);
+  }, []);
+
+  const handleEntityTypeFilterChange = useCallback((value: string) => {
+    setEntityTypeFilter(value);
+    setPage(1);
+  }, []);
+
+  const handleAdminFilterChange = useCallback((value: string) => {
+    setAdminFilter(value);
+    setPage(1);
+  }, []);
+
+  const filteredLogs = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return logs;
+    }
+
+    const term = searchTerm.toLowerCase();
+
+    return logs.filter(log => {
+      const detailsText = log.details ? JSON.stringify(log.details).toLowerCase() : '';
+
+      return (
+        log.adminEmail.toLowerCase().includes(term) ||
+        log.action.toLowerCase().includes(term) ||
+        log.entityType.toLowerCase().includes(term) ||
+        (log.entityId && log.entityId.toLowerCase().includes(term)) ||
+        (log.entityName && log.entityName.toLowerCase().includes(term)) ||
+        (log.ipAddress && log.ipAddress.toLowerCase().includes(term)) ||
+        (log.userAgent && log.userAgent.toLowerCase().includes(term)) ||
+        detailsText.includes(term)
+      );
+    });
+  }, [logs, searchTerm]);
+
   const fetchFilterOptions = useCallback(async () => {
     try {
-      const response = await fetch(getApiUrl('/api/admin/activity-logs/filters'), {
-        credentials: 'include'
-      });
+      const response = await fetch('/api/admin/activity-logs/filters');
       const result = await response.json();
 
-      if (result.success) {
+      if (result?.success) {
         setFilterOptions(result.data);
       }
     } catch (error) {
       console.error('Error fetching filter options:', error);
-    }
-  }, []);
-
-  // Fetch activity logs
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '20',
+      push({
+        type: 'error',
+        title: 'Filter options unavailable',
+        description: 'Unable to load filters for the activity log.',
       });
+    }
+  }, [push]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
 
       if (actionFilter !== 'all') params.append('action', actionFilter);
       if (entityTypeFilter !== 'all') params.append('entityType', entityTypeFilter);
       if (adminFilter !== 'all') params.append('adminEmail', adminFilter);
 
-      const response = await fetch(`/api/admin/activity-logs?${params}`, {
-        credentials: 'include'
-      });
+      const response = await fetch(`/api/admin/activity-logs/stats?${params}`);
       const result = await response.json();
 
-      if (result.success) {
-        setLogs(result.data.logs);
-        setTotal(result.data.pagination.total);
-        setTotalPages(result.data.pagination.totalPages);
-      } else {
-        push({
-          title: 'Error',
-          description: result.error || 'Failed to fetch activity logs',
-          type: 'error',
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching logs:', error);
-      push({
-        title: 'Error',
-        description: 'Failed to fetch activity logs',
-        type: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, actionFilter, entityTypeFilter, adminFilter, push]);
-
-  // Fetch stats
-  const fetchStats = useCallback(async () => {
-    try {
-      const response = await fetch(getApiUrl('/api/admin/activity-logs/stats'), {
-        credentials: 'include'
-      });
-      const result = await response.json();
-
-      if (result.success) {
+      if (result?.success) {
         setStats(result.data);
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error fetching activity stats:', error);
     }
-  }, []);
+  }, [actionFilter, adminFilter, entityTypeFilter]);
 
-  // Export logs as CSV
-  const handleExport = async () => {
+  const fetchLogs = useCallback(
+    async ({
+      page: targetPage,
+      actionFilter: action,
+      entityTypeFilter: entityType,
+      adminFilter: admin,
+    }: {
+      page: number;
+      actionFilter: string;
+      entityTypeFilter: string;
+      adminFilter: string;
+    }) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: targetPage.toString(),
+          limit: '20',
+        });
+
+        if (action !== 'all') params.append('action', action);
+        if (entityType !== 'all') params.append('entityType', entityType);
+        if (admin !== 'all') params.append('adminEmail', admin);
+
+        const response = await fetch(`/api/admin/activity-logs?${params}`);
+        const result = await response.json();
+
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to fetch activity logs');
+        }
+
+        const { logs: fetchedLogs, pagination } = result.data;
+
+        setLogs(fetchedLogs);
+        setTotal(pagination.total ?? fetchedLogs.length);
+        setTotalPages(pagination.totalPages ?? 1);
+      } catch (error) {
+        console.error('Error fetching activity logs:', error);
+        push({
+          type: 'error',
+          title: 'Unable to load logs',
+          description: 'There was a problem fetching the activity log. Please try again.',
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [push]
+  );
+
+  const handleExport = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    setExporting(true);
     try {
       const params = new URLSearchParams();
+
       if (actionFilter !== 'all') params.append('action', actionFilter);
       if (entityTypeFilter !== 'all') params.append('entityType', entityTypeFilter);
       if (adminFilter !== 'all') params.append('adminEmail', adminFilter);
 
-      const response = await fetch(`/api/admin/activity-logs/export?${params}`, {
-        credentials: 'include'
-      });
+      const response = await fetch(`/api/admin/activity-logs/export?${params}`);
+
+      if (!response.ok) {
+        throw new Error('Export request failed');
+      }
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `activity-logs-${new Date().toISOString()}.csv`;
-      document.body.appendChild(a);
-      a.click();
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `activity-logs-${new Date().toISOString()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
 
       push({
-        title: 'Success',
-        description: 'Activity logs exported successfully',
         type: 'success',
+        title: 'Export started',
+        description: 'Your activity log export has been downloaded.',
       });
     } catch (error) {
-      console.error('Error exporting logs:', error);
+      console.error('Error exporting activity logs:', error);
       push({
-        title: 'Error',
-        description: 'Failed to export logs',
         type: 'error',
+        title: 'Export failed',
+        description: 'Unable to export the activity logs right now.',
       });
+    } finally {
+      setExporting(false);
     }
-  };
+  }, [actionFilter, adminFilter, entityTypeFilter, push]);
 
-  // Initialize
   useEffect(() => {
     fetchFilterOptions();
-    fetchStats();
-  }, [fetchFilterOptions, fetchStats]);
+  }, [fetchFilterOptions]);
 
-  // Fetch logs when filters or page changes
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    fetchLogs({
+      page,
+      actionFilter,
+      entityTypeFilter,
+      adminFilter,
+    });
+  }, [actionFilter, adminFilter, entityTypeFilter, fetchLogs, page]);
 
-  // Filter logs by search term (client-side)
-  const filteredLogs = logs.filter(log => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      log.adminEmail.toLowerCase().includes(search) ||
-      log.action.toLowerCase().includes(search) ||
-      log.entityType.toLowerCase().includes(search) ||
-      (log.entityName && log.entityName.toLowerCase().includes(search))
-    );
-  });
-
-  // Get action badge color
-  const getActionBadge = (action: string) => {
-    switch (action.toUpperCase()) {
-      case 'CREATE':
-        return <Badge variant="default" className="bg-green-100 text-green-800">CREATE</Badge>;
-      case 'UPDATE':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">UPDATE</Badge>;
-      case 'DELETE':
-        return <Badge variant="default" className="bg-red-100 text-red-800">DELETE</Badge>;
-      case 'PUBLISH':
-        return <Badge variant="default" className="bg-purple-100 text-purple-800">PUBLISH</Badge>;
-      case 'UNPUBLISH':
-        return <Badge variant="outline">UNPUBLISH</Badge>;
-      case 'BULK_UPDATE':
-        return <Badge variant="default" className="bg-indigo-100 text-indigo-800">BULK UPDATE</Badge>;
-      case 'BULK_DELETE':
-        return <Badge variant="default" className="bg-red-200 text-red-900">BULK DELETE</Badge>;
-      default:
-        return <Badge variant="outline">{action}</Badge>;
-    }
-  };
-
-  // Get entity type icon
-  const getEntityIcon = (entityType: string) => {
-    switch (entityType.toUpperCase()) {
-      case 'ASSESSMENT':
-        return <AlertCircle className="h-4 w-4" />;
-      case 'PRACTICE':
-        return <Activity className="h-4 w-4" />;
-      case 'CONTENT':
-        return <FileText className="h-4 w-4" />;
-      case 'USER':
-        return <User className="h-4 w-4" />;
-      default:
-        return <FileText className="h-4 w-4" />;
-    }
-  };
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Activity Log</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track all administrative actions and changes
-          </p>
-        </div>
+    <AdminSectionCard
+      icon={Activity}
+      title="Activity Log"
+      description="Track all administrative actions and changes"
+      actions={(
         <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              fetchLogs({
+                page,
+                actionFilter,
+                entityTypeFilter,
+                adminFilter,
+              })
+            }
+            disabled={loading}
+          >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline" onClick={handleExport}>
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            {exporting ? 'Exporting…' : 'Export CSV'}
           </Button>
         </div>
-      </div>
-
-      {/* Stats Cards */}
+      )}
+      contentClassName="space-y-6"
+    >
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -319,60 +390,59 @@ export const ActivityLog: React.FC = () => {
         </div>
       )}
 
-      {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Filter className="h-5 w-5" />
             Filters
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <Input
                 placeholder="Search logs..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={event => setSearchTerm(event.target.value)}
                 className="w-full"
               />
             </div>
 
-            <Select value={actionFilter} onValueChange={setActionFilter}>
+            <Select value={actionFilter} onValueChange={handleActionFilterChange}>
               <SelectTrigger>
                 <SelectValue placeholder="All Actions" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Actions</SelectItem>
-                {filterOptions.actions.map((action) => (
+                {filterOptions.actions.map(action => (
                   <SelectItem key={action} value={action}>
-                    {action}
+                    {formatLabel(action)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select value={entityTypeFilter} onValueChange={setEntityTypeFilter}>
+            <Select value={entityTypeFilter} onValueChange={handleEntityTypeFilterChange}>
               <SelectTrigger>
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {filterOptions.entityTypes.map((type) => (
+                {filterOptions.entityTypes.map(type => (
                   <SelectItem key={type} value={type}>
-                    {type}
+                    {formatLabel(type)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select value={adminFilter} onValueChange={setAdminFilter}>
+            <Select value={adminFilter} onValueChange={handleAdminFilterChange}>
               <SelectTrigger>
                 <SelectValue placeholder="All Admins" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Admins</SelectItem>
-                {filterOptions.admins.map((admin) => (
+                {filterOptions.admins.map(admin => (
                   <SelectItem key={admin} value={admin}>
                     {admin}
                   </SelectItem>
@@ -383,7 +453,6 @@ export const ActivityLog: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Activity Log Timeline */}
       <Card>
         <CardHeader>
           <CardTitle>Activity Timeline ({total} total)</CardTitle>
@@ -394,46 +463,44 @@ export const ActivityLog: React.FC = () => {
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : filteredLogs.length === 0 ? (
-            <div className="text-center py-12">
-              <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No activity logs found</h3>
+            <div className="py-12 text-center">
+              <Activity className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+              <h3 className="mb-2 text-lg font-medium">No activity logs found</h3>
               <p className="text-sm text-muted-foreground">
                 Try adjusting your filters or check back later
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredLogs.map((log) => (
+              {filteredLogs.map(log => (
                 <div
                   key={log.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
                 >
-                  <div className="mt-1">
-                    {getEntityIcon(log.entityType)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <div className="mt-1">{getEntityIcon(log.entityType)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
                       {getActionBadge(log.action)}
                       <Badge variant="outline" className="text-xs">
-                        {log.entityType}
+                        {formatLabel(log.entityType)}
                       </Badge>
                       {log.entityName && (
-                        <span className="text-sm font-medium truncate">
+                        <span className="truncate text-sm font-medium">
                           {log.entityName}
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="space-y-1 text-xs text-muted-foreground">
                       <div>
-                        <User className="h-3 w-3 inline mr-1" />
+                        <User className="mr-1 inline h-3 w-3" />
                         {log.adminEmail}
                       </div>
                       <div>
-                        <Calendar className="h-3 w-3 inline mr-1" />
+                        <Calendar className="mr-1 inline h-3 w-3" />
                         {new Date(log.createdAt).toLocaleString()}
                       </div>
                       {log.details && Object.keys(log.details).length > 0 && (
-                        <div className="mt-2 p-2 bg-muted rounded text-xs font-mono">
+                        <div className="mt-2 rounded bg-muted p-2 text-xs font-mono">
                           {JSON.stringify(log.details, null, 2)}
                         </div>
                       )}
@@ -444,9 +511,8 @@ export const ActivityLog: React.FC = () => {
             </div>
           )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t pt-4 mt-4">
+            <div className="mt-4 flex items-center justify-between border-t pt-4">
               <div className="text-sm text-muted-foreground">
                 Page {page} of {totalPages}
               </div>
@@ -454,7 +520,7 @@ export const ActivityLog: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => setPage(current => Math.max(1, current - 1))}
                   disabled={page === 1 || loading}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -463,7 +529,7 @@ export const ActivityLog: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setPage(current => Math.min(totalPages, current + 1))}
                   disabled={page === totalPages || loading}
                 >
                   Next
@@ -474,7 +540,7 @@ export const ActivityLog: React.FC = () => {
           )}
         </CardContent>
       </Card>
-    </div>
+    </AdminSectionCard>
   );
 };
 

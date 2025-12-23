@@ -732,7 +732,7 @@ export function InsightsResults({ insights, history, onNavigate, isLoading, erro
               <Brain className="h-12 w-12 mx-auto text-primary" />
               <h2 className="text-2xl font-semibold">No assessments yet</h2>
               <p className="text-muted-foreground max-w-md mx-auto">
-                Take your first mental health assessment to unlock AI-powered insights, personalised guidance, and track your progress over time.
+                Take your first wellbeing assessment to unlock AI-powered insights, personalised guidance, and track your progress over time.
               </p>
               <Button size="lg" onClick={() => onNavigate('assessments')} className="mt-2">
                 Start an Assessment

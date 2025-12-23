@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 
-import { API_BASE_URL } from '../config/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Types
 export interface DashboardData {
@@ -75,7 +75,7 @@ export interface RecommendedPractice {
   description: string | null;
   type: string;
   duration: string | number | null;
-  tags: string[] | null;
+  tags: string[] | string | null;
   reason: string;
   approach: string | null;
 }
@@ -423,14 +423,14 @@ export function usePullToRefresh(onRefresh: () => Promise<void>) {
     let touchStarted = false;
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (window.scrollY === 0) {
+      if (window.scrollY === 0 && e.touches.length > 0) {
         touchStarted = true;
         setStartY(e.touches[0].clientY);
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!touchStarted || isRefreshing) return;
+      if (!touchStarted || isRefreshing || e.touches.length === 0) return;
 
       const currentY = e.touches[0].clientY;
       const distance = currentY - startY;

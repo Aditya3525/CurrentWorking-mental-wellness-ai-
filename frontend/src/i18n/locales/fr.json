@@ -1,0 +1,73 @@
+{
+  "app": {
+    "name": "MaanaSarathi",
+    "tagline": "Votre Compagnon IA de Bien-être",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès"
+  },
+  "nav": {
+    "dashboard": "Tableau de Bord",
+    "chat": "Chat IA",
+    "mood": "Humeur",
+    "practices": "Pratiques",
+    "content": "Bibliothèque",
+    "assessments": "Évaluations",
+    "schedule": "Calendrier",
+    "help": "Aide et Sécurité",
+    "profile": "Profil",
+    "settings": "Paramètres",
+    "logout": "Déconnexion",
+    "login": "Connexion",
+    "register": "S'inscrire"
+  },
+  "dashboard": {
+    "welcome": "Bon retour",
+    "goodMorning": "Bonjour",
+    "goodAfternoon": "Bon après-midi",
+    "goodEvening": "Bonsoir",
+    "moodCheckIn": "Vérification d'Humeur",
+    "howFeeling": "Comment vous sentez-vous aujourd'hui?",
+    "recentActivity": "Activité Récente",
+    "quickActions": "Actions Rapides",
+    "insights": "Vos Perspectives",
+    "streak": "Jours Consécutifs",
+    "practicesCompleted": "Pratiques Complétées",
+    "moodEntries": "Entrées d'Humeur"
+  },
+  "chat": {
+    "title": "Compagnon IA de Bien-être",
+    "subtitle": "Toujours là pour écouter",
+    "placeholder": "Partagez ce qui vous préoccupe...",
+    "send": "Envoyer",
+    "newChat": "Nouveau Chat",
+    "conversationHistory": "Historique des Conversations",
+    "exportChat": "Exporter le Chat",
+    "crisisResources": "Ressources de Crise",
+    "typing": "L'IA écrit...",
+    "starters": {
+      "relaxation": "J'aimerais essayer un exercice de relaxation",
+      "process": "Aidez-moi à traiter mes pensées et sentiments",
+      "question": "J'ai une question sur le bien-être mental",
+      "goal": "Fixez un objectif personnel avec moi"
+    }
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "submit": "Soumettre",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "sort": "Trier",
+    "loading": "Chargement...",
+    "noResults": "Aucun résultat trouvé",
+    "tryAgain": "Réessayer",
+    "learnMore": "En Savoir Plus"
+  }
+}

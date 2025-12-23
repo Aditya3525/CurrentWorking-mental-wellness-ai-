@@ -966,7 +966,7 @@ export class ChatService {
     }
 
     return [
-      `You are a compassionate mental wellbeing coach. ${APPROACH_DESCRIPTIONS[approach]}`,
+      `You are a compassionate wellbeing coach. ${APPROACH_DESCRIPTIONS[approach]}`,
       `Overall mental wellness score: ${wellnessText}. Trend: ${trendText}.`,
       userContext.aiSummary ? `Previous AI summary cue: ${userContext.aiSummary}` : null,
       domainText,
@@ -1253,9 +1253,9 @@ export class ChatService {
 • **Crisis Text Line**: Text HOME to 741741
 • **Emergency Services**: 911
 
-You are not alone, and there are people who want to help you. Please consider reaching out to a trusted friend, family member, or mental health professional.
+You are not alone, and there are people who want to help you. Please consider reaching out to a trusted friend, family member, or professional.
 
-Would you like me to help you find local mental health resources?`;
+Would you like me to help you find local resources?`;
   }
 
   getFallbackResponse(userMessage: string): string {
@@ -1603,7 +1603,7 @@ Would you like me to help you find local mental health resources?`;
       const memory = await conversationMemoryService.getMemory(userId);
 
       // Generate summary using AI
-      const summaryPrompt = `Please analyze this mental health conversation and provide a structured summary:
+      const summaryPrompt = `Please analyze this wellbeing conversation and provide a structured summary:
 
 Conversation:
 ${conversationText}
@@ -1640,7 +1640,7 @@ Format as valid JSON only.`;
       } catch (error) {
         // Fallback to basic summary
         return {
-          summary: `Conversation covered ${messages.length} messages discussing mental wellbeing topics.`,
+          summary: `Conversation covered ${messages.length} messages discussing wellbeing topics.`,
           keyInsights: ['User engaged in therapeutic conversation'],
           emotionalTrends: ['Mixed emotions observed'],
           topicsDiscussed: memory.recurringThemes || ['General wellbeing'],

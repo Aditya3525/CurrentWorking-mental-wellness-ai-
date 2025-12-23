@@ -1,6 +1,6 @@
-# Mental Wellbeing AI App - Frontend
+# MaanaSarathi - Frontend
 
-React + Vite frontend application for the Mental Wellbeing AI platform.
+React + Vite frontend application for the MaanaSarathi wellbeing platform.
 
 ## Tech Stack
 
@@ -18,7 +18,7 @@ src/
 ├── components/
 │   ├── features/           # Feature-specific components
 │   │   ├── auth/          # Authentication (LandingPage, OAuthCallback)
-│   │   ├── assessment/    # Mental health assessments
+│   │   ├── assessment/    # Wellbeing assessments
 │   │   ├── chat/          # AI chatbot interface
 │   │   ├── content/       # Content library & practices
 │   │   ├── dashboard/     # Main dashboard
@@ -39,11 +39,11 @@ src/
 
 ## Key Features
 
-### Mental Health Components
-- **Assessment Flow**: Multi-step mental health evaluations with scientific scoring
+### Wellbeing Components
+- **Assessment Flow**: Multi-step wellbeing evaluations with scientific scoring
 - **Basic Overall Assessment**: Dedicated dashboard card with one-click combined screening, retake, and quick access to the latest wellness results
 - **Personalized Plans**: Adaptive wellness content based on user assessments
-- **Progress Tracking**: Visual charts and metrics for mental health journey
+- **Progress Tracking**: Visual charts and metrics for wellbeing journey
 - **AI Chatbot**: 24/7 emotional support with crisis detection
 
 ### Authentication

@@ -1,7 +1,7 @@
 {
-  "name": "mental-wellbeing-backend",
+  "name": "maanasarathi-backend",
   "version": "1.0.0",
-  "description": "Backend API for Mental Wellbeing AI App",
+  "description": "Backend API for MaanaSarathi",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
@@ -10,7 +10,8 @@
     "migrate": "npx prisma migrate dev",
     "migrate:deploy": "npx prisma migrate deploy",
     "db:generate": "npx prisma generate",
-    "db:studio": "npx prisma studio",
+    "db:studio": "npx tsx scripts/launch-studio.ts",
+    "db:studio:direct": "npx prisma studio",
     "db:reset": "npx prisma migrate reset",
     "seed": "ts-node src/prisma/seed.ts",
     "test": "cross-env NODE_ENV=test vitest run",
@@ -78,12 +79,12 @@
     "vitest": "^1.5.1"
   },
   "keywords": [
-    "mental-health",
     "wellbeing",
     "api",
     "nodejs",
     "express",
-    "postgresql"
+    "postgresql",
+    "maanasarathi"
   ],
   "author": "",
   "license": "MIT"

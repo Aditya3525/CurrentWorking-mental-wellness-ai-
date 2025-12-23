@@ -535,10 +535,10 @@ export function AssessmentList({ onStartAssessment, onStartCombinedAssessment, o
 
           <div className="space-y-4">
             <h1 className={device.isMobile ? 'text-2xl font-bold' : 'text-3xl font-bold'}>
-              Mental Health Assessments
+              Wellbeing Assessments
             </h1>
             <p className={`text-muted-foreground ${device.isMobile ? 'text-sm' : 'text-lg'}`}>
-              Science-based assessments to understand your mental wellbeing patterns
+              Science-based assessments to understand your wellbeing patterns
             </p>
 
             {/* TOP SUMMARY MODULE - Mobile optimized: Combined score + progress + primary CTA */}

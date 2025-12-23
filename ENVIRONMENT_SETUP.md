@@ -1,6 +1,6 @@
 # Environment Configuration Guide
 
-This document consolidates every environment variable referenced by the Mental Wellbeing AI application and explains how to provision it for development, testing, and production deployments. The project uses separate `.env` files for the backend (`backend/.env`) and frontend (`frontend/.env.*`). Copy the example files added in this repo and populate them with your own secure values.
+This document consolidates every environment variable referenced by the MaanaSarathi application and explains how to provision it for development, testing, and production deployments. The project uses separate `.env` files for the backend (`backend/.env`) and frontend (`frontend/.env.*`). Copy the example files added in this repo and populate them with your own secure values.
 
 ## Quick Start Checklist
 - Duplicate `backend/.env.example` to `backend/.env` and `backend/.env.production`.

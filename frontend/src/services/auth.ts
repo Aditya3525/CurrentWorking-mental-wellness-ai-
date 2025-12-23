@@ -155,6 +155,16 @@ export async function completeOnboarding(
 export async function setupUserPassword(password: string): Promise<StoredUser | null> {
   try {
     console.log('Setting up user password...');
+    
+    // Verify token exists before making API call
+    const token = localStorage.getItem('token');
+    if (!token) {
+      const error = new Error('Authentication token not found. Please try logging in again.');
+      console.error('Setup password error: No token available');
+      throw error;
+    }
+    console.log('Token verified, proceeding with password setup');
+    
     const response = await authApi.setupPassword(password);
     console.log('Setup password response:', response);
     
@@ -163,7 +173,8 @@ export async function setupUserPassword(password: string): Promise<StoredUser | 
       return response.data.user as StoredUser;
     } else {
       console.log('Password setup failed - invalid response:', response);
-      return null;
+      const errorMsg = response.error || 'Password setup failed. Please try again.';
+      throw new Error(errorMsg);
     }
   } catch (error) {
     console.error('Setup password error:', error);

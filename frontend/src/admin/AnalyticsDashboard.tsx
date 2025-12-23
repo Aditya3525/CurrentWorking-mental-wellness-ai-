@@ -41,6 +41,7 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useNotificationStore } from '../stores/notificationStore';
+import { AdminSectionCard } from './AdminSectionCard';
 
 interface AnalyticsData {
   overview: {
@@ -175,13 +176,40 @@ export const AnalyticsDashboard: React.FC = () => {
     });
   };
 
+  const headerActions = (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <Select value={timeframe} onValueChange={(value) => setTimeframe(value as typeof timeframe)}>
+        <SelectTrigger className="w-[180px]">
+          <Calendar className="mr-2 h-4 w-4" />
+          <SelectValue placeholder="Select timeframe" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="7d">Last 7 days</SelectItem>
+          <SelectItem value="30d">Last 30 days</SelectItem>
+          <SelectItem value="90d">Last 90 days</SelectItem>
+          <SelectItem value="all">All time</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button variant="outline" onClick={fetchAnalytics} disabled={isLoading}>
+        <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+        Refresh
+      </Button>
+      <Button variant="outline" onClick={handleExport} disabled={!analytics}>
+        <Download className="h-4 w-4 mr-2" />
+        Export
+      </Button>
+    </div>
+  );
+
   if (isLoading && !analytics) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-32" />
-        </div>
+      <AdminSectionCard
+        icon={TrendingUp}
+        title="Analytics Dashboard"
+        description="Platform insights and performance metrics"
+        actions={headerActions}
+        contentClassName="space-y-6"
+      >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i}>
@@ -196,7 +224,7 @@ export const AnalyticsDashboard: React.FC = () => {
             <Skeleton className="h-64 w-full" />
           </CardContent>
         </Card>
-      </div>
+      </AdminSectionCard>
     );
   }
 
@@ -242,40 +270,13 @@ export const AnalyticsDashboard: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">Analytics Dashboard</h2>
-          <p className="text-muted-foreground">
-            Platform insights and performance metrics
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Select value={timeframe} onValueChange={(value) => setTimeframe(value as typeof timeframe)}>
-            <SelectTrigger className="w-[180px]">
-              <Calendar className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Select timeframe" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-              <SelectItem value="all">All time</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={fetchAnalytics} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
+    <AdminSectionCard
+      icon={TrendingUp}
+      title="Analytics Dashboard"
+      description="Platform insights and performance metrics"
+      actions={headerActions}
+      contentClassName="space-y-6"
+    >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat, index) => (
           <Card key={index}>
@@ -301,7 +302,6 @@ export const AnalyticsDashboard: React.FC = () => {
         ))}
       </div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -520,7 +520,7 @@ export const AnalyticsDashboard: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </AdminSectionCard>
   );
 };
 

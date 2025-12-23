@@ -1,12 +1,9 @@
 // Assessment Management UI - Updated
 import {
   Plus,
-  LogOut,
   Brain,
   BookOpen,
   Shield,
-  Menu,
-  X,
   FileText,
   Headphones,
   Video,
@@ -18,7 +15,9 @@ import {
   Clock,
   ClipboardList,
   BarChart3,
-  Users
+  Users,
+  Stethoscope,
+  Activity
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -28,19 +27,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '../components/ui/dialog';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Skeleton } from '../components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { adminApi, type ApiResponse } from '../services/api';
 import { useNotificationStore } from '../stores/notificationStore';
 
 import { ActivityLog } from './ActivityLog';
+import { AdminSectionCard } from './AdminSectionCard';
+import { AdminShell } from './AdminShell';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
+import { AdvancedAnalyticsDashboard } from './components/AdvancedAnalyticsDashboard';
+import { SystemDiagnostics } from './SystemDiagnostics';
 import { AssessmentBuilder } from './AssessmentBuilder';
 import { AssessmentList, Assessment } from './AssessmentList';
 import { ContentForm, ContentRecord } from './ContentForm';
 import { ContentList, ContentItem } from './ContentList';
 import { PracticeForm, PracticeRecord } from './PracticeForm';
 import { PracticesList, Practice } from './PracticesList';
+import { TherapistManagement } from './TherapistManagement';
 import { UserManagement } from './UserManagement';
 
 type ToastPush = (toast: { title: string; description?: string; type: 'success' | 'error' | 'warning' | 'info'; duration?: number }) => void;
@@ -231,14 +234,13 @@ const useAdminDashboardData = (
   };
 };
 
-type Tab = 'practices' | 'content' | 'assessments' | 'analytics' | 'users' | 'activity';
+type Tab = 'practices' | 'content' | 'assessments' | 'therapists' | 'analytics' | 'advanced-analytics' | 'diagnostics' | 'users' | 'activity';
 
 export const AdminDashboard: React.FC = () => {
   console.log('🎯 AdminDashboard loaded with Assessments tab support');
   const { admin, adminLogout } = useAdminAuth();
   const { push } = useNotificationStore();
   const [tab, setTab] = useState<Tab>('practices');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const {
     practices,
@@ -290,7 +292,6 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     if (!admin) {
       closeForm();
-      setMobileMenuOpen(false);
     }
   }, [admin, closeForm]);
 
@@ -335,36 +336,17 @@ export const AdminDashboard: React.FC = () => {
     setAssessmentRefreshToken((prev) => prev + 1);
   }, []);
 
-  const loadAssessmentStats = useCallback(async () => {
-    if (!admin) {
-      setAssessmentCount(null);
-      return;
+  const handleLogout = useCallback(async () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      await adminLogout();
+      push({ type: 'success', title: 'Success', description: 'Successfully logged out' });
     }
+  }, [adminLogout, push]);
 
-    try {
-      setIsLoadingAssessments(true);
-      const response = await adminApi.listAssessments() as ApiResponse<Assessment[]>;
-      if (response.success && response.data) {
-        setAssessmentCount(response.data.length);
-      } else {
-        setAssessmentCount(null);
-      }
-    } catch (err) {
-      console.error('Failed to load assessment stats:', err);
-      setAssessmentCount(null);
-      push({
-        type: 'error',
-        title: 'Assessment sync failed',
-        description: err instanceof Error ? err.message : 'Unable to load assessments summary'
-      });
-    } finally {
-      setIsLoadingAssessments(false);
-    }
-  }, [admin, push]);
-
-  useEffect(() => {
-    void loadAssessmentStats();
-  }, [loadAssessmentStats, assessmentRefreshToken]);
+  const handleRefresh = useCallback(() => {
+    void refreshAll();
+    triggerAssessmentRefresh();
+  }, [refreshAll, triggerAssessmentRefresh]);
 
   const handlePracticeSaved = useCallback(
     (saved: PracticeRecord) => {
@@ -402,17 +384,126 @@ export const AdminDashboard: React.FC = () => {
     [setContentItems, markUpdated, closeForm]
   );
 
-  const handleLogout = useCallback(async () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      await adminLogout();
-      push({ type: 'success', title: 'Success', description: 'Successfully logged out' });
+  const loadAssessmentStats = useCallback(async () => {
+    if (!admin) {
+      setAssessmentCount(null);
+      return;
     }
-  }, [adminLogout, push]);
 
-  const handleRefresh = useCallback(() => {
-    void refreshAll();
-    triggerAssessmentRefresh();
-  }, [refreshAll, triggerAssessmentRefresh]);
+    try {
+      setIsLoadingAssessments(true);
+      const response = await adminApi.listAssessments() as ApiResponse<Assessment[]>;
+      if (response.success && response.data) {
+        setAssessmentCount(response.data.length);
+      } else {
+        setAssessmentCount(null);
+      }
+    } catch (err) {
+      console.error('Failed to load assessment stats:', err);
+      setAssessmentCount(null);
+      push({
+        type: 'error',
+        title: 'Assessment sync failed',
+        description: err instanceof Error ? err.message : 'Unable to load assessments summary'
+      });
+    } finally {
+      setIsLoadingAssessments(false);
+    }
+  }, [admin, push]);
+
+  useEffect(() => {
+    void loadAssessmentStats();
+  }, [loadAssessmentStats, assessmentRefreshToken]);
+
+  const formattedLastUpdated = useMemo(() => {
+    if (!lastUpdated) return null;
+    try {
+      return new Date(lastUpdated).toLocaleString();
+    } catch {
+      return lastUpdated;
+    }
+  }, [lastUpdated]);
+
+  const navItems = useMemo(
+    () => [
+      {
+        value: 'practices' as const,
+        label: 'Practices',
+        icon: Brain,
+        badge: practices.length.toString()
+      },
+      {
+        value: 'content' as const,
+        label: 'Content',
+        icon: BookOpen,
+        badge: contentItems.length.toString()
+      },
+      {
+        value: 'assessments' as const,
+        label: 'Assessments',
+        icon: ClipboardList,
+        badge: isLoadingAssessments
+          ? '…'
+          : typeof assessmentCount === 'number'
+            ? assessmentCount.toString()
+            : undefined
+      },
+      {
+        value: 'therapists' as const,
+        label: 'Therapists',
+        icon: Stethoscope
+      },
+      {
+        value: 'analytics' as const,
+        label: 'Analytics',
+        icon: BarChart3
+      },
+      {
+        value: 'advanced-analytics' as const,
+        label: 'Advanced Analytics',
+        icon: Brain
+      },
+      {
+        value: 'diagnostics' as const,
+        label: 'System Diagnostics',
+        icon: Activity
+      },
+      {
+        value: 'users' as const,
+        label: 'Users',
+        icon: Users
+      },
+      {
+        value: 'activity' as const,
+        label: 'Activity Log',
+        icon: Shield
+      }
+    ],
+    [practices.length, contentItems.length, isLoadingAssessments, assessmentCount]
+  );
+
+  const headerActions = (
+    <>
+      <Button
+        variant="outline"
+        onClick={handleRefresh}
+        disabled={isLoading}
+        className="flex items-center gap-2"
+        size="sm"
+      >
+        <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+        <span className="hidden sm:inline">Refresh</span>
+        <span className="sm:hidden">Sync</span>
+      </Button>
+    </>
+  );
+
+  const lastUpdatedLabel = formattedLastUpdated ? (
+    <>
+      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+      <span>Updated {formattedLastUpdated}</span>
+    </>
+  ) : null;
 
   const stats = useMemo(() => {
     return [
@@ -458,15 +549,6 @@ export const AdminDashboard: React.FC = () => {
   const hasData = practices.length > 0 || contentItems.length > 0;
   const isInitialLoading = isLoading && !hasData;
 
-  const formattedLastUpdated = useMemo(() => {
-    if (!lastUpdated) return null;
-    try {
-      return new Date(lastUpdated).toLocaleString();
-    } catch {
-      return lastUpdated;
-    }
-  }, [lastUpdated]);
-
   const isFormOpen = activeModal === 'form';
   const isPracticePickerOpen = activeModal === 'add-practice';
   const isContentPickerOpen = activeModal === 'add-content';
@@ -479,312 +561,223 @@ export const AdminDashboard: React.FC = () => {
         ? 'Add Practice'
         : 'Add Content';
 
+  const renderActiveSection = () => {
+    if (tab === 'practices') {
+      return (
+        <AdminSectionCard
+          icon={Brain}
+          title="Practices Management"
+          description="Curate guided exercises for clinicians to assign and maintain tailored practice libraries."
+          actions={
+            <Button size="sm" className="gap-2" onClick={openAdd}>
+              <Plus className="h-4 w-4" />
+              Add Practice
+            </Button>
+          }
+        >
+          <PracticesList
+            embedded
+            onAdd={openAdd}
+            onEdit={handleEditPractice}
+            itemsExternal={practices}
+            setItemsExternal={setPractices}
+          />
+        </AdminSectionCard>
+      );
+    }
+
+    if (tab === 'content') {
+      return (
+        <AdminSectionCard
+          icon={BookOpen}
+          title="Content Management"
+          description="Publish articles, audio sessions, and multimedia resources that enrich the wellbeing library."
+          actions={
+            <Button size="sm" className="gap-2" onClick={openAdd}>
+              <Plus className="h-4 w-4" />
+              Add Content
+            </Button>
+          }
+        >
+          <ContentList
+            embedded
+            onAdd={openAdd}
+            onEdit={handleEditContent}
+            itemsExternal={contentItems}
+            setItemsExternal={setContentItems}
+          />
+        </AdminSectionCard>
+      );
+    }
+
+    if (tab === 'assessments') {
+      return (
+        <AdminSectionCard
+          icon={ClipboardList}
+          title="Assessment Management"
+          description="Design, revise, and monitor adaptive assessments to track participant progress."
+          actions={
+            <Button size="sm" className="gap-2" onClick={openAssessmentBuilder}>
+              <Plus className="h-4 w-4" />
+              New Assessment
+            </Button>
+          }
+        >
+          <AssessmentList
+            refreshToken={assessmentRefreshToken}
+            onAdd={openAssessmentBuilder}
+            onEdit={handleEditAssessment}
+          />
+        </AdminSectionCard>
+      );
+    }
+
+    if (tab === 'therapists') {
+      return <TherapistManagement onRefresh={refreshAll} />;
+    }
+
+    if (tab === 'analytics') {
+      return <AnalyticsDashboard />;
+    }
+
+    if (tab === 'advanced-analytics') {
+      return <AdvancedAnalyticsDashboard />;
+    }
+
+    if (tab === 'diagnostics') {
+      return <SystemDiagnostics />;
+    }
+
+    if (tab === 'users') {
+      return <UserManagement />;
+    }
+
+    if (tab === 'activity') {
+      return <ActivityLog />;
+    }
+
+    return null;
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-accent/10 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex justify-between items-center">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                <h1 className="text-lg sm:text-2xl font-semibold">Admin Dashboard</h1>
-              </div>
-              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                Manage practices, content, and monitor platform health
-              </p>
+    <>
+        <AdminShell
+          admin={admin}
+          onLogout={handleLogout}
+          navItems={navItems}
+          activeItem={tab}
+          onSelect={(value) => setTab(value as Tab)}
+          headerActions={headerActions}
+          lastUpdatedLabel={lastUpdatedLabel}
+        >
+          <div className="space-y-6" aria-busy={isLoading}>
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {isInitialLoading
+                ? Array.from({ length: 3 }).map((_, index) => (
+                    <Card key={`stat-skeleton-${index}`}>
+                      <CardContent className="p-4 sm:p-6">
+                        <div className="flex items-center space-x-4">
+                          <Skeleton className="h-12 w-12 rounded-lg" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-6 w-16" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                : stats.map((stat, index) => (
+                    <Card key={index}>
+                      <CardContent className="p-4 sm:p-6">
+                        <div className="flex items-center space-x-3 sm:space-x-4">
+                          <div className={`p-2 sm:p-3 rounded-lg ${stat.bgColor}`}>
+                            <stat.icon className={`h-5 w-5 sm:h-6 sm:w-6 ${stat.color}`} />
+                          </div>
+                          <div>
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                              {stat.title}
+                            </p>
+                            <p className="text-xl sm:text-2xl font-bold">
+                              {stat.value}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
             </div>
-            
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* Mobile menu toggle */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="lg:hidden"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
-                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </Button>
-              
-              {/* Desktop menu */}
-              <div className="hidden lg:flex items-center gap-4">
-                <div className="text-right">
-                  <Badge variant="secondary" className="bg-primary/10 text-primary">
-                    {admin?.role || 'Admin'}
-                  </Badge>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {admin?.email}
+
+            <Card className="border-dashed border-teal-200 bg-teal-50/30">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ClipboardList className="h-5 w-5 text-teal-600" />
+                    Assessment Tools
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Build, review, and assign dynamic assessments without leaving the dashboard.
                   </p>
                 </div>
-                
+                <Badge variant="outline" className="px-3 py-1 text-sm">
+                  {isLoadingAssessments
+                    ? 'Syncing…'
+                    : typeof assessmentCount === 'number'
+                      ? `${assessmentCount} active`
+                      : '—'}
+                </Badge>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Access the assessment builder or browse the full catalogue.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button variant="outline" onClick={goToAssessments} className="flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4" />
+                    Manage Assessments
+                  </Button>
+                  <Button onClick={openAssessmentBuilder} className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    New Assessment
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {error && (
+              <div
+                className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                role="alert"
+                aria-live="assertive"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{error}</span>
+                </div>
                 <Button
                   variant="outline"
-                  onClick={handleLogout}
-                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  size="sm"
+                  onClick={handleRefresh}
+                  className="mt-3"
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                  Retry sync
                 </Button>
               </div>
-            </div>
-          </div>
-          
-          {/* Mobile menu */}
-          {mobileMenuOpen && (
-            <div className="lg:hidden mt-4 p-4 bg-background rounded-lg border space-y-3">
-              <div className="text-center">
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
-                  {admin?.role || 'Admin'}
-                </Badge>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {admin?.email}
-                </p>
+            )}
+
+            {isLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Syncing latest data…
               </div>
-              <Button
-                variant="outline"
-                onClick={handleLogout}
-                className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+            )}
 
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8" aria-busy={isLoading}>
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {isInitialLoading
-            ? Array.from({ length: 3 }).map((_, index) => (
-                <Card key={`stat-skeleton-${index}`}>
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center space-x-4">
-                      <Skeleton className="h-12 w-12 rounded-lg" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-6 w-16" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            : stats.map((stat, index) => (
-                <Card key={index}>
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                      <div className={`p-2 sm:p-3 rounded-lg ${stat.bgColor}`}>
-                        <stat.icon className={`h-5 w-5 sm:h-6 sm:w-6 ${stat.color}`} />
-                      </div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                          {stat.title}
-                        </p>
-                        <p className="text-xl sm:text-2xl font-bold">
-                          {stat.value}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-        </div>
-
-        {/* Assessments shortcut */}
-        <Card className="border-dashed border-teal-200 bg-teal-50/30">
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ClipboardList className="h-5 w-5 text-teal-600" />
-                Assessment Tools
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Build, review, and assign dynamic assessments without leaving the dashboard.
-              </p>
-            </div>
-            <Badge variant="outline" className="px-3 py-1 text-sm">
-              {isLoadingAssessments
-                ? 'Syncing…'
-                : typeof assessmentCount === 'number'
-                  ? `${assessmentCount} active`
-                  : '—'}
-            </Badge>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Access the assessment builder or browse the full catalogue.
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" onClick={goToAssessments} className="flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" />
-                Manage Assessments
-              </Button>
-              <Button onClick={openAssessmentBuilder} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                New Assessment
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {error && (
-          <div
-            className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-            role="alert"
-            aria-live="assertive"
-          >
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              <span>{error}</span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              className="mt-3"
-            >
-              Retry sync
-            </Button>
-          </div>
-        )}
-
-        {/* Main Content Tabs */}
-        <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="space-y-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList className="inline-flex h-auto w-full flex-wrap items-center justify-start gap-1 p-1">
-              <TabsTrigger value="practices" className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Practices</span>
-              </TabsTrigger>
-              <TabsTrigger value="content" className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Content</span>
-              </TabsTrigger>
-              <TabsTrigger value="assessments" className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Assessments</span>
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Analytics</span>
-              </TabsTrigger>
-              <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Users</span>
-              </TabsTrigger>
-              <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Activity Log</span>
-              </TabsTrigger>
-            </TabsList>
-            <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:items-center">
-              <Button
-                variant="outline"
-                onClick={handleRefresh}
-                disabled={isLoading}
-                className="flex items-center gap-2 flex-1 sm:flex-initial"
-                size="sm"
-              >
-                <Loader2 className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
-                <span className="sm:hidden">Sync</span>
-              </Button>
-              <Button onClick={openAdd} className="flex items-center gap-2 flex-1 sm:flex-initial" size="sm">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">
-                  Add {tab === 'practices' ? 'Practice' : tab === 'content' ? 'Content' : tab === 'users' ? 'User' : 'Assessment'}
-                </span>
-                <span className="sm:hidden">Add</span>
-              </Button>
-              {formattedLastUpdated && (
-                <span className="hidden lg:flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap" aria-live="polite">
-                  <Clock className="h-3 w-3" />
-                  Updated {formattedLastUpdated}
-                </span>
-              )}
+            <div className="space-y-6">
+              {renderActiveSection()}
             </div>
           </div>
-
-          {isLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Syncing latest data…
-            </div>
-          )}
-
-          <TabsContent value="practices" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-primary" />
-                  Practices Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PracticesList 
-                  embedded 
-                  onAdd={openAdd} 
-                  onEdit={handleEditPractice} 
-                  itemsExternal={practices} 
-                  setItemsExternal={setPractices} 
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="content" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-primary" />
-                  Content Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ContentList 
-                  embedded 
-                  onAdd={openAdd} 
-                  onEdit={handleEditContent} 
-                  itemsExternal={contentItems} 
-                  setItemsExternal={setContentItems} 
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="assessments" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5 text-primary" />
-                  Assessment Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AssessmentList 
-                  refreshToken={assessmentRefreshToken}
-                  onAdd={openAssessmentBuilder}
-                  onEdit={handleEditAssessment}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="analytics" className="space-y-6">
-            <AnalyticsDashboard />
-          </TabsContent>
-
-          <TabsContent value="users" className="space-y-6">
-            <UserManagement />
-          </TabsContent>
-
-          <TabsContent value="activity" className="space-y-6">
-            <ActivityLog />
-          </TabsContent>
-        </Tabs>
+        </AdminShell>
 
         <Dialog
           open={isFormOpen}
@@ -832,7 +825,6 @@ export const AdminDashboard: React.FC = () => {
             </ScrollArea>
           </DialogContent>
         </Dialog>
-      </div>
 
       <Dialog
         open={isContentPickerOpen}
@@ -1048,7 +1040,7 @@ export const AdminDashboard: React.FC = () => {
           triggerAssessmentRefresh();
         }}
       />
-    </div>
+    </>
   );
 };
 

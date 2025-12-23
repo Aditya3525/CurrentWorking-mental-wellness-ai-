@@ -1,0 +1,42 @@
+{
+  "app": {
+    "name": "MaanaSarathi",
+    "tagline": "Ihr KI-Wellbeing-Begleiter",
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "chat": "KI-Chat",
+    "mood": "Stimmung",
+    "practices": "Übungen",
+    "content": "Bibliothek",
+    "assessments": "Bewertungen",
+    "schedule": "Zeitplan",
+    "help": "Hilfe & Sicherheit",
+    "profile": "Profil",
+    "settings": "Einstellungen",
+    "logout": "Abmelden",
+    "login": "Anmelden",
+    "register": "Registrieren"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "previous": "Vorherige",
+    "submit": "Einreichen",
+    "search": "Suchen",
+    "filter": "Filtern",
+    "sort": "Sortieren",
+    "loading": "Laden...",
+    "noResults": "Keine Ergebnisse gefunden",
+    "tryAgain": "Erneut Versuchen",
+    "learnMore": "Mehr Erfahren"
+  }
+}

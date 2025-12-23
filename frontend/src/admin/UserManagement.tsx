@@ -66,6 +66,7 @@ import {
 } from '../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useNotificationStore } from '../stores/notificationStore';
+import { AdminSectionCard } from './AdminSectionCard';
 
 interface UserData {
   id: string;
@@ -308,34 +309,49 @@ export const UserManagement: React.FC = () => {
 
   if (isLoading && users.length === 0) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header & Filters */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold">User Management</h2>
-            <p className="text-muted-foreground">
-              Manage user accounts and view activity ({totalCount} users)
-            </p>
-          </div>
+      <AdminSectionCard
+        icon={User}
+        title="User Management"
+        description={`Manage user accounts and view activity (${totalCount} users)`}
+        actions={
           <Button variant="outline" onClick={() => fetchUsers()}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-        </div>
+        }
+        contentClassName="space-y-4"
+      >
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </AdminSectionCard>
+    );
+  }
 
+  return (
+    <>
+      <AdminSectionCard
+        icon={User}
+        title="User Management"
+        description={`Manage user accounts and view activity (${totalCount} users)`}
+        actions={
+          <Button variant="outline" onClick={() => fetchUsers()}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+        }
+        contentClassName="space-y-6"
+      >
         {/* Search & Filters */}
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search 
+              className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground cursor-pointer" 
+              onClick={(e) => {
+                const input = e.currentTarget.parentElement?.querySelector('input');
+                input?.focus();
+                input?.select();
+              }}
+            />
             <Input
               placeholder="Search by name or email..."
               value={searchQuery}
@@ -343,7 +359,7 @@ export const UserManagement: React.FC = () => {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="pl-10"
+              className="pr-12"
             />
           </div>
           <Select value={filterPremium} onValueChange={setFilterPremium}>
@@ -369,26 +385,24 @@ export const UserManagement: React.FC = () => {
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      {/* Users Table */}
-      <Card>
-        <CardContent className="p-0">
-          {/* Desktop Table View */}
-          <div className="hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Activity</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
+        {/* Users Table */}
+        <Card>
+          <CardContent className="p-0">
+            {/* Desktop Table View */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Activity</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -473,16 +487,16 @@ export const UserManagement: React.FC = () => {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
-        {/* Mobile Card View */}
-        <div className="md:hidden divide-y">
-          {users.map((user) => (
-            <div key={user.id} className="p-4">
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y">
+              {users.map((user) => (
+                <div key={user.id} className="p-4">
               <div className="flex items-start gap-3 mb-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <User className="h-5 w-5 text-primary" />
@@ -572,36 +586,37 @@ export const UserManagement: React.FC = () => {
           ))}
         </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t p-4">
-              <div className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t p-4">
+            <div className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+      </AdminSectionCard>
 
       {/* User Detail Modal */}
       <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
@@ -762,7 +777,7 @@ export const UserManagement: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 };
 

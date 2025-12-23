@@ -2,7 +2,7 @@
   "services": [
     {
       "type": "web",
-      "name": "mental-wellbeing-backend",
+      "name": "maanasarathi-backend",
       "env": "node",
       "region": "oregon",
       "plan": "free",
@@ -22,7 +22,7 @@
   ],
   "databases": [
     {
-      "name": "mental-wellbeing-db",
+      "name": "maanasarathi-db",
       "databaseName": "mental_wellbeing",
       "user": "mental_wellbeing_user",
       "plan": "free"

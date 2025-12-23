@@ -12,12 +12,14 @@ import {
   Monitor,
   KeyRound,
   BookOpen,
-  MessageSquareLock
+  MessageSquareLock,
+  Languages
 } from 'lucide-react';
 import React, { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 
 import { useAccessibility } from '../../../contexts/AccessibilityContext';
 import { useDevice } from '../../../hooks/use-device';
+import { LanguageSelector } from '../LanguageSelector';
 import { authApi, usersApi } from '../../../services/api';
 import { Alert, AlertDescription, AlertTitle } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
@@ -112,7 +114,8 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
     resetSettings: resetAccessibilitySettings,
     speak: speakAccessibility,
     isVoiceGuidanceSupported,
-    setFontFamily
+    setFontFamily,
+    setColorPalette
   } = useAccessibility();
 
   const fontOptions: Array<{ value: typeof accessibilitySettings.fontFamily; label: string; subtitle: string; stack?: string }> = [
@@ -134,6 +137,70 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
 
   const selectedFontOption = fontOptions.find(o => o.value === accessibilitySettings.fontFamily);
   const selectedFontStack = selectedFontOption?.stack;
+
+  const colorPaletteOptions: Array<{ 
+    value: typeof accessibilitySettings.colorPalette; 
+    label: string; 
+    description: string; 
+    colors: { light: string[]; dark: string[] } 
+  }> = [
+    { 
+      value: 'default', 
+      label: 'Default Teal', 
+      description: 'Calming teal and cyan theme for mental clarity',
+      colors: {
+        light: ['#319795', '#81e6d9', '#e2e8f0'],
+        dark: ['#4BA3C3', '#6EE7B7', '#A78BFA']
+      }
+    },
+    { 
+      value: 'ocean', 
+      label: 'Ocean Calm', 
+      description: 'Serene blues and aqua tones like peaceful ocean waves',
+      colors: {
+        light: ['#0891b2', '#67e8f9', '#e0f2fe'],
+        dark: ['#22d3ee', '#06b6d4', '#0c4a6e']
+      }
+    },
+    { 
+      value: 'forest', 
+      label: 'Forest Zen', 
+      description: 'Grounding greens and earth tones for natural balance',
+      colors: {
+        light: ['#059669', '#6ee7b7', '#d1fae5'],
+        dark: ['#34d399', '#10b981', '#065f46']
+      }
+    },
+    { 
+      value: 'sunset', 
+      label: 'Sunset Warmth', 
+      description: 'Soft oranges and pinks for comfort and hope',
+      colors: {
+        light: ['#ea580c', '#fbbf24', '#fed7aa'],
+        dark: ['#fb923c', '#fbbf24', '#7c2d12']
+      }
+    },
+    { 
+      value: 'lavender', 
+      label: 'Lavender Peace', 
+      description: 'Tranquil purples and violets for spiritual calm',
+      colors: {
+        light: ['#7c3aed', '#c084fc', '#ddd6fe'],
+        dark: ['#a78bfa', '#8b5cf6', '#5b21b6']
+      }
+    },
+    { 
+      value: 'neutral', 
+      label: 'Neutral Balance', 
+      description: 'Warm grays and beiges for minimalist focus',
+      colors: {
+        light: ['#737373', '#a3a3a3', '#e5e5e5'],
+        dark: ['#a3a3a3', '#737373', '#404040']
+      }
+    }
+  ];
+
+  const selectedPaletteOption = colorPaletteOptions.find(o => o.value === accessibilitySettings.colorPalette);
 
   const DEFAULT_SECURITY_QUESTIONS = useMemo(
     () => [
@@ -661,6 +728,30 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                 )}
               </CardContent>
             </Card>
+
+            {/* Language Preferences Card */}
+            <Card>
+              <CardHeader className="pb-3 md:pb-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Languages className="h-5 w-5 text-primary" />
+                  Language Preferences
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>App Language</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Choose your preferred language for the application interface
+                    </p>
+                  </div>
+                  <LanguageSelector />
+                  <p className="text-xs text-muted-foreground">
+                    Language changes apply immediately and are saved automatically
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Privacy & Data Tab */}
@@ -736,7 +827,7 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     <div className="space-y-1 flex-1">
                       <Label className="cursor-pointer">Research Participation</Label>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        Contribute to mental health research with anonymized data
+                        Contribute to wellbeing research with anonymized data
                       </p>
                     </div>
                     <Switch
@@ -1123,6 +1214,63 @@ export function Profile({ user, onNavigate, setUser, onLogout }: ProfileProps) {
                     </Select>
                     <div className="rounded-md border p-3 text-sm" style={{ fontFamily: selectedFontStack }}>
                       &ldquo;Small changes in typography can make longer sessions feel calmer.&rdquo; — Accessibility Team
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <Label>Color Palette</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Select a color theme designed for mental wellness. Works with both light and dark modes.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {colorPaletteOptions.map((option) => {
+                        const isSelected = accessibilitySettings.colorPalette === option.value;
+                        const paletteColors = accessibilitySettings.darkMode ? option.colors.dark : option.colors.light;
+                        
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              setColorPalette(option.value, {
+                                announce: `Color palette changed to ${option.label}`
+                              });
+                            }}
+                            className={`
+                              group relative flex flex-col gap-2 rounded-lg border-2 p-3 text-left transition-all
+                              ${isSelected ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/50 hover:bg-accent/50'}
+                            `}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm">{option.label}</span>
+                              {isSelected && (
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{option.description}</p>
+                            <div className="flex gap-1.5 mt-1">
+                              {paletteColors.map((color, idx) => (
+                                <div
+                                  key={idx}
+                                  className="h-6 w-full rounded border border-border/50"
+                                  style={{ backgroundColor: color }}
+                                  aria-hidden="true"
+                                />
+                              ))}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="rounded-md border p-3 text-sm">
+                      <p className="font-medium mb-1">Current: {selectedPaletteOption?.label}</p>
+                      <p className="text-muted-foreground text-xs">{selectedPaletteOption?.description}</p>
                     </div>
                   </div>
                 </div>

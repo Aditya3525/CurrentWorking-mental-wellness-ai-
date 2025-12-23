@@ -10,9 +10,12 @@ import {
   X,
   Mic,
   MoreHorizontal,
-  Menu
+  Menu,
+  Download,
+  LifeBuoy
 } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useConversationMessages } from '../../../hooks/useConversations';
 import { chatApi, conversationsApi } from '../../../services/api';
@@ -20,6 +23,7 @@ import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Input } from '../../ui/input';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '../../ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../ui/dropdown-menu';
 
 import { ConversationHistorySidebar } from './ConversationHistorySidebar';
 import { EmptyState } from './EmptyState';
@@ -51,6 +55,7 @@ interface Message {
 }
 
 export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotProps) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationStarters, setConversationStarters] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -82,7 +87,7 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
       try {
         // Load personalized greeting
         const greetingResponse = await chatApi.getMoodBasedGreeting();
-        let greetingText = `Hello ${([user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || 'there')}! I'm your AI wellbeing companion. I'm here to listen, support, and help guide you through your mental health journey. What would you like to talk about today?`;
+        let greetingText = `Hello ${([user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || 'there')}! I'm MaanaSarathi, your AI wellbeing companion. I'm here to listen, support, and help guide you through your mental health journey. What would you like to talk about today?`;
         
         if (greetingResponse.success && greetingResponse.data?.greeting) {
           greetingText = greetingResponse.data.greeting;
@@ -647,8 +652,8 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
                 <MessageCircle className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <h1 className="font-semibold">AI Wellbeing Companion</h1>
-                <p className="text-xs text-muted-foreground">Always here to listen</p>
+                <h1 className="font-semibold">{t('chat.title')}</h1>
+                <p className="text-xs text-muted-foreground">{t('chat.subtitle')}</p>
               </div>
             </div>
           </div>
@@ -658,9 +663,24 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
                 <X className="h-4 w-4" />
               </Button>
             )}
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowExportDialog(true)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {t('chat.exportChat')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onNavigate('help')}>
+                  <LifeBuoy className="h-4 w-4 mr-2" />
+                  {t('chat.crisisResources')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -739,7 +759,7 @@ export function Chatbot({ user, onNavigate, isModal = false, onClose }: ChatbotP
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Share what's on your mind..."
+              placeholder={t('chat.placeholder')}
               className="pr-20"
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">

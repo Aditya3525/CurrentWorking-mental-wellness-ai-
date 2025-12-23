@@ -1,5 +1,6 @@
 import { PrismaClient, AssessmentResult, ChatMessage, MoodEntry } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { advancedAnalyticsService } from './advancedAnalyticsService';
 
 const prisma = new PrismaClient();
 const crisisLogger = logger.child({ module: 'CrisisDetection' });
@@ -110,6 +111,21 @@ export class CrisisDetectionService {
         { userId, level: maxLevel, indicators },
         'CRISIS ALERT: Immediate action required'
       );
+    }
+
+    // Track crisis event for analytics (only track if not NONE or LOW)
+    if (maxLevel !== 'NONE' && maxLevel !== 'LOW') {
+      try {
+        await advancedAnalyticsService.trackCrisisEvent({
+          userId,
+          crisisLevel: maxLevel,
+          confidence,
+          indicators: Array.from(new Set(indicators)),
+          actionTaken: immediateAction ? 'IMMEDIATE_INTERVENTION' : 'MONITORING'
+        });
+      } catch (analyticsError) {
+        crisisLogger.warn({ err: analyticsError }, 'Failed to track crisis event analytics');
+      }
     }
 
     return {
@@ -379,7 +395,7 @@ export class CrisisDetectionService {
 
       case 'MODERATE':
         recommendations.push(
-          'Consider scheduling an appointment with a mental health professional',
+          'Consider scheduling an appointment with a professional',
           'Reach out to a trusted friend or family member',
           'Contact your therapist or counselor if you have one',
           'Use crisis support resources: 988 Lifeline or Crisis Text Line (text HELLO to 741741)'
@@ -415,6 +431,25 @@ export class CrisisDetectionService {
     const currentIndex = order.indexOf(current);
     const newIndex = order.indexOf(newLevel);
     return newIndex > currentIndex ? newLevel : current;
+  }
+
+  /**
+   * Determine the primary detection source for analytics
+   */
+  private determineDetectionSource(context: CrisisDetectionContext): string {
+    if (context.recentMessages.length > 0) {
+      return 'CHAT_ANALYSIS';
+    }
+    if (context.assessments.length > 0) {
+      return 'ASSESSMENT_SCORES';
+    }
+    if (context.moodHistory.length > 0) {
+      return 'MOOD_TRAJECTORY';
+    }
+    if (context.engagementHistory && context.engagementHistory.length > 0) {
+      return 'ENGAGEMENT_PATTERNS';
+    }
+    return 'UNKNOWN';
   }
 
   /**

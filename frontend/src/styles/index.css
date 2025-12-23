@@ -5170,6 +5170,190 @@
   --gradient-ai-aura: linear-gradient(135deg, #6EE7B7, #38BDF8);
 }
 
+/* ==========================================
+   COLOR PALETTE SYSTEM - Mental Wellness Themes
+   ========================================== */
+
+/* Ocean Calm - Serene blues and aqua (light mode) */
+:root[data-color-palette="ocean"] {
+  --primary: #0891b2;
+  --primary-foreground: #fff;
+  --secondary: #e0f2fe;
+  --secondary-foreground: #0c4a6e;
+  --accent: #67e8f9;
+  --accent-foreground: #164e63;
+  --muted: #f0f9ff;
+  --muted-foreground: #0369a1;
+  --ring: #06b6d4;
+  --chart-1: #0891b2;
+  --chart-2: #67e8f9;
+  --chart-3: #bae6fd;
+  --chart-4: #e0f2fe;
+  --chart-5: #f0f9ff;
+}
+
+:root[data-color-palette="ocean"].dark {
+  --background: #0f172a;
+  --foreground: #f0f9ff;
+  --card: #1e293b;
+  --card-foreground: #f0f9ff;
+  --primary: #22d3ee;
+  --primary-foreground: #164e63;
+  --secondary: #0c4a6e;
+  --secondary-foreground: #bae6fd;
+  --accent: #06b6d4;
+  --accent-foreground: #f0f9ff;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+  --input: #334155;
+  --ring: #22d3ee;
+}
+
+/* Forest Zen - Calming greens and earth tones (light mode) */
+:root[data-color-palette="forest"] {
+  --primary: #059669;
+  --primary-foreground: #fff;
+  --secondary: #d1fae5;
+  --secondary-foreground: #065f46;
+  --accent: #6ee7b7;
+  --accent-foreground: #064e3b;
+  --muted: #f0fdf4;
+  --muted-foreground: #047857;
+  --ring: #10b981;
+  --chart-1: #059669;
+  --chart-2: #6ee7b7;
+  --chart-3: #a7f3d0;
+  --chart-4: #d1fae5;
+  --chart-5: #f0fdf4;
+}
+
+:root[data-color-palette="forest"].dark {
+  --background: #0a1e14;
+  --foreground: #ecfdf5;
+  --card: #14291e;
+  --card-foreground: #ecfdf5;
+  --primary: #34d399;
+  --primary-foreground: #064e3b;
+  --secondary: #065f46;
+  --secondary-foreground: #a7f3d0;
+  --accent: #10b981;
+  --accent-foreground: #ecfdf5;
+  --muted: #14291e;
+  --muted-foreground: #86a88f;
+  --border: #1f3d2e;
+  --input: #1f3d2e;
+  --ring: #34d399;
+}
+
+/* Sunset Warmth - Soft oranges and pinks for comfort (light mode) */
+:root[data-color-palette="sunset"] {
+  --primary: #ea580c;
+  --primary-foreground: #fff;
+  --secondary: #fed7aa;
+  --secondary-foreground: #9a3412;
+  --accent: #fbbf24;
+  --accent-foreground: #78350f;
+  --muted: #fff7ed;
+  --muted-foreground: #c2410c;
+  --ring: #f97316;
+  --chart-1: #ea580c;
+  --chart-2: #fbbf24;
+  --chart-3: #fcd34d;
+  --chart-4: #fed7aa;
+  --chart-5: #fff7ed;
+}
+
+:root[data-color-palette="sunset"].dark {
+  --background: #1c0f0a;
+  --foreground: #fff7ed;
+  --card: #2d1812;
+  --card-foreground: #fff7ed;
+  --primary: #ea580c;
+  --primary-foreground: #fff7ed;
+  --secondary: #7c2d12;
+  --secondary-foreground: #fed7aa;
+  --accent: #c2410c;
+  --accent-foreground: #fff7ed;
+  --muted: #2d1812;
+  --muted-foreground: #d4a574;
+  --border: #431407;
+  --input: #431407;
+  --ring: #fb923c;
+}
+
+/* Lavender Peace - Tranquil purples and violets (light mode) */
+:root[data-color-palette="lavender"] {
+  --primary: #7c3aed;
+  --primary-foreground: #fff;
+  --secondary: #ddd6fe;
+  --secondary-foreground: #5b21b6;
+  --accent: #c084fc;
+  --accent-foreground: #4c1d95;
+  --muted: #faf5ff;
+  --muted-foreground: #6d28d9;
+  --ring: #8b5cf6;
+  --chart-1: #7c3aed;
+  --chart-2: #c084fc;
+  --chart-3: #e9d5ff;
+  --chart-4: #ddd6fe;
+  --chart-5: #faf5ff;
+}
+
+:root[data-color-palette="lavender"].dark {
+  --background: #1a0f25;
+  --foreground: #faf5ff;
+  --card: #2a1835;
+  --card-foreground: #faf5ff;
+  --primary: #a78bfa;
+  --primary-foreground: #3b0764;
+  --secondary: #5b21b6;
+  --secondary-foreground: #ddd6fe;
+  --accent: #8b5cf6;
+  --accent-foreground: #faf5ff;
+  --muted: #2a1835;
+  --muted-foreground: #b99edb;
+  --border: #3b0764;
+  --input: #3b0764;
+  --ring: #a78bfa;
+}
+
+/* Neutral Balance - Warm grays and beiges for minimalist focus (light mode) */
+:root[data-color-palette="neutral"] {
+  --primary: #737373;
+  --primary-foreground: #fff;
+  --secondary: #e5e5e5;
+  --secondary-foreground: #404040;
+  --accent: #a3a3a3;
+  --accent-foreground: #262626;
+  --muted: #fafaf9;
+  --muted-foreground: #525252;
+  --ring: #737373;
+  --chart-1: #737373;
+  --chart-2: #a3a3a3;
+  --chart-3: #d4d4d4;
+  --chart-4: #e5e5e5;
+  --chart-5: #fafaf9;
+}
+
+:root[data-color-palette="neutral"].dark {
+  --background: #1a1a1a;
+  --foreground: #fafaf9;
+  --card: #262626;
+  --card-foreground: #fafaf9;
+  --primary: #a3a3a3;
+  --primary-foreground: #171717;
+  --secondary: #404040;
+  --secondary-foreground: #e5e5e5;
+  --accent: #737373;
+  --accent-foreground: #fafaf9;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --border: #404040;
+  --input: #404040;
+  --ring: #a3a3a3;
+}
+
 html {
   font-size: var(--font-size);
 }
@@ -5925,4 +6109,362 @@ button:focus-visible, [role="button"]:focus-visible {
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
   }
+}
+
+/* ==========================================
+   Custom Animations for UX Polish
+   ========================================== */
+
+/* Confetti Animation */
+@keyframes confetti {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.animate-confetti {
+  animation: confetti 2s ease-out forwards;
+}
+
+/* Sparkle Animation */
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(180deg);
+  }
+}
+
+.animate-sparkle {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+/* Pulse Glow Animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px 8px rgba(99, 102, 241, 0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Bounce In Animation */
+@keyframes bounce-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Slide In From Bottom */
+@keyframes slide-in-bottom {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-bottom {
+  animation: slide-in-bottom 0.3s ease-out;
+}
+
+/* Shake Animation (for errors) */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-4px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Ripple Effect */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.animate-ripple {
+  animation: ripple 0.6s ease-out;
+}
+
+/* Shimmer Loading Effect */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Fade In Up */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out;
+}
+
+/* Success Checkmark Draw */
+@keyframes checkmark-draw {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-checkmark {
+  stroke-dasharray: 100;
+  animation: checkmark-draw 0.5s ease-out forwards;
+}
+
+/* Button Press Effect */
+.btn-press-effect {
+  transition: transform 0.1s ease;
+}
+
+.btn-press-effect:active {
+  transform: scale(0.95);
+}
+
+/* Smooth Hover Lift */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Tooltip Arrow */
+.tooltip-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.tooltip-arrow.top {
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px 5px 0 5px;
+  border-color: var(--primary) transparent transparent transparent;
+}
+
+.tooltip-arrow.bottom {
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 0 5px 5px 5px;
+  border-color: transparent transparent var(--primary) transparent;
+}
+
+/* Loading Dots */
+@keyframes loading-dots {
+  0%, 20% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+}
+
+.loading-dot {
+  animation: loading-dots 1.4s infinite ease-in-out;
+}
+
+.loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+/* Page Transition */
+.page-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+
+.page-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-exit-active {
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 200ms ease-in, transform 200ms ease-in;
+}
+
+/* Mobile Pull-to-Refresh */
+@keyframes pull-refresh {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.pull-refresh-spinner {
+  animation: pull-refresh 1s linear infinite;
+}
+
+/* Notification Slide In */
+@keyframes notification-slide-in {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification-enter {
+  animation: notification-slide-in 0.3s ease-out;
+}
+
+/* Progress Bar Fill */
+@keyframes progress-fill {
+  0% {
+    width: 0%;
+  }
+}
+
+.progress-fill-animate {
+  animation: progress-fill 1s ease-out forwards;
+}
+
+/* Game Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  25% {
+    transform: translateY(-10px) translateX(5px);
+  }
+  50% {
+    transform: translateY(-5px) translateX(-5px);
+  }
+  75% {
+    transform: translateY(-15px) translateX(3px);
+  }
+}
+
+@keyframes rotate-y-180 {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(180deg);
+  }
+}
+
+.rotate-y-180 {
+  animation: rotate-y-180 0.6s ease-in-out;
+}
+
+/* Card flip effect */
+.flip-card {
+  transform-style: preserve-3d;
+  transition: transform 0.6s;
+}
+
+.flip-card.flipped {
+  transform: rotateY(180deg);
+}
+
+/* Breathing circle glow */
+@keyframes breathing-glow {
+  0%, 100% {
+    filter: brightness(1) drop-shadow(0 0 10px currentColor);
+  }
+  50% {
+    filter: brightness(1.2) drop-shadow(0 0 30px currentColor);
+  }
+}
+
+.breathing-glow {
+  animation: breathing-glow 3s ease-in-out infinite;
 }

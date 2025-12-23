@@ -77,7 +77,7 @@ export function PasswordSetup({ user, onComplete, onSkip, isLoading, error }: Pa
           <div className="space-y-2">
             <CardTitle className="text-2xl">Secure Your Account</CardTitle>
             <p className="text-muted-foreground">
-              Hi {userName}! To keep your mental health data safe, please set up a secure password.
+              Hi {userName}! To keep your wellbeing data safe, please set up a secure password.
             </p>
           </div>
         </CardHeader>

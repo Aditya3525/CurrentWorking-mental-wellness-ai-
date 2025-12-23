@@ -887,221 +887,189 @@ export function Progress({ user, onNavigate }: ProgressProps) {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-8">
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg group">
-                  <CardContent className="p-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="p-3 bg-gradient-to-br from-orange-500/10 to-orange-500/5 rounded-xl group-hover:scale-110 transition-transform">
-                          <Flame className="h-6 w-6 text-orange-500" />
-                        </div>
-                        <Badge variant="secondary" className="font-semibold">
-                          {currentStreak > 0 ? 'Active' : 'Start'}
-                        </Badge>
+            <TabsContent value="overview" className="flex flex-col gap-4">
+              {/* Flexible Grid Layout - Auto-adjusting bubbles */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-max">
+                {/* Metric Cards - Flexible sizing */}
+                <Card className="hover:shadow-md transition-shadow flex flex-col">
+                  <CardContent className="p-4 flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-orange-500/10 rounded-lg">
+                        <Flame className="h-5 w-5 text-orange-500" />
                       </div>
-                      <div>
-                        <div className="text-3xl font-bold text-orange-600">{currentStreak}</div>
-                        <div className="text-sm text-muted-foreground font-medium">Day Streak</div>
-                      </div>
-                      <ProgressBar 
-                        value={Math.min((currentStreak / 7) * 100, 100)} 
-                        className="h-1.5" 
-                        indicatorClassName="bg-gradient-to-r from-orange-500 to-orange-400"
-                      />
+                      <Badge variant="secondary" className="text-xs">
+                        {currentStreak > 0 ? 'Active' : 'Start'}
+                      </Badge>
                     </div>
+                    <div className="text-2xl font-bold text-orange-600 mb-1">{currentStreak}</div>
+                    <div className="text-xs text-muted-foreground mb-2">Day Streak</div>
+                    <ProgressBar 
+                      value={Math.min((currentStreak / 7) * 100, 100)} 
+                      className="h-1" 
+                      indicatorClassName="bg-orange-500"
+                    />
                   </CardContent>
                 </Card>
 
-                <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg group">
-                  <CardContent className="p-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="p-3 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl group-hover:scale-110 transition-transform">
-                          <Heart className="h-6 w-6 text-primary" />
-                        </div>
-                        <Badge variant="secondary" className="font-semibold">
-                          This Week
-                        </Badge>
+                <Card className="hover:shadow-md transition-shadow flex flex-col">
+                  <CardContent className="p-4 flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Heart className="h-5 w-5 text-primary" />
                       </div>
-                      <div>
-                        <div className="text-3xl font-bold text-primary">{moodCheckinsWeek}</div>
-                        <div className="text-sm text-muted-foreground font-medium">Check-ins</div>
-                      </div>
-                      <ProgressBar 
-                        value={(moodCheckinsWeek / 7) * 100} 
-                        className="h-1.5" 
-                        indicatorClassName="bg-gradient-to-r from-primary to-blue-400"
-                      />
+                      <Badge variant="secondary" className="text-xs">This Week</Badge>
                     </div>
+                    <div className="text-2xl font-bold text-primary mb-1">{moodCheckinsWeek}</div>
+                    <div className="text-xs text-muted-foreground mb-2">Check-ins</div>
+                    <ProgressBar 
+                      value={(moodCheckinsWeek / 7) * 100} 
+                      className="h-1" 
+                      indicatorClassName="bg-primary"
+                    />
                   </CardContent>
                 </Card>
 
-                <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg group">
-                  <CardContent className="p-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="p-3 bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-xl group-hover:scale-110 transition-transform">
-                          <Target className="h-6 w-6 text-green-500" />
-                        </div>
-                        <Badge variant="secondary" className="font-semibold">
-                          {totalModules > 0 ? `${Math.round((modulesCompleted/totalModules)*100)}%` : 'N/A'}
-                        </Badge>
+                <Card className="hover:shadow-md transition-shadow flex flex-col">
+                  <CardContent className="p-4 flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-green-500/10 rounded-lg">
+                        <Target className="h-5 w-5 text-green-500" />
                       </div>
-                      <div>
-                        <div className="text-3xl font-bold text-green-600">
-                          {modulesCompleted}/{totalModules || '—'}
-                        </div>
-                        <div className="text-sm text-muted-foreground font-medium">Modules Done</div>
-                      </div>
-                      <ProgressBar 
-                        value={totalModules > 0 ? (modulesCompleted / totalModules) * 100 : 0} 
-                        className="h-1.5" 
-                        indicatorClassName="bg-gradient-to-r from-green-500 to-emerald-400"
-                      />
+                      <Badge variant="secondary" className="text-xs">
+                        {totalModules > 0 ? `${Math.round((modulesCompleted/totalModules)*100)}%` : '0%'}
+                      </Badge>
                     </div>
+                    <div className="text-2xl font-bold text-green-600 mb-1">
+                      {modulesCompleted}/{totalModules || 2}
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-2">Modules Done</div>
+                    <ProgressBar 
+                      value={totalModules > 0 ? (modulesCompleted / totalModules) * 100 : 0} 
+                      className="h-1" 
+                      indicatorClassName="bg-green-500"
+                    />
                   </CardContent>
                 </Card>
 
-                <Card className="border-2 hover:border-primary/50 transition-all hover:shadow-lg group">
-                  <CardContent className="p-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="p-3 bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 rounded-xl group-hover:scale-110 transition-transform">
-                          <Star className="h-6 w-6 text-yellow-500" />
-                        </div>
-                        <Badge variant="secondary" className="font-semibold">
-                          {averageMoodScore >= 4 ? 'Great' : averageMoodScore >= 3 ? 'Good' : 'Fair'}
-                        </Badge>
+                <Card className="hover:shadow-md transition-shadow flex flex-col">
+                  <CardContent className="p-4 flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-yellow-500/10 rounded-lg">
+                        <Star className="h-5 w-5 text-yellow-500" />
                       </div>
-                      <div>
-                        <div className="text-3xl font-bold text-yellow-600">{averageMoodDisplay}</div>
-                        <div className="text-sm text-muted-foreground font-medium">Avg Mood</div>
-                      </div>
-                      <ProgressBar 
-                        value={averageMoodPercent} 
-                        className="h-1.5" 
-                        indicatorClassName="bg-gradient-to-r from-yellow-500 to-amber-400"
-                      />
+                      <Badge variant="secondary" className="text-xs">
+                        {averageMoodScore >= 4 ? 'Great' : averageMoodScore >= 3 ? 'Good' : 'Fair'}
+                      </Badge>
                     </div>
+                    <div className="text-2xl font-bold text-yellow-600 mb-1">{averageMoodDisplay}</div>
+                    <div className="text-xs text-muted-foreground mb-2">Avg Mood</div>
+                    <ProgressBar 
+                      value={averageMoodPercent} 
+                      className="h-1" 
+                      indicatorClassName="bg-yellow-500"
+                    />
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <Card className="border-2 shadow-lg">
-                    <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b">
-                      <CardTitle className="flex items-center gap-2 text-xl">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <BarChart3 className="h-5 w-5 text-primary" />
-                        </div>
-                        Recent Activity
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      {activityItems.length ? (
-                        <div className="space-y-3">
-                          {activityItems.map((item) => (
-                            <div 
-                              key={item.id} 
-                              className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-r from-muted/50 to-muted/30 hover:from-muted/70 hover:to-muted/50 transition-all border border-transparent hover:border-primary/20"
-                            >
-                              <div className={`w-3 h-3 rounded-full ${ACTIVITY_COLORS[item.type]} mt-1.5 shadow-lg`} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground">{item.label}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-                                  <p className="text-xs text-muted-foreground">{formatRelativeDate(item.date)}</p>
-                                </div>
-                                {item.meta && (
-                                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{item.meta}</p>
-                                )}
-                              </div>
+              {/* Flexible content grid - auto-adjusts based on content */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 auto-rows-max">
+                {/* Recent Activity - spans 2 columns on large screens */}
+                <Card className="lg:col-span-2 flex flex-col min-h-0">
+                  <CardHeader className="pb-3 flex-shrink-0">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <BarChart3 className="h-5 w-5 text-primary" />
+                      Recent Activity
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 flex-1 min-h-0">
+                    {activityItems.length ? (
+                      <div className="space-y-2 max-h-[320px] overflow-y-auto pr-2">
+                        {activityItems.slice(0, 5).map((item) => (
+                          <div 
+                            key={item.id} 
+                            className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className={`w-2 h-2 rounded-full ${ACTIVITY_COLORS[item.type]} mt-2 flex-shrink-0`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{item.label}</p>
+                              <p className="text-xs text-muted-foreground">{formatRelativeDate(item.date)}</p>
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-12">
-                          <div className="p-4 bg-muted/50 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                            <BarChart3 className="h-8 w-8 text-muted-foreground" />
                           </div>
-                          <p className="text-sm font-medium mb-1">No activity logged yet</p>
-                          <p className="text-xs text-muted-foreground">
-                            Complete an assessment, log your mood, or update a practice to see it here.
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card className="border-2 shadow-lg">
-                  <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b">
-                    <CardTitle className="flex items-center gap-2 text-xl">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <CalendarIcon className="h-5 w-5 text-primary" />
+                        ))}
                       </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <BarChart3 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No recent activity</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Activity Calendar - fits remaining space */}
+                <Card className="flex flex-col">
+                  <CardHeader className="pb-3 flex-shrink-0">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <CalendarIcon className="h-5 w-5 text-primary" />
                       Activity Calendar
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4">
+                  <CardContent className="pt-0 flex-1">
                     <Calendar
                       mode="single"
                       selected={selectedDate}
                       onSelect={setSelectedDate}
-                      className="rounded-lg"
+                      className="rounded-md w-full"
                       modifiers={{ activity: calendarActivityDates }}
-                      modifiersClassNames={{ activity: 'bg-primary text-primary-foreground font-semibold rounded-full' }}
+                      modifiersClassNames={{ activity: 'bg-primary text-primary-foreground font-semibold' }}
                     />
-                    <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        <span className="font-semibold text-foreground">Highlighted days</span> show mood check-ins, assessments, plan updates, or progress logs.
-                      </p>
-                    </div>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="grid lg:grid-cols-2 gap-6">
-                <div className="transform hover:scale-[1.02] transition-transform">
+              {/* Flexible 2-column grid that auto-adjusts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-max">
+                <div className="flex flex-col">
                   <ErrorBoundary fallbackTitle="Streak Tracker Error" fallbackMessage="Unable to load streak data.">
                     <StreakTracker data={streakTrackerData} />
                   </ErrorBoundary>
                 </div>
-                <div className="transform hover:scale-[1.02] transition-transform">
+                <div className="flex flex-col">
                   <ErrorBoundary fallbackTitle="Mood Calendar Error" fallbackMessage="Unable to load mood calendar.">
-                    <MoodCalendarHeatmap entries={moodHeatmapEntries} days={120} />
+                    <MoodCalendarHeatmap entries={moodHeatmapEntries} days={90} />
                   </ErrorBoundary>
                 </div>
               </div>
 
-              <div className="grid lg:grid-cols-2 gap-6">
-                <div className="transform hover:scale-[1.02] transition-transform">
+              {/* Charts grid - auto-adjusts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-max">
+                <div className="flex flex-col">
                   <ErrorBoundary fallbackTitle="Wellness Trend Error" fallbackMessage="Unable to load wellness trend data.">
-                    <WellnessScoreTrend data={wellnessTrendData} days={120} title="Wellness Score Trend" />
+                    <WellnessScoreTrend data={wellnessTrendData} days={90} title="Wellness Score Trend" />
                   </ErrorBoundary>
                 </div>
-                <div className="transform hover:scale-[1.02] transition-transform">
+                <div className="flex flex-col">
                   <ErrorBoundary fallbackTitle="Assessment Chart Error" fallbackMessage="Unable to load assessment comparison.">
                     <AssessmentComparisonChart scores={assessmentComparisonScores} title="Latest Assessment Comparison" />
                   </ErrorBoundary>
                 </div>
               </div>
 
+              {/* Flexible 3-column grid for conversation insights */}
               {user && (
-                <div className="grid lg:grid-cols-3 gap-6">
-                  <div className="transform hover:scale-[1.02] transition-transform">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max">
+                  <div className="flex flex-col">
                     <ErrorBoundary fallbackTitle="Conversation Summary Error" fallbackMessage="Unable to load conversation data." showRefresh={false}>
                       <ConversationSummaryWidget userId={user.id} />
                     </ErrorBoundary>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform">
+                  <div className="flex flex-col">
                     <ErrorBoundary fallbackTitle="Topics Error" fallbackMessage="Unable to load conversation topics." showRefresh={false}>
                       <ConversationTopicsWidget userId={user.id} />
                     </ErrorBoundary>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform">
+                  <div className="flex flex-col">
                     <ErrorBoundary fallbackTitle="Emotional Pattern Error" fallbackMessage="Unable to load emotional patterns." showRefresh={false}>
                       <EmotionalPatternWidget userId={user.id} />
                     </ErrorBoundary>
@@ -1330,7 +1298,7 @@ export function Progress({ user, onNavigate }: ProgressProps) {
                       </div>
                       <div className="space-y-2">
                         <p className="text-sm font-medium">Insights will appear once you complete assessments.</p>
-                        <p className="text-xs text-muted-foreground">Track your mental wellbeing journey</p>
+                        <p className="text-xs text-muted-foreground">Track your wellbeing journey</p>
                       </div>
                       <Button size="sm" onClick={() => onNavigate('assessments')} className="shadow-md">
                         Take an assessment

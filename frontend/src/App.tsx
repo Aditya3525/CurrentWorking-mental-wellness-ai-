@@ -8,11 +8,13 @@ import { AdminLoginPage, LandingPage, OAuthCallback, PasswordSetup, UserLoginPag
 import { Chatbot } from './components/features/chat';
 import { ContentLibrary, Practices } from './components/features/content';
 import { Dashboard } from './components/features/dashboard';
+import { GamesHub } from './components/features/games';
 import { OnboardingFlow } from './components/features/onboarding';
 import { PersonalizedPlan } from './components/features/plans';
 import { Progress, Profile } from './components/features/profile';
 import { HelpSafety } from './components/layout';
 import { ToastContainer } from './components/ui/ToastContainer';
+import { PWAInstallPrompt } from './components/ui/pwa-install-prompt';
 import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext';
 import { ChatProvider } from './contexts/ChatContext';
 import { ToastProvider } from './contexts/ToastContext';
@@ -39,6 +41,7 @@ type Page =
   | 'chatbot'
   | 'library'
   | 'practices'
+  | 'games'
   | 'progress'
   | 'profile'
   | 'help'
@@ -70,6 +73,7 @@ const PAGE_ROUTES: Record<Page, string> = {
   chatbot: '/chatbot',
   library: '/library',
   practices: '/practices',
+  games: '/games',
   progress: '/progress',
   profile: '/profile',
   help: '/help',
@@ -85,6 +89,7 @@ const PATH_TO_PAGE: Record<string, Page> = Object.entries(PAGE_ROUTES).reduce((a
 const PUBLIC_PAGES = new Set<Page>(['landing', 'user-login', 'admin-login', 'oauth-callback']);
 
 const PRE_ONBOARDING_ALLOWED_PAGES = new Set<Page>([
+  'landing', // Allow non-onboarded users to return to landing page
   'onboarding',
   'assessment-invite',
   'assessment-selection',
@@ -692,6 +697,13 @@ function AppInner() {
   }) => {
     console.log('OAuth Success Data:', userData);
     
+    // CRITICAL: Store token in localStorage FIRST (before setUser)
+    // This ensures the token is available for immediate API calls
+    if (userData.token) {
+      console.log('Storing OAuth token in localStorage');
+      localStorage.setItem('token', userData.token);
+    }
+    
     // Set complete user data from backend (includes all profile fields)
     setUser({
       id: userData.id,
@@ -715,7 +727,7 @@ function AppInner() {
       updatedAt: userData.updatedAt || new Date().toISOString()
     }, userData.token);
     
-    // Store complete user data (token is now handled by authStore)
+    // Store complete user data (for backward compatibility)
     localStorage.setItem('user', JSON.stringify(userData));
     
     // Clear URL parameters
@@ -727,21 +739,22 @@ function AppInner() {
       needsSetup: userData.needsSetup,
       isOnboarded: userData.isOnboarded,
       hasPassword: userData.hasPassword,
-      justCreated: userData.justCreated
+      justCreated: userData.justCreated,
+      tokenStored: !!localStorage.getItem('token')
     });
     
     // Simplified routing logic:
     // - New Google users (justCreated) -> password setup
-    // - Existing users -> dashboard (app will handle onboarding check)
+    // - Existing users without onboarding -> onboarding
+    // - Existing users with onboarding -> dashboard
     if (userData.justCreated) {
       console.log('Routing new Google user to password setup');
       navigateTo('password-setup');
+    } else if (!userData.isOnboarded) {
+      console.log('Routing returning user to onboarding (incomplete)');
+      navigateTo('onboarding');
     } else {
-      console.log('Routing existing user to dashboard');
-      // Let the app's general onboarding logic handle routing
-      if (!userData.isOnboarded) {
-        console.log('User not onboarded, will redirect to onboarding from dashboard/app logic');
-      }
+      console.log('Routing returning user to dashboard (onboarded)');
       navigateTo('dashboard');
     }
   };
@@ -819,10 +832,21 @@ function AppInner() {
       setAuthError(null);
       console.log('Setting up user password...');
       
+      // Verify we have a user and token before attempting password setup
+      if (!user) {
+        throw new Error('No user session found. Please sign in again.');
+      }
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token missing. Please sign in again.');
+      }
+      
       const updatedUser = await setupUserPassword(password);
       if (updatedUser) {
         console.log('Password setup successful:', updatedUser);
-        setUser(updatedUser);
+        // Update user with new password status
+        setUser({ ...updatedUser, hasPassword: true });
         
         // Check if user still needs onboarding after password setup
         if (!updatedUser.isOnboarded) {
@@ -833,11 +857,19 @@ function AppInner() {
           navigateTo('dashboard');
         }
       } else {
-        throw new Error('Password setup failed');
+        throw new Error('Password setup failed - no response from server');
       }
     } catch (error) {
       console.error('Password setup error:', error);
-      setAuthError(error instanceof Error ? error.message : 'Password setup failed');
+      const errorMessage = error instanceof Error ? error.message : 'Password setup failed. Please try again.';
+      setAuthError(errorMessage);
+      
+      // If token is missing, redirect back to login
+      if (errorMessage.includes('token') || errorMessage.includes('Authentication')) {
+        console.log('Token issue detected, redirecting to login');
+        logout(); // Clear all auth state
+        navigateTo('user-login');
+      }
     }
   };
 
@@ -973,14 +1005,13 @@ function AppInner() {
             onComplete={completeOnboardingFlow}
             user={user}
             onExit={() => {
-              // When user exits onboarding, give them choice to take assessment or go to dashboard
-              if (user?.isOnboarded) {
-                // If they've already completed onboarding before, go straight to dashboard
-                navigateTo('dashboard');
-              } else {
-                // First-time users get the assessment invite
-                navigateTo('assessment-invite');
-              }
+              // Save & Exit: keep user logged in, go to landing page
+              console.log('OnboardingFlow onExit called - navigating to landing');
+              navigateTo('landing');
+            }}
+            onBack={() => {
+              // Back button: logout user and go to landing page
+              logout();
             }}
           />
         );
@@ -1084,6 +1115,8 @@ function AppInner() {
         return <ContentLibrary onNavigate={navigateTo} user={user} />;
       case 'practices':
         return <Practices onNavigate={navigateTo} />;
+      case 'games':
+        return <GamesHub />;
       case 'progress':
         return <Progress user={user} onNavigate={navigateTo} />;
       case 'profile':
@@ -1116,6 +1149,7 @@ export default function App() {
           <ChatProvider>
             <AppInner />
             <ToastContainer />
+            <PWAInstallPrompt />
           </ChatProvider>
         </AdminAuthProvider>
       </ToastProvider>

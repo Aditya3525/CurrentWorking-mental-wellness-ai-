@@ -1,4 +1,4 @@
-# Mental Wellbeing AI App
+# MaanaSarathi
 
 An AI-powered mental wellbeing platform that combines guided onboarding, personalized care plans, crisis-aware chat assistance, and an admin-managed content library. This repository is a TypeScript monorepo with a Vite/React frontend and an Express/Prisma backend that integrates multiple LLM providers (Gemini, OpenAI, Anthropic, Hugging Face, and Ollama) through a unified service layer.
 
@@ -38,7 +38,7 @@ An AI-powered mental wellbeing platform that combines guided onboarding, persona
 Directory snapshot:
 
 ```
-Mental Wellbeing AI App Overview/
+MaanaSarathi/
 ├── frontend/                 # React + Vite app
 │   ├── src/
 │   │   ├── components/features/  # Auth, chat, onboarding, dashboard, etc.
@@ -351,5 +351,5 @@ Need help? Check the integration docs in the repo root or open an issue describi
 
 ---
 
-Happy building, and thanks for supporting mental wellbeing with thoughtful software. 💙
+Happy building, and thanks for supporting wellbeing with thoughtful software. 💙
    

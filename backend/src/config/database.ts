@@ -9,7 +9,7 @@ import { logger } from '../utils/logger';
  */
 
 const prismaClientSingleton = () => {
-  return new PrismaClient({
+  const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' 
       ? [
           { emit: 'event', level: 'query' },
@@ -23,6 +23,16 @@ const prismaClientSingleton = () => {
       }
     },
   });
+
+  // Enable foreign key constraints for SQLite
+  // This ensures CASCADE deletes work properly
+  if (process.env.DATABASE_URL?.includes('sqlite')) {
+    client.$executeRawUnsafe('PRAGMA foreign_keys = ON;').catch((err) => {
+      logger.error({ err }, 'Failed to enable foreign key constraints');
+    });
+  }
+
+  return client;
 };
 
 declare global {

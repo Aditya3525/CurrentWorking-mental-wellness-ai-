@@ -10,7 +10,6 @@ import {
   Volume2,
   VolumeX,
   Download,
-  Bookmark,
   CheckCircle,
   SkipForward,
   Timer,
@@ -27,8 +26,8 @@ import {
   ArrowUp
 } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { getApiUrl } from '../../../config/api';
 import { useDevice } from '../../../hooks/use-device';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { MediaPlayer } from '../../common/MediaPlayer';
@@ -79,6 +78,7 @@ interface PracticeSession {
 
 export function Practices({ onNavigate }: PracticesProps) {
   const device = useDevice();
+  const { t } = useTranslation();
   
   const [currentSession, setCurrentSession] = useState<PracticeSession | null>(null);
   // Filter state (multi-select except duration)
@@ -106,7 +106,7 @@ export function Practices({ onNavigate }: PracticesProps) {
     const load = async () => {
       setLoading(true); setError(null);
       try {
-        const resp = await fetch(getApiUrl('/api/practices'));
+        const resp = await fetch('/api/practices');
         if(!resp.ok) throw new Error('Failed to load practices');
         const json = await resp.json();
         if(!json.success) throw new Error(json.error || 'Failed to load practices');
@@ -650,12 +650,19 @@ export function Practices({ onNavigate }: PracticesProps) {
             {/* Search */}
             {device.isMobile ? (
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer" 
+                  onClick={(e) => {
+                    const input = e.currentTarget.parentElement?.querySelector('input');
+                    input?.focus();
+                    input?.select();
+                  }}
+                />
                 <Input
-                  placeholder="Search practices..."
+                  placeholder={t('practices.search')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-10 h-11 text-base"
+                  className="pr-10 h-11 text-base"
                 />
                 {searchQuery && (
                   <Button
@@ -671,12 +678,19 @@ export function Practices({ onNavigate }: PracticesProps) {
               </div>
             ) : (
               <div className="relative max-w-xl">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Search 
+                  className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer" 
+                  onClick={(e) => {
+                    const input = e.currentTarget.parentElement?.querySelector('input');
+                    input?.focus();
+                    input?.select();
+                  }}
+                />
                 <Input
-                  placeholder="Search practices..."
+                  placeholder={t('practices.search')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 h-12"
+                  className="pr-12 h-12"
                 />
               </div>
             )}
@@ -1206,15 +1220,6 @@ export function Practices({ onNavigate }: PracticesProps) {
                   <Badge className="absolute top-1 left-1 bg-black/70 text-white text-xs px-1.5 py-0.5">
                     {practice.duration}min
                   </Badge>
-                  
-                  {/* Lock/Save badge */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-1 right-1 bg-white/80 hover:bg-white h-6 w-6 p-0"
-                  >
-                    <Bookmark className="h-3 w-3" />
-                  </Button>
                 </div>
                 
                 {/* Content */}
@@ -1260,7 +1265,7 @@ export function Practices({ onNavigate }: PracticesProps) {
                     onClick={() => startPractice(practice)}
                   >
                     <Play className="h-4 w-4 mr-1" />
-                    Start Practice
+                    {t('practices.startPractice')}
                   </Button>
                 </div>
               </Card>
@@ -1295,15 +1300,6 @@ export function Practices({ onNavigate }: PracticesProps) {
                 <Badge className="absolute top-2 left-2 bg-black/70 text-white">
                   {practice.duration} min
                 </Badge>
-
-                {/* Bookmark */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-                >
-                  <Bookmark className="h-4 w-4" />
-                </Button>
               </div>
 
               <CardContent className="p-4 space-y-3">
@@ -1356,7 +1352,7 @@ export function Practices({ onNavigate }: PracticesProps) {
                   onClick={() => startPractice(practice)}
                 >
                   <Play className="h-4 w-4 mr-2" />
-                  Start Practice
+                  {t('practices.startPractice')}
                 </Button>
               </CardContent>
             </Card>

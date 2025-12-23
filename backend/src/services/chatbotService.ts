@@ -204,7 +204,7 @@ export class ChatbotService {
       .map(m => m.content)
       .join('\n');
 
-    const prompt = `Summarize this mental health chatbot conversation in 2-3 sentences. Focus on:
+    const prompt = `Summarize this wellbeing chatbot conversation in 2-3 sentences. Focus on:
 1. Main concerns or topics discussed
 2. User's emotional state or journey
 3. Key insights or breakthroughs (if any)
@@ -224,7 +224,7 @@ Provide a compassionate, professional summary (max 150 words):`;
         [
           { 
             role: 'system', 
-            content: 'You are a mental health professional summarizing therapy conversations. Be compassionate, accurate, and concise.' 
+            content: 'You are a wellbeing professional summarizing conversations. Be compassionate, accurate, and concise.' 
           },
           { role: 'user', content: prompt },
         ],
@@ -329,7 +329,7 @@ Provide a compassionate, professional summary (max 150 words):`;
       ? ` Topics discussed: ${insights.keyTopics.slice(0, 3).join(', ')}.`
       : '';
 
-    return `Conversation included ${userMessageCount} user messages and ${assistantMessageCount} responses about mental wellbeing.${topicsText} Emotional state: ${insights.emotionalState}.`;
+    return `Conversation included ${userMessageCount} user messages and ${assistantMessageCount} responses about wellbeing.${topicsText} Emotional state: ${insights.emotionalState}.`;
   }
 
   /**

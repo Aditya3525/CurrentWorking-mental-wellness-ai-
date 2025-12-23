@@ -20,7 +20,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { getApiUrl } from '../config/api';
 import { useNotificationStore } from '../stores/notificationStore';
 
 import { BulkActionToolbar } from './BulkActionToolbar';
@@ -182,7 +181,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
 
     setLoading(true);
     try {
-      const response = await fetch(getApiUrl('/api/admin/practices'), {
+      const response = await fetch('/api/admin/practices', {
         credentials: 'include'
       });
       
@@ -255,7 +254,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
   const handleBulkPublish = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch(getApiUrl('/api/admin/bulk/practices/publish'), {
+      const response = await fetch('/api/admin/bulk/practices/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -291,7 +290,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
   const handleBulkUnpublish = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch(getApiUrl('/api/admin/bulk/practices/publish'), {
+      const response = await fetch('/api/admin/bulk/practices/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -327,7 +326,7 @@ export const PracticesList: React.FC<PracticesListProps> = ({
   const handleBulkDelete = async () => {
     try {
       setIsBulkActionLoading(true);
-      const response = await fetch(getApiUrl('/api/admin/bulk/practices'), {
+      const response = await fetch('/api/admin/bulk/practices', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -436,12 +435,19 @@ export const PracticesList: React.FC<PracticesListProps> = ({
         <CardContent className="space-y-4">
           <div className={filterGridClasses}>
             <div className="relative md:col-span-2 lg:col-span-2">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search 
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer" 
+                onClick={(e) => {
+                  const input = e.currentTarget.parentElement?.querySelector('input');
+                  input?.focus();
+                  input?.select();
+                }}
+              />
               <Input
                 placeholder="Search practices..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-11"
+                className="pr-12 h-11"
               />
             </div>
             

@@ -15,7 +15,7 @@
 ### Option 2: Docker PostgreSQL (Recommended)
 ```bash
 # Run PostgreSQL in Docker
-docker run --name mental-wellbeing-postgres \
+docker run --name maanasarathi-postgres \
   -e POSTGRES_DB=mental_wellbeing_db \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=password \
@@ -83,7 +83,7 @@ LOG_LEVEL=info
 
 ### Future Endpoints (In Development)
 - `/api/users/*` - User management
-- `/api/assessments/*` - Mental health assessments
+- `/api/assessments/*` - Wellbeing assessments
 - `/api/plans/*` - Personalized wellness plans
 - `/api/chat/*` - AI chatbot conversations
 - `/api/progress/*` - Progress tracking
@@ -93,7 +93,7 @@ LOG_LEVEL=info
 
 The database includes tables for:
 - **Users** - User accounts and profiles
-- **Assessments** - Mental health assessment data
+- **Assessments** - Wellbeing assessment data
 - **MoodEntries** - Daily mood tracking
 - **PlanModules** - Wellness plan content
 - **UserPlanModules** - User progress on plans

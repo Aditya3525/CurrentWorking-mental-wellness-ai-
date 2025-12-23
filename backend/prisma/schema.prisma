@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -83,6 +83,14 @@ model User {
   contentEngagements ContentEngagement[]
   chatbotConversations ChatbotConversation[]
   dashboardInsights    DashboardInsights?
+  supportTickets SupportTicket[]
+  safetyPlan     SafetyPlan?
+  therapistBookings TherapistBooking[]
+  
+  // Analytics relations
+  crisisEvents   CrisisEvent[]
+  userSessions   UserSession[]
+  wellnessSnapshots WellnessSnapshot[]
   
   @@index([email])
   @@index([googleId])
@@ -562,4 +570,411 @@ model ActivityLog {
   @@index([action, createdAt])
   @@index([createdAt])
   @@map("activity_logs")
+}
+
+// ========================================
+// HELP & SAFETY SYSTEM MODELS
+// ========================================
+
+// Support Ticket System
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  TECHNICAL
+  ACCOUNT
+  BILLING
+  GENERAL
+  CRISIS
+  FEEDBACK
+}
+
+model SupportTicket {
+  id          String         @id @default(cuid())
+  userId      String
+  subject     String
+  message     String
+  category    TicketCategory @default(GENERAL)
+  priority    TicketPriority @default(MEDIUM)
+  status      TicketStatus   @default(OPEN)
+  
+  // Admin response
+  response    String?
+  respondedBy String?        // Admin email
+  respondedAt DateTime?
+  
+  // Metadata
+  userEmail   String
+  userName    String
+  userAgent   String?
+  ipAddress   String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  closedAt    DateTime?
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@map("support_tickets")
+}
+
+// FAQ System
+enum FAQCategory {
+  GENERAL
+  PRIVACY
+  ASSESSMENTS
+  CHATBOT
+  BILLING
+  TECHNICAL
+  SAFETY
+}
+
+model FAQ {
+  id          String      @id @default(cuid())
+  question    String
+  answer      String
+  category    FAQCategory @default(GENERAL)
+  order       Int         @default(0)
+  isPublished Boolean     @default(true)
+  viewCount   Int         @default(0)
+  helpful     Int         @default(0)    // Upvotes
+  notHelpful  Int         @default(0)    // Downvotes
+  tags        String?     // Comma-separated tags for search
+  
+  createdBy   String?     // Admin email
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+  @@index([isPublished])
+  @@index([order])
+  @@index([viewCount])
+  @@map("faqs")
+}
+
+// Crisis Resources
+enum ResourceType {
+  HOTLINE
+  TEXT_LINE
+  CHAT_SERVICE
+  EMERGENCY
+  SUPPORT_GROUP
+  WEBSITE
+}
+
+model CrisisResource {
+  id            String       @id @default(cuid())
+  name          String
+  type          ResourceType
+  phoneNumber   String?
+  textNumber    String?
+  website       String?
+  description   String
+  availability  String       // "24/7", "Mon-Fri 9AM-5PM", etc.
+  country       String       @default("US")
+  language      String       @default("English")
+  isActive      Boolean      @default(true)
+  order         Int          @default(0)
+  
+  // Specialty tags
+  tags          String?      // "suicide", "domestic_violence", "substance_abuse", etc.
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([country])
+  @@index([type])
+  @@index([order])
+  @@map("crisis_resources")
+}
+
+// User Safety Plans
+model SafetyPlan {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  
+  // Warning Signs
+  warningSignsJson    String   @default("[]") // JSON array of warning signs
+  
+  // Coping Strategies
+  copingStrategiesJson String  @default("[]") // JSON array of strategies
+  
+  // Support Contacts
+  contactsJson        String   @default("[]") // JSON array of contacts
+  
+  // Professional Support
+  therapistName       String?
+  therapistPhone      String?
+  psychiatristName    String?
+  psychiatristPhone   String?
+  
+  // Emergency Info
+  emergencyRoom       String?
+  crisisLine          String?  @default("988")
+  
+  // Safe Environment
+  safeEnvironmentJson String   @default("[]") // JSON array of safety measures
+  
+  // Reasons to Live
+  reasonsToLiveJson   String   @default("[]") // JSON array of reasons
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("safety_plans")
+}
+
+// Therapist Directory
+enum TherapistSpecialty {
+  ANXIETY
+  DEPRESSION
+  TRAUMA
+  PTSD
+  RELATIONSHIPS
+  FAMILY_THERAPY
+  ADDICTION
+  EATING_DISORDERS
+  OCD
+  BIPOLAR
+  GRIEF
+  STRESS_MANAGEMENT
+  CBT
+  DBT
+  EMDR
+  MINDFULNESS
+  PSYCHODYNAMIC
+  COUPLES_THERAPY
+}
+
+enum TherapistCredential {
+  PSYCHOLOGIST
+  PSYCHIATRIST
+  LCSW
+  LMFT
+  LPC
+  LMHC
+}
+
+model Therapist {
+  id              String                @id @default(cuid())
+  name            String
+  credential      TherapistCredential
+  title           String                // "Licensed Clinical Psychologist"
+  bio             String
+  
+  // Specialties (stored as JSON array of TherapistSpecialty values)
+  specialtiesJson String                @default("[]")
+  
+  // Contact & Location
+  email           String?
+  phone           String?
+  website         String?
+  street          String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String                @default("US")
+  
+  // Practice Details
+  acceptsInsurance Boolean              @default(false)
+  insurances       String?              // JSON array of accepted insurances
+  sessionFee       Float?
+  offersSliding    Boolean              @default(false) // Sliding scale fees
+  
+  // Availability
+  availabilityJson String               @default("[]") // JSON array of available slots
+  
+  // Profile
+  profileImageUrl String?
+  yearsExperience Int?
+  languages       String?              // Comma-separated
+  rating          Float?               @default(0)
+  reviewCount     Int                  @default(0)
+  
+  // Status
+  isActive        Boolean              @default(true)
+  isVerified      Boolean              @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  bookings TherapistBooking[]
+  
+  @@index([isActive])
+  @@index([isVerified])
+  @@index([city, state])
+  @@index([rating])
+  @@map("therapists")
+}
+
+// Therapist Booking Requests
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model TherapistBooking {
+  id           String        @id @default(cuid())
+  userId       String
+  therapistId  String
+  
+  // Request Details
+  preferredDate DateTime?
+  preferredTime String?
+  message      String?
+  
+  // Contact
+  userEmail    String
+  userPhone    String?
+  
+  // Status
+  status       BookingStatus @default(PENDING)
+  
+  // Admin notes
+  adminNotes   String?
+  processedBy  String?       // Admin email
+  processedAt  DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([therapistId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("therapist_bookings")
+}
+
+// ========================================
+// ANALYTICS & MONITORING MODELS
+// ========================================
+
+// AI Provider Usage Metrics
+model AIUsageMetric {
+  id                String    @id @default(cuid())
+  provider          String    // 'gemini', 'openai', 'anthropic', 'huggingface', 'ollama'
+  model             String?
+  userId            String?
+  conversationId    String?
+  promptTokens      Int       @default(0)
+  completionTokens  Int       @default(0)
+  totalTokens       Int       @default(0)
+  responseTime      Int       // in milliseconds
+  success           Boolean   @default(true)
+  errorMessage      String?
+  requestedAt       DateTime  @default(now())
+  completedAt       DateTime?
+  
+  @@index([provider])
+  @@index([userId])
+  @@index([requestedAt])
+  @@index([success])
+  @@map("ai_usage_metrics")
+}
+
+// Crisis Detection Events
+model CrisisEvent {
+  id              String    @id @default(cuid())
+  userId          String
+  conversationId  String?
+  crisisLevel     String    // NONE, LOW, MODERATE, HIGH, CRITICAL
+  confidence      Float
+  indicators      String    // JSON array
+  actionTaken     String    // JSON: resources provided, notifications sent
+  detectedAt      DateTime  @default(now())
+  responseTime    Int?      // Time to provide resources in ms
+  resolved        Boolean   @default(false)
+  resolvedAt      DateTime?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([crisisLevel])
+  @@index([detectedAt])
+  @@index([resolved])
+  @@map("crisis_events")
+}
+
+// System Health Metrics
+model SystemHealthMetric {
+  id          String   @id @default(cuid())
+  metricType  String   // 'api_response', 'db_query', 'memory_usage', 'cpu_usage'
+  endpoint    String?  // for API metrics
+  value       Float
+  unit        String   // 'ms', 'mb', 'percent'
+  tags        String?  // JSON: additional metadata
+  recordedAt  DateTime @default(now())
+  
+  @@index([metricType])
+  @@index([recordedAt])
+  @@map("system_health_metrics")
+}
+
+// User Session Tracking
+model UserSession {
+  id                String    @id @default(cuid())
+  userId            String
+  startedAt         DateTime  @default(now())
+  endedAt           DateTime?
+  duration          Int?      // in seconds
+  pagesViewed       Int       @default(0)
+  actionsPerformed  Int       @default(0)
+  featuresUsed      String?   // JSON array
+  deviceType        String?   // 'mobile', 'tablet', 'desktop'
+  browserInfo       String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([startedAt])
+  @@map("user_sessions")
+}
+
+// Wellness Impact Metrics
+model WellnessSnapshot {
+  id               String   @id @default(cuid())
+  userId           String
+  wellnessScore    Float
+  assessmentScores String   // JSON: detailed scores
+  moodAverage      String?  // average mood over period
+  engagementLevel  String?  // 'low', 'medium', 'high'
+  recordedAt       DateTime @default(now())
+  periodStart      DateTime
+  periodEnd        DateTime
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([recordedAt])
+  @@map("wellness_snapshots")
 }

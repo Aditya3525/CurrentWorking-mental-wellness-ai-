@@ -24,8 +24,8 @@ import {
   List
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { getApiUrl } from '../../../config/api';
 import { useDevice } from '../../../hooks/use-device';
 import { ImageWithFallback } from '../../common/ImageWithFallback';
 import { Badge } from '../../ui/badge';
@@ -116,6 +116,7 @@ const parseDuration = (raw: unknown): { label: string | null; seconds: number | 
 
 export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
   const device = useDevice();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   // Multi-select filters
   const [selectedApproach, setSelectedApproach] = useState<'all' | 'western' | 'eastern' | 'hybrid'>(user?.approach || 'all');
@@ -138,8 +139,8 @@ export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
       setError(null);
       try {
         const [practicesResp, contentResp] = await Promise.all([
-          fetch(getApiUrl('/api/practices')),
-          fetch(getApiUrl('/api/public/content'))
+          fetch('/api/practices'),
+          fetch('/api/public/content')
         ]);
 
         type RawPractice = {
@@ -453,12 +454,19 @@ export function ContentLibrary({ onNavigate, user }: ContentLibraryProps) {
 
             {/* Search */}
             <div className="relative">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`} />
+              <Search 
+                className={`absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground cursor-pointer`} 
+                onClick={(e) => {
+                  const input = e.currentTarget.parentElement?.querySelector('input');
+                  input?.focus();
+                  input?.select();
+                }}
+              />
               <Input
-                placeholder="Search videos, articles, playlists..."
+                placeholder={t('content.search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={device.isMobile ? 'pl-10 pr-10 h-11' : 'pl-12 h-12 max-w-xl'}
+                className={device.isMobile ? 'pr-12 h-11' : 'pr-14 h-12 max-w-xl'}
               />
               {searchQuery && device.isMobile && (
                 <button

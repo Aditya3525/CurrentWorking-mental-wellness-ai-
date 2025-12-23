@@ -58,7 +58,7 @@ export class ExportService {
     // Footer
     text += '\n' + '='.repeat(60) + '\n';
     text += `Exported: ${new Date().toLocaleString()}\n`;
-    text += `Mental Wellbeing AI - Conversation Export\n`;
+    text += `MaanaSarathi - Conversation Export\n`;
     text += '='.repeat(60) + '\n';
 
     return text;
@@ -131,9 +131,9 @@ export class ExportService {
 
         // Header
         doc
-          .fontSize(20)
+          .fontSize(24)
           .font('Helvetica-Bold')
-          .text('Mental Wellbeing AI', { align: 'center' });
+          .text('MaanaSarathi', { align: 'center' });
 
         doc.moveDown(0.5);
         doc

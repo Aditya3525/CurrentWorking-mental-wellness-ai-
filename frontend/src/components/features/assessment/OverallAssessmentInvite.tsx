@@ -23,7 +23,7 @@ export function OverallAssessmentInvite({ onDecision, userName }: OverallAssessm
           </div>
           <div className="space-y-3">
             <CardTitle className="text-3xl md:text-4xl font-bold">
-              Welcome to Your Mental Wellbeing Journey{userName ? `, ${userName}` : ''}!
+              Welcome to Your Wellbeing Journey{userName ? `, ${userName}` : ''}!
             </CardTitle>
             <CardDescription className="text-lg leading-relaxed text-foreground/70 max-w-xl mx-auto">
               To personalize your experience and provide tailored recommendations, we invite you to complete

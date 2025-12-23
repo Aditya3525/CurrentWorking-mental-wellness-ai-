@@ -43,7 +43,6 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
-import { getApiUrl } from '../config/api';
 import { adminApi, type ApiResponse } from '../services/api';
 import { useNotificationStore } from '../stores/notificationStore';
 
@@ -385,12 +384,19 @@ export const AssessmentList: React.FC<AssessmentListProps> = ({ onEdit, onAdd, r
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 gap-2">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search 
+              className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground cursor-pointer" 
+              onClick={(e) => {
+                const input = e.currentTarget.parentElement?.querySelector('input');
+                input?.focus();
+                input?.select();
+              }}
+            />
             <Input
               placeholder="Search assessments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pr-12"
             />
           </div>
           

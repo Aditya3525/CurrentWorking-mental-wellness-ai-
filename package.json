@@ -1,7 +1,7 @@
 {
-  "name": "mental-wellbeing-ai-app",
+  "name": "maanasarathi",
   "version": "1.0.0",
-  "description": "Mental Wellbeing AI App - Full Stack Monorepo",
+  "description": "MaanaSarathi - Full Stack Monorepo",
   "private": true,
   "workspaces": [
     "frontend",
@@ -46,18 +46,18 @@
     "npm": ">=8"
   },
   "keywords": [
-    "mental-health",
     "wellbeing",
     "ai",
     "react",
     "nodejs",
     "typescript",
-    "monorepo"
+    "monorepo",
+    "maanasarathi"
   ],
   "author": "",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/mental-wellbeing-ai-app.git"
+    "url": "https://github.com/your-username/maanasarathi.git"
   }
 }
