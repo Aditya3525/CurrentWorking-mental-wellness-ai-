@@ -2,6 +2,33 @@
 
 This guide will help you deploy the MaanaSarathi frontend application to GitHub Pages.
 
+## 🚀 Quick Start
+
+To deploy your frontend to GitHub Pages in just a few steps:
+
+1. **Enable GitHub Pages**
+   - Go to your repository → **Settings** → **Pages**
+   - Under "Build and deployment", set Source to **GitHub Actions**
+   - Save changes
+
+2. **Push to Main Branch**
+   ```bash
+   git push origin main
+   ```
+
+3. **Monitor Deployment**
+   - Go to **Actions** tab in your repository
+   - Watch the "Deploy to GitHub Pages" workflow
+   - Your site will be live at: `https://Aditya3525.github.io/CurrentWorking-mental-wellness-ai-/`
+
+4. **Configure Backend API** (Optional but Recommended)
+   - Go to **Settings** → **Secrets and variables** → **Actions** → **Variables**
+   - Add variable: `VITE_API_URL` with your backend API URL
+
+That's it! Your frontend is now hosted on GitHub Pages. 🎉
+
+---
+
 ## Prerequisites
 
 - Repository hosted on GitHub
