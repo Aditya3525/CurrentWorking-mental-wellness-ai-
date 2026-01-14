@@ -10,7 +10,8 @@
       // to the new url with only a query string and hash fragment,
       // e.g., https://www.foo.tld/one/two?a=b&c=d#qwe, becomes
       // https://www.foo.tld/?/one/two&a=b~and~c=d#qwe
-      var pathSegmentsToKeep = 0;
+      // Set to 1 for GitHub Pages repo hosting (username.github.io/repo-name/)
+      var pathSegmentsToKeep = 1;
 
       var l = window.location;
       l.replace(

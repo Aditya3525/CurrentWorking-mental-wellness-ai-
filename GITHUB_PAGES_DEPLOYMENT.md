@@ -28,7 +28,10 @@ To deploy your frontend to GitHub Pages in just a few steps:
 
 That's it! Your frontend is now hosted on GitHub Pages. 🎉
 
-**Note:** For custom domains, set `VITE_BASE_PATH` to `/` in repository variables.
+**Important Notes:**
+- For custom domains, set `VITE_BASE_PATH` to `/` in repository variables
+- If `VITE_API_URL` is not configured, the build will use a placeholder value that will fail at runtime, clearly indicating the need for configuration
+- Backend deployment is separate from frontend hosting (see Backend Deployment section below)
 
 ---
 
