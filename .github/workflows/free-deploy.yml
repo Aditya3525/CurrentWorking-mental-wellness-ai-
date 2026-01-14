@@ -39,10 +39,15 @@ jobs:
           cd frontend
           npm run build
         env:
-          # For GitHub Pages, the frontend will be hosted at /<repo-name>/
           # Configure VITE_API_URL in repository variables
+          # (Settings → Variables)
+          # If not configured, builds use placeholder requiring update
           VITE_API_URL: >-
-            ${{ vars.VITE_API_URL || 'https://api.example.com/api' }}
+            ${{ vars.VITE_API_URL || 'CONFIGURE_API_URL_IN_SETTINGS' }}
+          # Set base path for repository hosting (e.g., /repo-name/)
+          # Leave as '/' for custom domain or organization pages
+          VITE_BASE_PATH: >-
+            ${{ vars.VITE_BASE_PATH || '/CurrentWorking-mental-wellness-ai-/' }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

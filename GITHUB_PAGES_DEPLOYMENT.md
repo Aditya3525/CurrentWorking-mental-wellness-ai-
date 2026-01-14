@@ -24,8 +24,11 @@ To deploy your frontend to GitHub Pages in just a few steps:
 4. **Configure Backend API** (Optional but Recommended)
    - Go to **Settings** → **Secrets and variables** → **Actions** → **Variables**
    - Add variable: `VITE_API_URL` with your backend API URL
+   - Optionally add: `VITE_BASE_PATH` (defaults to `/CurrentWorking-mental-wellness-ai-/` for repo hosting)
 
 That's it! Your frontend is now hosted on GitHub Pages. 🎉
+
+**Note:** For custom domains, set `VITE_BASE_PATH` to `/` in repository variables.
 
 ---
 
@@ -119,12 +122,14 @@ If you prefer to deploy manually:
 **Important:** GitHub Pages can only host static files (frontend). Your backend needs to be deployed separately on a service that supports Node.js applications:
 
 - **Recommended Options:**
-  - [Render](https://render.com) - See `RENDER_DEPLOYMENT_GUIDE.md`
-  - [Railway](https://railway.app)
-  - [Heroku](https://heroku.com)
-  - [AWS/GCP](AWS_GCP_DEPLOYMENT_GUIDE.md)
+  - [Render](https://render.com) - Free tier available with simple setup
+  - [Railway](https://railway.app) - Easy deployment with GitHub integration
+  - [Heroku](https://heroku.com) - Classic PaaS option (paid plans)
+  - [AWS](https://aws.amazon.com) / [GCP](https://cloud.google.com) - Advanced cloud platforms
 
 After deploying your backend, update the `VITE_API_URL` environment variable in GitHub Actions to point to your backend URL.
+
+For backend deployment guides, refer to the `backend/` directory documentation and the platform-specific guides listed in the main README.
 
 ## Troubleshooting
 
@@ -187,4 +192,4 @@ After deploying to GitHub Pages:
 For more information, see:
 - [GitHub Pages Documentation](https://docs.github.com/en/pages)
 - [Vite Deployment Guide](https://vitejs.dev/guide/static-deploy.html)
-- Repository-specific guides: `RENDER_DEPLOYMENT_GUIDE.md`, `AWS_GCP_DEPLOYMENT_GUIDE.md`
+- Backend deployment options listed in the main README.md
