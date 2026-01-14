@@ -2,6 +2,15 @@
 
 An AI-powered mental wellbeing platform that combines guided onboarding, personalized care plans, crisis-aware chat assistance, and an admin-managed content library. This repository is a TypeScript monorepo with a Vite/React frontend and an Express/Prisma backend that integrates multiple LLM providers (Gemini, OpenAI, Anthropic, Hugging Face, and Ollama) through a unified service layer.
 
+## 🚀 Quick Deployment
+
+**Ready to deploy?** This repository is configured for automatic GitHub Pages deployment!
+
+📚 **Deployment Resources:**
+- 👉 **[DEPLOYMENT_SETUP.md](./DEPLOYMENT_SETUP.md)** - Step-by-step deployment guide
+- ✅ **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Interactive deployment checklist
+- 📖 **[GITHUB_PAGES_DEPLOYMENT.md](./GITHUB_PAGES_DEPLOYMENT.md)** - Detailed deployment documentation
+
 ---
 
 ## ✨ Core Capabilities
