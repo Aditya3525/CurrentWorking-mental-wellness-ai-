@@ -71,7 +71,7 @@ Use the GitHub Actions interface:
 
 1. **Render** (Free tier available)
    - Easy setup with GitHub integration
-   - Guide: See `RENDER_DEPLOYMENT_GUIDE.md`
+   - See backend documentation for deployment details
 
 2. **Railway** (Developer-friendly)
    - Automatic deployments from GitHub
