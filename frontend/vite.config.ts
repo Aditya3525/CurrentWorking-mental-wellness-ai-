@@ -4,6 +4,10 @@
   import path from 'path';
 
   export default defineConfig({
+    // Set base path for GitHub Pages deployment
+    // For custom domain or root deployment, this should be '/'
+    // For GitHub Pages repo hosting, use '/repo-name/'
+    base: process.env.VITE_BASE_PATH || '/',
     plugins: [react()],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
