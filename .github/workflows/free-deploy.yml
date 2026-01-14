@@ -1,22 +1,29 @@
-name: Deploy to GitHub Pages and Heroku
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  deploy-frontend:
+  build:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
@@ -32,44 +39,26 @@ jobs:
         cd frontend
         npm run build
       env:
-        VITE_API_URL: https://your-mental-wellness-api.herokuapp.com/api
+        # For GitHub Pages, the frontend will be hosted at /<repo-name>/
+        # The API URL should be configured separately based on your backend hosting
+        VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.example.com/api' }}
     
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main'
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./frontend/dist
-        cname: your-custom-domain.com  # Optional: if you have a custom domain
+        path: ./frontend/dist
 
-  deploy-backend:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    needs: build
     
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-    
-    - name: Install backend dependencies
-      run: |
-        cd backend
-        npm ci
-    
-    - name: Build backend
-      run: |
-        cd backend
-        npm run build
-    
-    - name: Deploy to Heroku
-      uses: akhileshns/heroku-deploy@v3.12.14
-      with:
-        heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-        heroku_app_name: "your-mental-wellness-api"
-        heroku_email: "your-email@example.com"
-        appdir: "backend"
-        procfile: "web: npm start"
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

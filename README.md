@@ -251,6 +251,14 @@ Backend debug scripts (inside `backend/`):
 
 ## 🌐 Deployment Hints
 
+### GitHub Pages (Frontend Only)
+- **Quick Setup**: The repository includes automated GitHub Pages deployment via GitHub Actions
+- **Guide**: See `GITHUB_PAGES_DEPLOYMENT.md` for detailed instructions
+- **Frontend hosting**: Automatic deployment on push to `main` branch
+- **Backend**: Must be deployed separately (see backend options below)
+- **Configuration**: Enable GitHub Pages in repository settings and configure environment variables
+
+### Other Deployment Options
 - **Frontend**: deploy `frontend/dist` to Vercel/Netlify. `vercel.json` rewrites all routes to `index.html`.
 - **Backend**: Docker/Render/Railway templates under `backend/` (`render.yaml`, `railway.json`, `Procfile`, `web.config`). Ensure environment secrets, production database URL, and secure session storage.
 - **Database**: switch `DATABASE_URL` to your managed Postgres/MySQL. Migrations are generated via Prisma; `schema-planetscale.prisma` offers a PlanetScale-ready schema if you need `relationMode = prisma`.
