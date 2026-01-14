@@ -2,6 +2,8 @@
 
 This repository is now configured for automatic deployment to GitHub Pages! Follow these simple steps to enable it.
 
+> **💡 Prefer a checklist?** See [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) for a step-by-step checklist.
+
 ## Quick Setup (3 Steps)
 
 ### 1. Enable GitHub Pages

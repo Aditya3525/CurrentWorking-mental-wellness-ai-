@@ -6,7 +6,10 @@ An AI-powered mental wellbeing platform that combines guided onboarding, persona
 
 **Ready to deploy?** This repository is configured for automatic GitHub Pages deployment!
 
-👉 **[See DEPLOYMENT_SETUP.md](./DEPLOYMENT_SETUP.md)** for step-by-step deployment instructions.
+📚 **Deployment Resources:**
+- 👉 **[DEPLOYMENT_SETUP.md](./DEPLOYMENT_SETUP.md)** - Step-by-step deployment guide
+- ✅ **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Interactive deployment checklist
+- 📖 **[GITHUB_PAGES_DEPLOYMENT.md](./GITHUB_PAGES_DEPLOYMENT.md)** - Detailed deployment documentation
 
 ---
 
